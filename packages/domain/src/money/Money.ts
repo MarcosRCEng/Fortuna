@@ -1,27 +1,53 @@
-export class Money {
+import { InvalidMoneyAmountError } from "../errors/FinancialErrors.js";
+
+export class MoneyCents {
   private constructor(public readonly cents: number) {}
 
-  static fromCents(cents: number): Money {
+  static zero(): MoneyCents {
+    return new MoneyCents(0);
+  }
+
+  static fromCents(cents: number): MoneyCents {
     if (!Number.isSafeInteger(cents)) {
-      throw new Error("Money cents must be a safe integer.");
+      throw new InvalidMoneyAmountError("Money cents must be a safe integer.");
     }
 
     if (cents < 0) {
-      throw new Error("Money cannot be negative.");
+      throw new InvalidMoneyAmountError("Money cannot be negative.");
     }
 
-    return new Money(cents);
+    return new MoneyCents(cents);
   }
 
-  add(other: Money): Money {
-    return Money.fromCents(this.cents + other.cents);
+  add(other: MoneyCents): MoneyCents {
+    return MoneyCents.fromCents(this.cents + other.cents);
   }
 
-  subtract(other: Money): Money {
+  subtract(other: MoneyCents): MoneyCents {
     if (other.cents > this.cents) {
-      throw new Error("Money subtraction cannot produce a negative value.");
+      throw new InvalidMoneyAmountError(
+        "Money subtraction cannot produce a negative value.",
+      );
     }
 
-    return Money.fromCents(this.cents - other.cents);
+    return MoneyCents.fromCents(this.cents - other.cents);
+  }
+
+  multiplyByQuantity(quantity: { units: number }): MoneyCents {
+    return MoneyCents.fromCents(this.cents * quantity.units);
+  }
+
+  compareTo(other: MoneyCents): number {
+    return this.cents - other.cents;
+  }
+
+  isGreaterThanOrEqual(other: MoneyCents): boolean {
+    return this.cents >= other.cents;
+  }
+
+  formatBRL(): string {
+    return `R$ ${(this.cents / 100).toFixed(2)}`;
   }
 }
+
+export { MoneyCents as Money };

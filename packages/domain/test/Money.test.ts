@@ -16,11 +16,15 @@ describe("Money", () => {
 
   it("rejects decimal, unsafe, and negative cents", () => {
     expect(() => Money.fromCents(1.5)).toThrow("safe integer");
-    expect(() => Money.fromCents(Number.MAX_SAFE_INTEGER + 1)).toThrow("safe integer");
+    expect(() => Money.fromCents(Number.MAX_SAFE_INTEGER + 1)).toThrow(
+      "safe integer",
+    );
     expect(() => Money.fromCents(-1)).toThrow("negative");
   });
 
   it("does not allow subtraction below zero", () => {
-    expect(() => Money.fromCents(100).subtract(Money.fromCents(101))).toThrow("negative");
+    expect(() => Money.fromCents(100).subtract(Money.fromCents(101))).toThrow(
+      "negative",
+    );
   });
 });
