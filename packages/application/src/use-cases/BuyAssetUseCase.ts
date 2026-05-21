@@ -12,6 +12,7 @@ import {
 } from "@fortuna/domain";
 import type { AssetRepository } from "../ports/AssetRepository.js";
 import type { Clock } from "../ports/Clock.js";
+import type { LoggerPort } from "../ports/LoggerPort.js";
 import type { MarketPriceProvider } from "../ports/MarketPriceProvider.js";
 import type { TransactionRepository } from "../ports/TransactionRepository.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
@@ -32,6 +33,7 @@ export class BuyAssetUseCase {
     private readonly transactions: TransactionRepository,
     private readonly clock: Clock,
     private readonly idGenerator: () => string,
+    private readonly logger?: LoggerPort,
   ) {}
 
   async execute(command: BuyAssetCommand): Promise<UseCaseResult<Transaction>> {
@@ -54,6 +56,18 @@ export class BuyAssetUseCase {
 
     const total = price.unitPrice.multiplyByQuantity(quantity);
     if (!wallet.account.availableBalance.isGreaterThanOrEqual(total)) {
+      this.logger?.warn("Asset purchase blocked due to insufficient balance", {
+        module: "financial_operation",
+        action: "asset_purchase_blocked_insufficient_balance",
+        correlationId: command.correlationId,
+        context: {
+          playerId: command.playerId,
+          assetId: asset.id,
+          assetSymbol: asset.symbol.value,
+          requestedAmountCents: total.cents,
+          availableBalanceCents: wallet.account.availableBalance.cents,
+        },
+      });
       const rejected: FinancialEvent = {
         type: "BuyRejectedInsufficientBalance",
         playerId: command.playerId,
@@ -83,8 +97,40 @@ export class BuyAssetUseCase {
         ? { correlationId: command.correlationId }
         : undefined,
     };
-    await this.transactions.append(transaction);
-    await this.wallets.save(wallet);
+    try {
+      await this.transactions.append(transaction);
+      await this.wallets.save(wallet);
+    } catch (error) {
+      this.logger?.error("Failed to persist asset purchase", {
+        module: "repository",
+        action: "player_repository_save_failed",
+        correlationId: command.correlationId,
+        context: {
+          playerId: command.playerId,
+          assetId: asset.id,
+          assetSymbol: asset.symbol.value,
+          operationId: transaction.id,
+        },
+        error,
+      });
+      throw error;
+    }
+
+    this.logger?.info("Asset purchase completed successfully", {
+      module: "financial_operation",
+      action: "asset_purchase_completed",
+      correlationId: command.correlationId,
+      context: {
+        playerId: command.playerId,
+        assetId: asset.id,
+        assetSymbol: asset.symbol.value,
+        operationId: transaction.id,
+        quantity: quantity.units,
+        unitPriceCents: price.unitPrice.cents,
+        totalAmountCents: total.cents,
+        balanceAfterCents: wallet.account.availableBalance.cents,
+      },
+    });
 
     return {
       data: transaction,

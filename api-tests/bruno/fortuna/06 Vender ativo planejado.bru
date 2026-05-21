@@ -1,0 +1,17 @@
+meta {
+  name: 06 Vender ativo planejado
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/players/player-123/sell
+  body: json
+}
+
+body:json {
+  {
+    "symbol": "FORT3",
+    "quantity": 2
+  }
+}

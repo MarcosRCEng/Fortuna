@@ -1,0 +1,17 @@
+meta {
+  name: 04 Comprar ativo planejado
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/players/player-123/buy
+  body: json
+}
+
+body:json {
+  {
+    "symbol": "FORT3",
+    "quantity": 5
+  }
+}

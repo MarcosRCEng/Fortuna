@@ -11,7 +11,10 @@
     "dev:web": "corepack pnpm --filter @fortuna/web dev",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml,css}\"",
     "lint": "corepack pnpm -r lint",
-    "test": "corepack pnpm -r test"
+    "test": "corepack pnpm -r test",
+    "test:unit": "corepack pnpm --filter @fortuna/domain test && corepack pnpm --filter @fortuna/application test",
+    "test:integration": "corepack pnpm --filter @fortuna/api test",
+    "test:coverage": "corepack pnpm -r test -- --coverage"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
