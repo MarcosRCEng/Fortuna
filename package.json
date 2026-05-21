@@ -1,0 +1,22 @@
+{
+  "name": "fortuna",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fortuna financial education game platform monorepo.",
+  "packageManager": "pnpm@11.2.2",
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "dev": "corepack pnpm --parallel --filter @fortuna/api --filter @fortuna/web dev",
+    "dev:api": "corepack pnpm --filter @fortuna/api dev",
+    "dev:web": "corepack pnpm --filter @fortuna/web dev",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml,css}\"",
+    "lint": "corepack pnpm -r lint",
+    "test": "corepack pnpm -r test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

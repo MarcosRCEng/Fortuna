@@ -1,0 +1,12 @@
+{
+  "name": "@fortuna/testing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"@fortuna/testing has no build output yet\"",
+    "dev": "echo \"@fortuna/testing has no dev process yet\"",
+    "lint": "echo \"@fortuna/testing has no lint target yet\"",
+    "test": "vitest run --passWithNoTests"
+  }
+}
