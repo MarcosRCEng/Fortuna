@@ -86,6 +86,7 @@ export class BuyAssetUseCase {
     const occurredAt = this.clock.now();
     const transaction: Transaction = {
       id: this.idGenerator(),
+      playerId: command.playerId,
       type: TransactionType.BUY,
       asset,
       quantity,

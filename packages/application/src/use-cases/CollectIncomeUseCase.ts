@@ -66,6 +66,7 @@ export class CollectIncomeUseCase {
     const occurredAt = this.clock.now();
     const transaction: Transaction = {
       id: this.idGenerator(),
+      playerId: command.playerId,
       type: TransactionType.INCOME,
       asset: incomeEvent.asset,
       total: incomeEvent.amount,

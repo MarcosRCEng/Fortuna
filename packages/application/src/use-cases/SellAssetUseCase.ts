@@ -84,6 +84,7 @@ export class SellAssetUseCase {
     const occurredAt = this.clock.now();
     const transaction: Transaction = {
       id: this.idGenerator(),
+      playerId: command.playerId,
       type: TransactionType.SELL,
       asset,
       quantity,
@@ -127,7 +128,8 @@ export class SellAssetUseCase {
         unitPriceCents: price.unitPrice.cents,
         totalAmountCents: total.cents,
         balanceAfterCents: wallet.account.availableBalance.cents,
-        positionAfter: wallet.getPosition(asset.symbol.value)?.totalQuantity.units ?? 0,
+        positionAfter:
+          wallet.getPosition(asset.symbol.value)?.totalQuantity.units ?? 0,
       },
     });
 

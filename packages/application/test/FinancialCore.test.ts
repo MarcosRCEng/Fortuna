@@ -61,10 +61,14 @@ class InMemoryTransactionRepository implements TransactionRepository {
   }
 
   async listByPlayerId(
-    _playerId: string,
+    playerId: string,
     filter?: TransactionHistoryFilter,
   ): Promise<Transaction[]> {
     return this.transactions.filter((transaction) => {
+      if (transaction.playerId !== playerId) {
+        return false;
+      }
+
       if (filter?.type && transaction.type !== filter.type) {
         return false;
       }

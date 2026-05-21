@@ -1,4 +1,8 @@
-import { MoneyCents, type Quantity } from "@fortuna/domain";
+import {
+  MoneyCents,
+  WalletNotFoundError,
+  type Quantity,
+} from "@fortuna/domain";
 import type { MarketPriceProvider } from "../ports/MarketPriceProvider.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
 
@@ -27,7 +31,7 @@ export class GetWalletSummaryUseCase {
   async execute(playerId: string): Promise<WalletSummary> {
     const wallet = await this.wallets.findByPlayerId(playerId);
     if (!wallet) {
-      throw new Error("Wallet not found.");
+      throw new WalletNotFoundError(playerId);
     }
 
     const marketPrices = await this.prices.getCurrentPrices(

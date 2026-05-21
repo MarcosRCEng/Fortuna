@@ -10,6 +10,7 @@ export enum TransactionType {
 
 export interface Transaction {
   id: string;
+  playerId: string;
   type: TransactionType;
   asset?: Asset;
   quantity?: Quantity;

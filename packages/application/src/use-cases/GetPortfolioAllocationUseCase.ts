@@ -1,4 +1,4 @@
-import type { AllocationValue } from "@fortuna/domain";
+import { WalletNotFoundError, type AllocationValue } from "@fortuna/domain";
 import type { MarketPriceProvider } from "../ports/MarketPriceProvider.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
 
@@ -11,7 +11,7 @@ export class GetPortfolioAllocationUseCase {
   async execute(playerId: string): Promise<AllocationValue[]> {
     const wallet = await this.wallets.findByPlayerId(playerId);
     if (!wallet) {
-      throw new Error("Wallet not found.");
+      throw new WalletNotFoundError(playerId);
     }
 
     const marketPrices = await this.prices.getCurrentPrices(

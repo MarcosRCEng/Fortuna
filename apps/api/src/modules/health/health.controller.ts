@@ -7,14 +7,14 @@ export interface HealthResponse {
 }
 
 @ApiTags("health")
-@Controller("health")
+@Controller(["health", "api/v1/health"])
 export class HealthController {
   @Get()
   @ApiOkResponse({ description: "API health status." })
   getHealth(): HealthResponse {
     return {
       status: "ok",
-      service: "fortuna-api"
+      service: "fortuna-api",
     };
   }
 }
