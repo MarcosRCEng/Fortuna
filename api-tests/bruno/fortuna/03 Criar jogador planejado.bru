@@ -1,0 +1,18 @@
+meta {
+  name: 03 Criar jogador planejado
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/players
+  body: json
+}
+
+body:json {
+  {
+    "id": "player-123",
+    "name": "Ana",
+    "initialBalanceCents": 20000
+  }
+}

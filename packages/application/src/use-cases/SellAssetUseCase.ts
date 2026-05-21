@@ -11,6 +11,7 @@ import {
 } from "@fortuna/domain";
 import type { AssetRepository } from "../ports/AssetRepository.js";
 import type { Clock } from "../ports/Clock.js";
+import type { LoggerPort } from "../ports/LoggerPort.js";
 import type { MarketPriceProvider } from "../ports/MarketPriceProvider.js";
 import type { TransactionRepository } from "../ports/TransactionRepository.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
@@ -31,6 +32,7 @@ export class SellAssetUseCase {
     private readonly transactions: TransactionRepository,
     private readonly clock: Clock,
     private readonly idGenerator: () => string,
+    private readonly logger?: LoggerPort,
   ) {}
 
   async execute(
@@ -50,6 +52,18 @@ export class SellAssetUseCase {
 
     const position = wallet.getPosition(asset.symbol.value);
     if (!position || !position.totalQuantity.isGreaterThanOrEqual(quantity)) {
+      this.logger?.warn("Asset sale blocked due to insufficient position", {
+        module: "financial_operation",
+        action: "asset_sale_blocked_insufficient_position",
+        correlationId: command.correlationId,
+        context: {
+          playerId: command.playerId,
+          assetId: asset.id,
+          assetSymbol: asset.symbol.value,
+          requestedQuantity: quantity.units,
+          availableQuantity: position?.totalQuantity.units ?? 0,
+        },
+      });
       const rejected: FinancialEvent = {
         type: "SellRejectedInsufficientPosition",
         playerId: command.playerId,
@@ -81,8 +95,41 @@ export class SellAssetUseCase {
         ? { correlationId: command.correlationId }
         : undefined,
     };
-    await this.transactions.append(transaction);
-    await this.wallets.save(wallet);
+    try {
+      await this.transactions.append(transaction);
+      await this.wallets.save(wallet);
+    } catch (error) {
+      this.logger?.error("Failed to persist asset sale", {
+        module: "repository",
+        action: "player_repository_save_failed",
+        correlationId: command.correlationId,
+        context: {
+          playerId: command.playerId,
+          assetId: asset.id,
+          assetSymbol: asset.symbol.value,
+          operationId: transaction.id,
+        },
+        error,
+      });
+      throw error;
+    }
+
+    this.logger?.info("Asset sale completed successfully", {
+      module: "financial_operation",
+      action: "asset_sale_completed",
+      correlationId: command.correlationId,
+      context: {
+        playerId: command.playerId,
+        assetId: asset.id,
+        assetSymbol: asset.symbol.value,
+        operationId: transaction.id,
+        quantity: quantity.units,
+        unitPriceCents: price.unitPrice.cents,
+        totalAmountCents: total.cents,
+        balanceAfterCents: wallet.account.availableBalance.cents,
+        positionAfter: wallet.getPosition(asset.symbol.value)?.totalQuantity.units ?? 0,
+      },
+    });
 
     return {
       data: transaction,

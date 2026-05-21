@@ -25,6 +25,8 @@ import {
   type AssetRepository,
   type Clock,
   type IncomeEventRepository,
+  type LoggerPort,
+  type LogPayload,
   type MarketPriceProvider,
   type TransactionHistoryFilter,
   type TransactionRepository,
@@ -114,6 +116,46 @@ class StaticMarketPriceProvider implements MarketPriceProvider {
   }
 }
 
+class FailingTransactionRepository implements TransactionRepository {
+  async append(_transaction: Transaction): Promise<void> {
+    throw new Error("database down");
+  }
+
+  async listByPlayerId(): Promise<Transaction[]> {
+    return [];
+  }
+}
+
+class TestLogger implements LoggerPort {
+  public readonly entries: Array<{
+    level: "debug" | "info" | "warn" | "error";
+    message: string;
+    payload: LogPayload;
+  }> = [];
+
+  debug(message: string, payload: LogPayload): void {
+    this.entries.push({ level: "debug", message, payload });
+  }
+
+  info(message: string, payload: LogPayload): void {
+    this.entries.push({ level: "info", message, payload });
+  }
+
+  warn(message: string, payload: LogPayload): void {
+    this.entries.push({ level: "warn", message, payload });
+  }
+
+  error(message: string, payload: LogPayload & { error?: unknown }): void {
+    this.entries.push({ level: "error", message, payload });
+  }
+
+  find(level: "info" | "warn" | "error", action: string) {
+    return this.entries.find(
+      (entry) => entry.level === level && entry.payload.action === action,
+    );
+  }
+}
+
 const now = new Date("2026-05-21T12:00:00.000Z");
 const clock: Clock = { now: () => now };
 let nextId = 0;
@@ -134,7 +176,7 @@ function makeWallet(balanceCents: number): Wallet {
   );
 }
 
-function makeUseCases(wallet: Wallet, priceCents = 1000) {
+function makeUseCases(wallet: Wallet, priceCents = 1000, logger?: LoggerPort) {
   const assets = new InMemoryAssetRepository([asset]);
   const wallets = new InMemoryWalletRepository(wallet);
   const transactions = new InMemoryTransactionRepository();
@@ -148,6 +190,7 @@ function makeUseCases(wallet: Wallet, priceCents = 1000) {
       transactions,
       clock,
       idGenerator,
+      logger,
     ),
     sell: new SellAssetUseCase(
       assets,
@@ -156,10 +199,12 @@ function makeUseCases(wallet: Wallet, priceCents = 1000) {
       transactions,
       clock,
       idGenerator,
+      logger,
     ),
     summary: new GetWalletSummaryUseCase(wallets, prices),
     allocation: new GetPortfolioAllocationUseCase(wallets, prices),
     history: new GetTransactionHistoryUseCase(transactions),
+    logger,
     wallets,
     transactions,
   };
@@ -171,9 +216,11 @@ describe("Financial core use cases", () => {
   });
 
   it("buys an asset with sufficient balance", async () => {
+    const logger = new TestLogger();
     const { buy, wallets, transactions } = makeUseCases(
       makeWallet(10_000),
       1_000,
+      logger,
     );
 
     const result = await buy.execute({
@@ -187,12 +234,15 @@ describe("Financial core use cases", () => {
     expect(transactions.transactions).toHaveLength(1);
     expect(transactions.transactions[0].type).toBe(TransactionType.BUY);
     expect(result.events[0].type).toBe("AssetBought");
+    expect(logger.find("info", "asset_purchase_completed")).toBeDefined();
   });
 
   it("rejects buy without balance and keeps state unchanged", async () => {
+    const logger = new TestLogger();
     const { buy, wallets, transactions } = makeUseCases(
       makeWallet(1_000),
       1_001,
+      logger,
     );
 
     await expect(
@@ -210,12 +260,17 @@ describe("Financial core use cases", () => {
     expect(wallets.wallet.account.availableBalance.cents).toBe(1_000);
     expect(wallets.wallet.getPosition("FORT3")).toBeUndefined();
     expect(transactions.transactions).toHaveLength(0);
+    expect(
+      logger.find("warn", "asset_purchase_blocked_insufficient_balance"),
+    ).toBeDefined();
   });
 
   it("sells an asset with sufficient position", async () => {
+    const logger = new TestLogger();
     const { buy, sell, wallets, transactions } = makeUseCases(
       makeWallet(10_000),
       1_000,
+      logger,
     );
     await buy.execute({ playerId, symbol: "FORT3", quantity: 5 });
 
@@ -230,12 +285,15 @@ describe("Financial core use cases", () => {
     expect(transactions.transactions).toHaveLength(2);
     expect(transactions.transactions[1].type).toBe(TransactionType.SELL);
     expect(result.events[0].type).toBe("AssetSold");
+    expect(logger.find("info", "asset_sale_completed")).toBeDefined();
   });
 
   it("rejects sell above position and keeps state unchanged", async () => {
+    const logger = new TestLogger();
     const { buy, sell, wallets, transactions } = makeUseCases(
       makeWallet(10_000),
       1_000,
+      logger,
     );
     await buy.execute({ playerId, symbol: "FORT3", quantity: 1 });
 
@@ -254,9 +312,13 @@ describe("Financial core use cases", () => {
     expect(wallets.wallet.account.availableBalance.cents).toBe(9_000);
     expect(wallets.wallet.getPosition("FORT3")?.totalQuantity.units).toBe(1);
     expect(transactions.transactions).toHaveLength(1);
+    expect(
+      logger.find("warn", "asset_sale_blocked_insufficient_position"),
+    ).toBeDefined();
   });
 
   it("collects income once", async () => {
+    const logger = new TestLogger();
     const wallet = makeWallet(1_000);
     const incomeEvent = new IncomeEvent(
       "income-1",
@@ -273,6 +335,7 @@ describe("Financial core use cases", () => {
       transactions,
       clock,
       idGenerator,
+      logger,
     );
 
     const result = await collect.execute({
@@ -284,9 +347,11 @@ describe("Financial core use cases", () => {
     expect(incomeEvent.isCollected).toBe(true);
     expect(transactions.transactions[0].type).toBe(TransactionType.INCOME);
     expect(result.events[0].type).toBe("IncomeCollected");
+    expect(logger.find("info", "income_collected")).toBeDefined();
   });
 
   it("rejects duplicated income collection without duplicating transaction", async () => {
+    const logger = new TestLogger();
     const wallet = makeWallet(1_000);
     const incomeEvent = new IncomeEvent(
       "income-1",
@@ -301,6 +366,7 @@ describe("Financial core use cases", () => {
       new InMemoryTransactionRepository(),
       clock,
       idGenerator,
+      logger,
     );
 
     await expect(
@@ -308,6 +374,28 @@ describe("Financial core use cases", () => {
     ).rejects.toBeInstanceOf(IncomeAlreadyCollectedError);
 
     expect(wallet.account.availableBalance.cents).toBe(1_000);
+    expect(
+      logger.find("warn", "income_collection_blocked_already_collected"),
+    ).toBeDefined();
+  });
+
+  it("logs ERROR when repository persistence fails", async () => {
+    const logger = new TestLogger();
+    const buy = new BuyAssetUseCase(
+      new InMemoryAssetRepository([asset]),
+      new InMemoryWalletRepository(makeWallet(10_000)),
+      new StaticMarketPriceProvider({ FORT3: 1_000 }),
+      new FailingTransactionRepository(),
+      clock,
+      idGenerator,
+      logger,
+    );
+
+    await expect(
+      buy.execute({ playerId, symbol: "FORT3", quantity: 1 }),
+    ).rejects.toThrow("database down");
+
+    expect(logger.find("error", "player_repository_save_failed")).toBeDefined();
   });
 
   it("calculates total equity as cash plus market value of positions", async () => {

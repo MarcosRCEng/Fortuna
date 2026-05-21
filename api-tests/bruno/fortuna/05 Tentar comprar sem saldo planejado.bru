@@ -1,0 +1,17 @@
+meta {
+  name: 05 Tentar comprar sem saldo planejado
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/players/player-123/buy
+  body: json
+}
+
+body:json {
+  {
+    "symbol": "FORT3",
+    "quantity": 5000
+  }
+}

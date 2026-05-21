@@ -62,6 +62,9 @@ The web app starts on Vite's default port, currently `5173`.
 
 ```bash
 pnpm test
+pnpm test:unit
+pnpm test:integration
+pnpm test:coverage
 ```
 
 ## Build
@@ -73,3 +76,10 @@ pnpm build
 ## Current Status
 
 Bootstrap inicial: monorepo, domain foundation, application ports, infrastructure adapters, API health endpoint, web bootstrap screen, documentation, tests, and build scripts.
+
+## Quality Documentation
+
+- `docs/testing-strategy.md`
+- `docs/logging-strategy.md`
+- `docs/api-testing.md`
+- `docs/technical-readiness-checklist.md`

@@ -7,6 +7,7 @@ import {
 } from "@fortuna/domain";
 import type { Clock } from "../ports/Clock.js";
 import type { IncomeEventRepository } from "../ports/IncomeEventRepository.js";
+import type { LoggerPort } from "../ports/LoggerPort.js";
 import type { TransactionRepository } from "../ports/TransactionRepository.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
 import type { UseCaseResult } from "./UseCaseResult.js";
@@ -24,6 +25,7 @@ export class CollectIncomeUseCase {
     private readonly transactions: TransactionRepository,
     private readonly clock: Clock,
     private readonly idGenerator: () => string,
+    private readonly logger?: LoggerPort,
   ) {}
 
   async execute(
@@ -41,8 +43,22 @@ export class CollectIncomeUseCase {
     }
 
     if (incomeEvent.isCollected) {
+      this.logger?.warn(
+        "Income collection blocked because income was already collected",
+        {
+          module: "income",
+          action: "income_collection_blocked_already_collected",
+          correlationId: command.correlationId,
+          context: {
+            playerId: command.playerId,
+            incomeEventId: command.incomeEventId,
+          },
+        },
+      );
       throw new IncomeAlreadyCollectedError();
     }
+
+    const balanceBeforeCents = wallet.account.availableBalance.cents;
 
     wallet.account.credit(incomeEvent.amount);
     incomeEvent.markCollected();
@@ -63,9 +79,38 @@ export class CollectIncomeUseCase {
         : { incomeEventId: incomeEvent.id },
     };
 
-    await this.transactions.append(transaction);
-    await this.incomeEvents.save(incomeEvent);
-    await this.wallets.save(wallet);
+    try {
+      await this.transactions.append(transaction);
+      await this.incomeEvents.save(incomeEvent);
+      await this.wallets.save(wallet);
+    } catch (error) {
+      this.logger?.error("Failed to persist income collection", {
+        module: "repository",
+        action: "income_repository_save_failed",
+        correlationId: command.correlationId,
+        context: {
+          playerId: command.playerId,
+          incomeEventId: incomeEvent.id,
+          operationId: transaction.id,
+        },
+        error,
+      });
+      throw error;
+    }
+
+    this.logger?.info("Income collected successfully", {
+      module: "income",
+      action: "income_collected",
+      correlationId: command.correlationId,
+      context: {
+        playerId: command.playerId,
+        incomeEventId: incomeEvent.id,
+        operationId: transaction.id,
+        amountCents: incomeEvent.amount.cents,
+        balanceBeforeCents,
+        balanceAfterCents: wallet.account.availableBalance.cents,
+      },
+    });
 
     return {
       data: transaction,
