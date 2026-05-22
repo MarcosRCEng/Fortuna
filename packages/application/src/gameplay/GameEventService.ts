@@ -27,12 +27,16 @@ export class GameEventService {
     playerId: string,
     type: GameEventType,
     metadata?: GameEventMetadata,
+    source: GameEvent["source"] = "GAMEPLAY",
+    correlationId?: string,
   ): GameEvent {
     return {
       id: this.idGenerator(),
       playerId,
       type,
       occurredAt: this.clock.now(),
+      source,
+      correlationId,
       metadata,
     };
   }
@@ -45,33 +49,51 @@ export class GameEventService {
 
     for (const financialEvent of financialEvents) {
       if (financialEvent.type === "AssetBought") {
-        this.pushOnce(events, context.progress, financialEvent.playerId, {
-          type: "FIRST_BUY",
-          metadata: {
-            assetSymbol: financialEvent.asset.symbol.value,
-            amountCents: financialEvent.total.cents,
+        this.pushOnce(
+          events,
+          context.progress,
+          financialEvent.playerId,
+          {
+            type: "FIRST_BUY",
+            metadata: {
+              assetSymbol: financialEvent.asset.symbol.value,
+              amountCents: financialEvent.total.cents,
+            },
           },
-        });
+          "FINANCIAL_EVENT",
+        );
       }
 
       if (financialEvent.type === "AssetSold") {
-        this.pushOnce(events, context.progress, financialEvent.playerId, {
-          type: "FIRST_SELL",
-          metadata: {
-            assetSymbol: financialEvent.asset.symbol.value,
-            amountCents: financialEvent.total.cents,
+        this.pushOnce(
+          events,
+          context.progress,
+          financialEvent.playerId,
+          {
+            type: "FIRST_SELL",
+            metadata: {
+              assetSymbol: financialEvent.asset.symbol.value,
+              amountCents: financialEvent.total.cents,
+            },
           },
-        });
+          "FINANCIAL_EVENT",
+        );
       }
 
       if (financialEvent.type === "IncomeCollected") {
-        this.pushOnce(events, context.progress, financialEvent.playerId, {
-          type: "FIRST_INCOME_RECEIVED",
-          metadata: {
-            assetSymbol: financialEvent.asset.symbol.value,
-            amountCents: financialEvent.total.cents,
+        this.pushOnce(
+          events,
+          context.progress,
+          financialEvent.playerId,
+          {
+            type: "FIRST_INCOME_RECEIVED",
+            metadata: {
+              assetSymbol: financialEvent.asset.symbol.value,
+              amountCents: financialEvent.total.cents,
+            },
           },
-        });
+          "FINANCIAL_EVENT",
+        );
       }
     }
 
@@ -173,12 +195,15 @@ export class GameEventService {
     progress: PlayerProgress,
     playerId: string,
     candidate: { type: GameEventType; metadata?: GameEventMetadata },
+    source: GameEvent["source"] = "GAMEPLAY",
   ): void {
     if (progress.seenEventTypes.includes(candidate.type)) {
       return;
     }
 
-    events.push(this.create(playerId, candidate.type, candidate.metadata));
+    events.push(
+      this.create(playerId, candidate.type, candidate.metadata, source),
+    );
   }
 
   private uniqueInBatch(events: GameEvent[]): GameEvent[] {

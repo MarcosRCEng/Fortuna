@@ -1,5 +1,6 @@
 import type { GameEvent, GameEventType } from "@fortuna/domain";
 import type { Clock } from "../ports/Clock.js";
+import { FINANCIAL_MATURITY_LEVELS } from "./GameDesignCatalog.js";
 import type { PlayerProgress } from "./PlayerProgress.js";
 
 const EXPERIENCE_BY_EVENT: Record<GameEventType, number> = {
@@ -20,8 +21,6 @@ const EXPERIENCE_BY_EVENT: Record<GameEventType, number> = {
   EDUCATIONAL_BADGE_GRANTED: 75,
 };
 
-const EXPERIENCE_PER_LEVEL = 500;
-
 export class ProgressionService {
   constructor(private readonly clock: Clock) {}
 
@@ -33,6 +32,7 @@ export class ProgressionService {
       unlockedDistricts: [...progress.unlockedDistricts],
       unlockedAssetClasses: [...progress.unlockedAssetClasses],
       unlockedTools: [...progress.unlockedTools],
+      unlockedReports: [...progress.unlockedReports],
       seenEventTypes: [...progress.seenEventTypes],
       netWorthMilestonesReachedCents: [
         ...progress.netWorthMilestonesReachedCents,
@@ -82,6 +82,10 @@ export class ProgressionService {
         this.addUnique(next.unlockedTools, String(event.metadata.toolId));
       }
 
+      if (event.type === "NEW_TOOL_UNLOCKED" && event.metadata?.reportId) {
+        this.addUnique(next.unlockedReports, String(event.metadata.reportId));
+      }
+
       if (
         event.type === "NET_WORTH_REACHED" &&
         typeof event.metadata?.milestoneCents === "number"
@@ -97,10 +101,7 @@ export class ProgressionService {
       }
     }
 
-    next.level = Math.max(
-      progress.level,
-      Math.floor(next.experiencePoints / EXPERIENCE_PER_LEVEL) + 1,
-    );
+    next.level = Math.max(progress.level, this.evaluateMaturityLevel(next));
 
     return next;
   }
@@ -136,5 +137,17 @@ export class ProgressionService {
     if (!values.includes(value)) {
       values.push(value);
     }
+  }
+
+  private evaluateMaturityLevel(progress: PlayerProgress): number {
+    let reachedLevel = 1;
+
+    for (const level of FINANCIAL_MATURITY_LEVELS) {
+      if (level.level === reachedLevel + 1 && level.isReached(progress)) {
+        reachedLevel = level.level;
+      }
+    }
+
+    return reachedLevel;
   }
 }

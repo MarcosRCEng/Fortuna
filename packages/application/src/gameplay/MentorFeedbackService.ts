@@ -42,6 +42,17 @@ export class MentorFeedbackService {
       };
     }
 
+    if (event.type === "EMERGENCY_RESERVE_STARTED") {
+      return {
+        code: "MENTOR_RESERVE_STARTED",
+        title: "Reserva iniciada",
+        message:
+          "Formar uma reserva e um passo importante antes de assumir riscos maiores.",
+        severity: "positive",
+        relatedEventType: event.type,
+      };
+    }
+
     if (event.type === "EXCESSIVE_CONCENTRATION_DETECTED") {
       return {
         code: "MENTOR_CONCENTRATION",

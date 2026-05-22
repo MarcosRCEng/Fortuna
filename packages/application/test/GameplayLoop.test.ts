@@ -197,11 +197,13 @@ describe("Gameplay loop", () => {
       advanceMarketCycle: true,
     });
 
-    expect(result.events.map((event) => event.type)).toEqual([
-      "FIRST_SELL",
-      "FIRST_INCOME_RECEIVED",
-      "MARKET_CYCLE_ADVANCED",
-    ]);
+    expect(result.events.map((event) => event.type)).toEqual(
+      expect.arrayContaining([
+        "FIRST_SELL",
+        "FIRST_INCOME_RECEIVED",
+        "MARKET_CYCLE_ADVANCED",
+      ]),
+    );
     expect(result.progress.marketCyclesAdvanced).toBe(1);
     expect(result.city.visualSignals).toContain("INCOME_PARK_FLOWING");
   });

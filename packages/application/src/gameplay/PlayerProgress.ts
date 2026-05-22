@@ -9,6 +9,7 @@ export interface PlayerProgress {
   unlockedDistricts: string[];
   unlockedAssetClasses: string[];
   unlockedTools: string[];
+  unlockedReports: string[];
   seenEventTypes: GameEventType[];
   netWorthMilestonesReachedCents: number[];
   marketCyclesAdvanced: number;
@@ -28,6 +29,7 @@ export function createInitialPlayerProgress(
     unlockedDistricts: ["CENTRO_FINANCEIRO"],
     unlockedAssetClasses: ["CASH"],
     unlockedTools: ["WALLET_SUMMARY"],
+    unlockedReports: [],
     seenEventTypes: [],
     netWorthMilestonesReachedCents: [],
     marketCyclesAdvanced: 0,

@@ -33,9 +33,13 @@ export interface MentorFeedback {
 export interface CityEvolutionState {
   playerId: string;
   level: number;
+  cityLevel: number;
   skylineTier: "FOUNDATION" | "GROWING" | "DIVERSIFIED" | "MATURE";
   unlockedDistricts: string[];
+  unlockedBuildings: string[];
+  visualMilestones: string[];
   visualSignals: string[];
+  lastUpdatedAt: Date;
 }
 
 export interface GameLoopResult {

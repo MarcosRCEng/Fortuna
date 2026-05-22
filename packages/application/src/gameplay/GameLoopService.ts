@@ -45,17 +45,29 @@ export class GameLoopService {
 
     if (command.missionId) {
       createdEvents.push(
-        this.eventService.create(command.playerId, "MISSION_COMPLETED", {
-          missionId: command.missionId,
-        }),
+        this.eventService.create(
+          command.playerId,
+          "MISSION_COMPLETED",
+          {
+            missionId: command.missionId,
+          },
+          "MISSION",
+          command.correlationId,
+        ),
       );
     }
 
     if (command.advanceMarketCycle) {
       createdEvents.push(
-        this.eventService.create(command.playerId, "MARKET_CYCLE_ADVANCED", {
-          advancedAt: this.clock.now().toISOString(),
-        }),
+        this.eventService.create(
+          command.playerId,
+          "MARKET_CYCLE_ADVANCED",
+          {
+            advancedAt: this.clock.now().toISOString(),
+          },
+          "MARKET_CYCLE",
+          command.correlationId,
+        ),
       );
     }
 

@@ -27,6 +27,8 @@ export interface GameEvent {
   playerId: string;
   type: GameEventType;
   occurredAt: Date;
+  source: "GAMEPLAY" | "FINANCIAL_EVENT" | "MARKET_CYCLE" | "MISSION";
+  correlationId?: string;
   metadata?: GameEventMetadata;
 }
 
@@ -35,6 +37,8 @@ export interface SerializedGameEvent {
   playerId: string;
   type: GameEventType;
   occurredAt: string;
+  source: GameEvent["source"];
+  correlationId?: string;
   metadata?: GameEventMetadata;
 }
 
