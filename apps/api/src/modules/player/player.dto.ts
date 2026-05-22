@@ -52,7 +52,7 @@ export class PlayerResponseDto {
 }
 
 export class TradeAssetRequestDto {
-  @ApiProperty({ example: "FORT3" })
+  @ApiProperty({ example: "FIISF001" })
   symbol!: string;
 
   @ApiProperty({ example: 5, description: "Quantidade inteira de cotas." })
@@ -66,7 +66,7 @@ export class TransactionResponseDto {
   @ApiProperty({ example: "BUY" })
   type!: string;
 
-  @ApiPropertyOptional({ example: "FORT3" })
+  @ApiPropertyOptional({ example: "FIISF001" })
   symbol?: string;
 
   @ApiPropertyOptional({ example: 5 })
@@ -101,11 +101,11 @@ export class WalletSummaryResponseDto {
   @ApiProperty({
     example: [
       {
-        symbol: "FORT3",
-        name: "Fortuna Educacao ON",
+        symbol: "FIISF001",
+        name: "FII Shopping Fortuna",
         quantity: 5,
-        averagePriceCents: 1234,
-        marketValueCents: 6170,
+        averagePriceCents: 10000,
+        marketValueCents: 50000,
       },
     ],
   })
@@ -119,10 +119,10 @@ export class WalletSummaryResponseDto {
 }
 
 export class AssetResponseDto {
-  @ApiProperty({ example: "asset-fort3" })
+  @ApiProperty({ example: "asset-tsf001" })
   id!: string;
 
-  @ApiProperty({ example: "FORT3" })
+  @ApiProperty({ example: "TSF001" })
   symbol!: string;
 
   @ApiProperty({ example: "Tesouro Selic Fortuna" })
@@ -168,7 +168,7 @@ export class AssetResponseDto {
 }
 
 export class MarketQuoteResponseDto {
-  @ApiProperty({ example: "FORT3" })
+  @ApiProperty({ example: "TSF001" })
   symbol!: string;
 
   @ApiProperty({ example: 1234 })
@@ -177,9 +177,124 @@ export class MarketQuoteResponseDto {
   @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
   asOf!: string;
 
-  @ApiProperty({ example: "mock" })
+  @ApiProperty({ example: "MOCK" })
   provider!: string;
 
   @ApiProperty({ example: "SIMULATED" })
   priceStatus!: string;
+}
+
+export class EducationalAssetInfoDto {
+  @ApiProperty({ example: "TSF001" })
+  symbol!: string;
+
+  @ApiProperty({
+    example: "Renda fixa inspirada em titulo publico de liquidez diaria.",
+  })
+  shortDescription!: string;
+
+  @ApiProperty({
+    example:
+      "Ativo ficticio de baixo risco para ensinar previsibilidade, liquidez e acumulacao gradual.",
+  })
+  longDescription!: string;
+
+  @ApiProperty({ example: "Baixo risco, com oscilacao simulada pequena." })
+  riskExplanation!: string;
+
+  @ApiProperty({ example: "Liquidez diaria simulada." })
+  liquidityExplanation!: string;
+
+  @ApiProperty({ example: "Use renda fixa para objetivos proximos." })
+  beginnerTip!: string;
+
+  @ApiProperty({ example: "Crescimento consistente tambem evolui a cidade." })
+  mentorHint!: string;
+}
+
+export class AssetDetailsResponseDto {
+  @ApiProperty({ type: AssetResponseDto })
+  asset!: AssetResponseDto;
+
+  @ApiProperty({ type: EducationalAssetInfoDto })
+  educationalInfo!: EducationalAssetInfoDto;
+}
+
+export class ExpectedYieldResponseDto {
+  @ApiProperty({ example: "TSF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: "FIXED_RATE" })
+  yieldType!: string;
+
+  @ApiProperty({ example: "DAILY" })
+  periodicity!: string;
+
+  @ApiProperty({ example: 70, required: false })
+  amountPerUnitCents?: number;
+
+  @ApiProperty({ example: 8, required: false })
+  rateBps?: number;
+
+  @ApiProperty({
+    example:
+      "Rendimento diario previsivel, simulado em basis points e calculado em centavos.",
+  })
+  description!: string;
+
+  @ApiProperty({ example: "2026-06-21T00:00:00.000Z", required: false })
+  nextPaymentDate?: string;
+}
+
+export class AssetHistoryPointResponseDto {
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: "2026-05-21" })
+  date!: string;
+
+  @ApiProperty({ example: 10000 })
+  openPriceCents!: number;
+
+  @ApiProperty({ example: 10045 })
+  closePriceCents!: number;
+
+  @ApiProperty({ example: 9980 })
+  minPriceCents!: number;
+
+  @ApiProperty({ example: 10080 })
+  maxPriceCents!: number;
+
+  @ApiProperty({ example: 15000, required: false })
+  volume?: number;
+}
+
+export class MarketProviderStatusResponseDto {
+  @ApiProperty({ example: "SIMULATED" })
+  sessionStatus!: string;
+
+  @ApiProperty({ example: "MOCK" })
+  dataSource!: string;
+
+  @ApiProperty({ example: "SIMULATED" })
+  priceStatus!: string;
+
+  @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
+  checkedAt!: string;
+
+  @ApiProperty({
+    example: "Mock provider deterministico para o MVP.",
+    required: false,
+  })
+  message?: string;
+}
+
+export class RefreshMarketPricesRequestDto {
+  @ApiProperty({
+    example: "2026-05-22T12:00:00.000Z",
+    required: false,
+    description:
+      "Data simulada opcional. Quando omitida, o provider usa o clock configurado.",
+  })
+  asOf?: string;
 }

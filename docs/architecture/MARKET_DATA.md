@@ -28,6 +28,28 @@ O provider usa seed e data injetaveis para gerar precos e historico de forma
 deterministica. A simulacao usa basis points inteiros, limita preco minimo a 1
 centavo e separa o calculo de variacao da atualizacao efetiva de precos.
 
+## Contratos e API
+
+Os contratos principais ficam no port `MarketDataProvider`:
+
+- `Asset`: cadastro do ativo, preco atual em centavos, risco, liquidez,
+  rendimento esperado, origem do dado e status do preco.
+- `AssetPrice`: cotacao atual rastreavel, com preco anterior e variacao em
+  basis points apenas como dado derivado.
+- `AssetHistoryPoint`: historico simulado ordenado por data, sempre em centavos.
+- `ExpectedYield`: expectativa de rendimento em taxa inteira ou valor por cota.
+- `EducationalAssetInfo`: conteudo educativo usado pela UI e pelo mentor.
+
+A API expoe os dados por use cases de aplicacao:
+
+- `GET /api/v1/assets`
+- `GET /api/v1/assets/:symbol`
+- `GET /api/v1/market/quotes/:symbol`
+- `GET /api/v1/market/history/:symbol?from=2026-05-01&to=2026-05-21`
+- `GET /api/v1/market/yields/:symbol`
+- `GET /api/v1/market/status`
+- `POST /api/v1/market/refresh`
+
 ## Rendimentos
 
 A camada de mercado informa a expectativa de rendimento:
@@ -67,3 +89,16 @@ indevido de floats vindos de APIs externas.
 
 Cada ordem futura deve conseguir auditar qual preco foi usado, em que horario,
 qual provider originou a cotacao e se houve cache ou fallback.
+
+## Plano incremental de evolucao
+
+1. Manter o dominio financeiro dependente apenas de `MarketPriceProvider` e
+   manter a UI falando com API/use cases, nunca com providers concretos.
+2. Implementar adapters reais na infraestrutura, convertendo qualquer valor
+   monetario externo para centavos inteiros na borda.
+3. Adicionar cache com TTL por classe de ativo e marcar respostas como `CACHE`
+   ou `STALE` quando necessario.
+4. Introduzir fallback controlado para mock/cache em desenvolvimento ou falha
+   do provedor, preservando logs estruturados.
+5. Registrar na ordem o preco usado, horario, status e origem para auditoria
+   financeira.

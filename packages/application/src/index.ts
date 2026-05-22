@@ -24,6 +24,7 @@ export * from "./use-cases/GetAssetDetailsUseCase.js";
 export * from "./use-cases/GetAssetHistoryUseCase.js";
 export * from "./use-cases/GetCurrentAssetPriceUseCase.js";
 export * from "./use-cases/GetExpectedYieldUseCase.js";
+export * from "./use-cases/GetMarketProviderStatusUseCase.js";
 export * from "./use-cases/GetPortfolioAllocationUseCase.js";
 export * from "./use-cases/GetTransactionHistoryUseCase.js";
 export * from "./use-cases/GetWalletSummaryUseCase.js";

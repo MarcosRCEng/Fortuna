@@ -3,13 +3,21 @@ import {
   BuyAssetUseCase,
   CollectIncomeUseCase,
   CreatePlayerUseCase,
+  GetAssetDetailsUseCase,
+  GetAssetHistoryUseCase,
   GetCurrentAssetPriceUseCase,
+  GetExpectedYieldUseCase,
+  GetMarketProviderStatusUseCase,
   ListAvailableAssetsUseCase,
+  RefreshMarketPricesUseCase,
   GetTransactionHistoryUseCase,
   GetWalletSummaryUseCase,
   SellAssetUseCase,
+  type Asset as MarketAsset,
   type AssetRepository,
   type IncomeEventRepository,
+  type MarketDataProvider,
+  type MarketPriceProvider,
   type PlayerProfile,
   type PlayerRepository,
   type TransactionHistoryFilter,
@@ -30,9 +38,14 @@ import {
 } from "@fortuna/domain";
 import {
   AssetResponseDto,
+  AssetDetailsResponseDto,
+  AssetHistoryPointResponseDto,
   CreatePlayerRequestDto,
+  ExpectedYieldResponseDto,
   MarketQuoteResponseDto,
+  MarketProviderStatusResponseDto,
   PlayerResponseDto,
+  RefreshMarketPricesRequestDto,
   TradeAssetRequestDto,
   TransactionResponseDto,
   WalletSummaryResponseDto,
@@ -63,7 +76,7 @@ class InMemoryWalletRepository implements WalletRepository {
 }
 
 class InMemoryAssetRepository implements AssetRepository {
-  constructor(private readonly marketData: MockMarketDataProvider) {}
+  constructor(private readonly marketData: MarketDataProvider) {}
 
   async findBySymbol(symbol: AssetSymbol): Promise<Asset | undefined> {
     const asset = await this.marketData.getAsset(symbol.value);
@@ -123,7 +136,8 @@ class InMemoryIncomeEventRepository implements IncomeEventRepository {
 
 @Injectable()
 export class PlayerApiService {
-  private readonly marketData = new MockMarketDataProvider();
+  private readonly marketData: MarketDataProvider & MarketPriceProvider =
+    new MockMarketDataProvider();
   private readonly assets = new InMemoryAssetRepository(this.marketData);
   private readonly wallets = new InMemoryWalletRepository();
   private readonly players = new InMemoryPlayerRepository();
@@ -277,23 +291,89 @@ export class PlayerApiService {
       this.marketData,
     ).execute();
 
-    return assets.map((asset) => ({
-      id: asset.id,
-      symbol: asset.symbol,
-      name: asset.name,
-      assetClass: asset.assetClass,
-      currentPriceCents: asset.currentPriceCents,
-      previousPriceCents: asset.previousPriceCents,
-      variationBps: asset.variationBps,
-      riskLevel: asset.riskLevel,
-      liquidity: asset.liquidity,
-      priceStatus: asset.priceStatus,
-      dataSource: asset.dataSource,
-      isMocked: asset.isMocked,
-      isActive: true,
-      educationalDescription: asset.educationalDescription,
-      updatedAt: asset.updatedAt.toISOString(),
+    return assets.map((asset) => this.toAssetResponse(asset));
+  }
+
+  async getAssetDetails(symbol: string): Promise<AssetDetailsResponseDto> {
+    this.assertString(symbol, "symbol");
+    const details = await new GetAssetDetailsUseCase(this.marketData).execute(
+      symbol,
+    );
+    if (!details) {
+      throw new BadRequestException("Asset symbol is not available.");
+    }
+
+    return {
+      asset: this.toAssetResponse(details.asset),
+      educationalInfo: details.educationalInfo,
+    };
+  }
+
+  async getAssetHistory(
+    symbol: string,
+    from?: string,
+    to?: string,
+  ): Promise<AssetHistoryPointResponseDto[]> {
+    this.assertString(symbol, "symbol");
+    const toDate = to ? this.parseDate(to, "to") : new Date();
+    const fromDate = from
+      ? this.parseDate(from, "from")
+      : new Date(toDate.getTime() - 30 * 86_400_000);
+
+    const history = await new GetAssetHistoryUseCase(this.marketData).execute({
+      symbol,
+      from: fromDate,
+      to: toDate,
+    });
+
+    return history.map((point) => ({
+      symbol: point.symbol,
+      date: point.date.toISOString().slice(0, 10),
+      openPriceCents: point.openPriceCents,
+      closePriceCents: point.closePriceCents,
+      minPriceCents: point.minPriceCents,
+      maxPriceCents: point.maxPriceCents,
+      volume: point.volume,
     }));
+  }
+
+  async getExpectedYield(symbol: string): Promise<ExpectedYieldResponseDto> {
+    this.assertString(symbol, "symbol");
+    const expectedYield = await new GetExpectedYieldUseCase(
+      this.marketData,
+    ).execute(symbol);
+    if (!expectedYield) {
+      throw new BadRequestException("Asset symbol is not available.");
+    }
+
+    return {
+      ...expectedYield,
+      nextPaymentDate: expectedYield.nextPaymentDate?.toISOString(),
+    };
+  }
+
+  async refreshMarketPrices(
+    request: RefreshMarketPricesRequestDto = {},
+  ): Promise<AssetResponseDto[]> {
+    const asOf = request.asOf
+      ? this.parseDate(request.asOf, "asOf")
+      : undefined;
+    const assets = await new RefreshMarketPricesUseCase(
+      this.marketData,
+    ).execute({ asOf });
+
+    return assets.map((asset) => this.toAssetResponse(asset));
+  }
+
+  async getMarketProviderStatus(): Promise<MarketProviderStatusResponseDto> {
+    const status = await new GetMarketProviderStatusUseCase(
+      this.marketData,
+    ).execute();
+
+    return {
+      ...status,
+      checkedAt: status.checkedAt.toISOString(),
+    };
   }
 
   async getQuote(symbol: string): Promise<MarketQuoteResponseDto> {
@@ -310,6 +390,26 @@ export class PlayerApiService {
       asOf: price.marketTimestamp.toISOString(),
       provider: price.dataSource,
       priceStatus: price.priceStatus,
+    };
+  }
+
+  private toAssetResponse(asset: MarketAsset): AssetResponseDto {
+    return {
+      id: asset.id,
+      symbol: asset.symbol,
+      name: asset.name,
+      assetClass: asset.assetClass,
+      currentPriceCents: asset.currentPriceCents,
+      previousPriceCents: asset.previousPriceCents,
+      variationBps: asset.variationBps,
+      riskLevel: asset.riskLevel,
+      liquidity: asset.liquidity,
+      priceStatus: asset.priceStatus,
+      dataSource: asset.dataSource,
+      isMocked: asset.isMocked,
+      isActive: true,
+      educationalDescription: asset.educationalDescription,
+      updatedAt: asset.updatedAt.toISOString(),
     };
   }
 
@@ -352,5 +452,14 @@ export class PlayerApiService {
     if (!Number.isSafeInteger(value)) {
       throw new BadRequestException(`${fieldName} must be an integer.`);
     }
+  }
+
+  private parseDate(value: string, fieldName: string): Date {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException(`${fieldName} must be a valid date.`);
+    }
+
+    return date;
   }
 }
