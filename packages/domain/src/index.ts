@@ -2,6 +2,7 @@ export * from "./accounts/PlayerAccount.js";
 export * from "./assets/Asset.js";
 export * from "./errors/FinancialErrors.js";
 export * from "./events/FinancialEvents.js";
+export * from "./events/GameEvents.js";
 export * from "./income/IncomeEvent.js";
 export * from "./market/MarketPrice.js";
 export * from "./money/Money.js";
