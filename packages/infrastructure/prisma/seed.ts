@@ -1,0 +1,159 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+const referenceDatetime = new Date("2026-05-22T12:00:00.000Z");
+
+async function main() {
+  await prisma.asset.upsert({
+    where: { symbol: "FORT3" },
+    update: {},
+    create: {
+      id: "asset-fort3",
+      symbol: "FORT3",
+      name: "Fortuna Educacao ON",
+      assetType: "STOCK",
+      description: "Acao mockada para aprender sobre renda variavel.",
+      riskLevel: "HIGH",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "Acoes podem oscilar bastante. No Fortuna, elas ajudam a praticar compra, venda e risco de mercado sem dinheiro real.",
+      marketPrices: {
+        create: {
+          id: "price-fort3-20260522",
+          priceCents: 1_000,
+          referenceDatetime,
+          source: "fortuna-seed",
+        },
+      },
+    },
+  });
+
+  await prisma.asset.upsert({
+    where: { symbol: "MALL11" },
+    update: {},
+    create: {
+      id: "asset-mall11",
+      symbol: "MALL11",
+      name: "Fortuna Shoppings FII",
+      assetType: "FII",
+      description: "FII mockado para introduzir rendimentos periodicos.",
+      riskLevel: "MEDIUM",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "FIIs costumam distribuir rendimentos, mas tambem sofrem variacao de preco e risco de vacancia.",
+      marketPrices: {
+        create: {
+          id: "price-mall11-20260522",
+          priceCents: 9_750,
+          referenceDatetime,
+          source: "fortuna-seed",
+        },
+      },
+    },
+  });
+
+  await prisma.asset.upsert({
+    where: { symbol: "TESOURO-SELIC" },
+    update: {},
+    create: {
+      id: "asset-tesouro-selic",
+      symbol: "TESOURO-SELIC",
+      name: "Tesouro Selic Simulado",
+      assetType: "FIXED_INCOME",
+      description: "Renda fixa mockada para praticar reserva de liquidez.",
+      riskLevel: "LOW",
+      liquidityType: "DAILY",
+      educationalText:
+        "Renda fixa de liquidez diaria costuma ser usada para objetivos de curto prazo e reserva de emergencia.",
+      marketPrices: {
+        create: {
+          id: "price-tesouro-selic-20260522",
+          priceCents: 10_000,
+          referenceDatetime,
+          source: "fortuna-seed",
+        },
+      },
+    },
+  });
+
+  const missions = [
+    {
+      id: "mission-first-buy",
+      code: "FIRST_BUY",
+      title: "Primeira compra",
+      description: "Compre seu primeiro ativo.",
+      objective: "Executar uma operacao BUY valida.",
+      completionCriteria: { eventType: "AssetBought", count: 1 },
+      rewardType: "COINS",
+      rewardAmountCents: 500,
+      educationalExplanation:
+        "A primeira compra mostra como preco, quantidade e saldo se conectam.",
+    },
+    {
+      id: "mission-basic-diversification",
+      code: "BASIC_DIVERSIFICATION",
+      title: "Diversificacao basica",
+      description: "Tenha posicao em dois tipos de ativo.",
+      objective: "Montar uma carteira com pelo menos dois asset_types.",
+      completionCriteria: { distinctAssetTypes: 2 },
+      rewardType: "EXPERIENCE",
+      rewardAmountCents: 0,
+      educationalExplanation:
+        "Diversificar reduz a dependencia de um unico tipo de investimento.",
+    },
+    {
+      id: "mission-collect-income",
+      code: "COLLECT_INCOME",
+      title: "Colha um rendimento",
+      description: "Colete um rendimento disponivel.",
+      objective: "Executar uma coleta INCOME_COLLECTED valida.",
+      completionCriteria: { eventType: "IncomeCollected", count: 1 },
+      rewardType: "COINS",
+      rewardAmountCents: 300,
+      educationalExplanation:
+        "Rendimentos aumentam o saldo disponivel e devem aparecer no historico financeiro.",
+    },
+    {
+      id: "mission-liquidity-reserve",
+      code: "LIQUIDITY_RESERVE",
+      title: "Reserva e liquidez",
+      description: "Mantenha parte da carteira em liquidez diaria.",
+      objective: "Comprar um ativo com liquidity_type DAILY.",
+      completionCriteria: { liquidityType: "DAILY", count: 1 },
+      rewardType: "EXPERIENCE",
+      rewardAmountCents: 0,
+      educationalExplanation:
+        "Liquidez ajuda a lidar com imprevistos sem vender ativos inadequados.",
+    },
+    {
+      id: "mission-read-mentor-tip",
+      code: "READ_MENTOR_TIP",
+      title: "Ouvir o Mentor Fortuna",
+      description: "Leia uma dica educativa do Mentor Fortuna.",
+      objective: "Registrar reconhecimento de uma dica do mentor.",
+      completionCriteria: { eventType: "MentorTipAcknowledged", count: 1 },
+      rewardType: "EXPERIENCE",
+      rewardAmountCents: 0,
+      educationalExplanation:
+        "Dicas contextualizadas ajudam a entender o motivo por tras de cada decisao.",
+    },
+  ] as const;
+
+  for (const mission of missions) {
+    await prisma.mission.upsert({
+      where: { code: mission.code },
+      update: {},
+      create: mission,
+    });
+  }
+}
+
+main()
+  .finally(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (error) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
