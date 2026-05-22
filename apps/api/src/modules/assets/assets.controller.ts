@@ -11,7 +11,7 @@ export class AssetsController {
   @Get()
   @ApiOperation({ summary: "Listar ativos mockados disponiveis no MVP." })
   @ApiOkResponse({ type: AssetResponseDto, isArray: true })
-  listAssets(): AssetResponseDto[] {
+  listAssets(): Promise<AssetResponseDto[]> {
     return this.api.listAssets();
   }
 }

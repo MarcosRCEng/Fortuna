@@ -3,24 +3,25 @@ import {
   BuyAssetUseCase,
   CollectIncomeUseCase,
   CreatePlayerUseCase,
+  GetCurrentAssetPriceUseCase,
+  ListAvailableAssetsUseCase,
   GetTransactionHistoryUseCase,
   GetWalletSummaryUseCase,
   SellAssetUseCase,
   type AssetRepository,
   type IncomeEventRepository,
-  type MarketPriceProvider,
   type PlayerProfile,
   type PlayerRepository,
   type TransactionHistoryFilter,
   type TransactionRepository,
   type WalletRepository,
 } from "@fortuna/application";
+import { MockMarketDataProvider, toDomainAsset } from "@fortuna/infrastructure";
 import {
   Asset,
   AssetSymbol,
   AssetType,
   IncomeEvent,
-  MarketPrice,
   MoneyCents,
   RiskLevel,
   Transaction,
@@ -62,14 +63,11 @@ class InMemoryWalletRepository implements WalletRepository {
 }
 
 class InMemoryAssetRepository implements AssetRepository {
-  constructor(private readonly assets: Asset[]) {}
+  constructor(private readonly marketData: MockMarketDataProvider) {}
 
   async findBySymbol(symbol: AssetSymbol): Promise<Asset | undefined> {
-    return this.assets.find((asset) => asset.symbol.equals(symbol));
-  }
-
-  list(): Asset[] {
-    return [...this.assets];
+    const asset = await this.marketData.getAsset(symbol.value);
+    return asset ? toDomainAsset(asset) : undefined;
   }
 }
 
@@ -123,51 +121,24 @@ class InMemoryIncomeEventRepository implements IncomeEventRepository {
   }
 }
 
-class StaticMarketPriceProvider implements MarketPriceProvider {
-  constructor(private readonly pricesBySymbol: Record<string, number>) {}
-
-  async getCurrentPrice(asset: Asset): Promise<MarketPrice> {
-    return new MarketPrice(
-      asset,
-      MoneyCents.fromCents(this.pricesBySymbol[asset.symbol.value] ?? 1000),
-      new Date(),
-    );
-  }
-
-  async getCurrentPrices(assets: Asset[]): Promise<MarketPrice[]> {
-    return Promise.all(assets.map((asset) => this.getCurrentPrice(asset)));
-  }
-}
-
 @Injectable()
 export class PlayerApiService {
-  private readonly assets = new InMemoryAssetRepository([
-    new Asset(
-      "asset-fort3",
-      AssetSymbol.create("FORT3"),
-      "Fortuna Educacao ON",
-      AssetType.STOCK,
-      RiskLevel.HIGH,
-    ),
-    new Asset(
-      "asset-tesouro",
-      AssetSymbol.create("TESOURO"),
-      "Tesouro Fortuna Selic",
-      AssetType.TREASURY,
-      RiskLevel.LOW,
-    ),
-  ]);
+  private readonly marketData = new MockMarketDataProvider();
+  private readonly assets = new InMemoryAssetRepository(this.marketData);
   private readonly wallets = new InMemoryWalletRepository();
   private readonly players = new InMemoryPlayerRepository();
-  private readonly prices = new StaticMarketPriceProvider({
-    FORT3: 1234,
-    TESOURO: 10000,
-  });
+  private readonly prices = this.marketData;
   private readonly transactions = new InMemoryTransactionRepository();
   private readonly incomeEvents = new InMemoryIncomeEventRepository([
     new IncomeEvent(
       "income-001",
-      this.assets.list()[0],
+      new Asset(
+        "asset-fiisf001",
+        AssetSymbol.create("FIISF001"),
+        "FII Shopping Fortuna",
+        AssetType.FII,
+        RiskLevel.MEDIUM,
+      ),
       MoneyCents.fromCents(250),
       new Date("2026-05-21T12:00:00.000Z"),
     ),
@@ -301,29 +272,44 @@ export class PlayerApiService {
     );
   }
 
-  listAssets(): AssetResponseDto[] {
-    return this.assets.list().map((asset) => ({
+  async listAssets(): Promise<AssetResponseDto[]> {
+    const assets = await new ListAvailableAssetsUseCase(
+      this.marketData,
+    ).execute();
+
+    return assets.map((asset) => ({
       id: asset.id,
-      symbol: asset.symbol.value,
+      symbol: asset.symbol,
       name: asset.name,
-      type: asset.type,
+      assetClass: asset.assetClass,
+      currentPriceCents: asset.currentPriceCents,
+      previousPriceCents: asset.previousPriceCents,
+      variationBps: asset.variationBps,
       riskLevel: asset.riskLevel,
-      isActive: asset.isActive,
+      liquidity: asset.liquidity,
+      priceStatus: asset.priceStatus,
+      dataSource: asset.dataSource,
+      isMocked: asset.isMocked,
+      isActive: true,
+      educationalDescription: asset.educationalDescription,
+      updatedAt: asset.updatedAt.toISOString(),
     }));
   }
 
   async getQuote(symbol: string): Promise<MarketQuoteResponseDto> {
-    const asset = await this.assets.findBySymbol(AssetSymbol.create(symbol));
-    if (!asset) {
+    const price = await new GetCurrentAssetPriceUseCase(
+      this.marketData,
+    ).execute(symbol);
+    if (!price) {
       throw new BadRequestException("Asset symbol is not available.");
     }
 
-    const price = await this.prices.getCurrentPrice(asset);
     return {
-      symbol: asset.symbol.value,
-      priceCents: price.unitPrice.cents,
-      asOf: price.asOf.toISOString(),
-      provider: "mock",
+      symbol: price.symbol,
+      priceCents: price.priceCents,
+      asOf: price.marketTimestamp.toISOString(),
+      provider: price.dataSource,
+      priceStatus: price.priceStatus,
     };
   }
 

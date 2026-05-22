@@ -125,17 +125,46 @@ export class AssetResponseDto {
   @ApiProperty({ example: "FORT3" })
   symbol!: string;
 
-  @ApiProperty({ example: "Fortuna Educacao ON" })
+  @ApiProperty({ example: "Tesouro Selic Fortuna" })
   name!: string;
 
-  @ApiProperty({ example: "STOCK" })
-  type!: string;
+  @ApiProperty({ example: "FIXED_INCOME" })
+  assetClass!: string;
 
-  @ApiProperty({ example: "HIGH" })
+  @ApiProperty({ example: 10000 })
+  currentPriceCents!: number;
+
+  @ApiProperty({ example: 9998, required: false })
+  previousPriceCents?: number;
+
+  @ApiProperty({ example: 2 })
+  variationBps!: number;
+
+  @ApiProperty({ example: "LOW" })
   riskLevel!: string;
+
+  @ApiProperty({ example: "DAILY" })
+  liquidity!: string;
+
+  @ApiProperty({ example: "SIMULATED" })
+  priceStatus!: string;
+
+  @ApiProperty({ example: "MOCK" })
+  dataSource!: string;
+
+  @ApiProperty({ example: true })
+  isMocked!: boolean;
 
   @ApiProperty({ example: true })
   isActive!: boolean;
+
+  @ApiProperty({
+    example: "Renda fixa inspirada em titulo publico de liquidez diaria.",
+  })
+  educationalDescription!: string;
+
+  @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
+  updatedAt!: string;
 }
 
 export class MarketQuoteResponseDto {
@@ -150,4 +179,7 @@ export class MarketQuoteResponseDto {
 
   @ApiProperty({ example: "mock" })
   provider!: string;
+
+  @ApiProperty({ example: "SIMULATED" })
+  priceStatus!: string;
 }
