@@ -298,3 +298,46 @@ export class RefreshMarketPricesRequestDto {
   })
   asOf?: string;
 }
+
+export class MentorTipResponseDto {
+  @ApiProperty({ example: "player-1:mentor-rule-no-reserve" })
+  id!: string;
+
+  @ApiProperty({ example: "mentor-rule-no-reserve" })
+  ruleId!: string;
+
+  @ApiProperty({ example: "EDUCATIONAL_ALERT" })
+  type!: string;
+
+  @ApiProperty({ example: "Reserva ainda em formacao" })
+  title!: string;
+
+  @ApiProperty({
+    example:
+      "Sua reserva simulada ainda esta baixa. Em educacao financeira, reserva de emergencia e dinheiro com liquidez para reduzir a necessidade de vender ativos em momentos ruins.",
+  })
+  message!: string;
+
+  @ApiProperty({ example: "EMERGENCY_RESERVE" })
+  concept!: string;
+
+  @ApiProperty({ example: "WARNING" })
+  severity!: string;
+
+  @ApiProperty({ example: "2026-05-22T12:00:00.000Z" })
+  createdAt!: string;
+
+  @ApiPropertyOptional({ example: "Ver missao de reserva" })
+  actionLabel?: string;
+
+  @ApiPropertyOptional({ example: "mission-emergency-reserve" })
+  relatedMissionId?: string;
+
+  @ApiPropertyOptional({ example: "asset-fiisf001" })
+  relatedAssetId?: string;
+
+  @ApiProperty({
+    example: { liquidReserveCents: 1000, targetCents: 20000 },
+  })
+  metadata!: Record<string, string | number | boolean>;
+}

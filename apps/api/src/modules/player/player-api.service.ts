@@ -8,6 +8,7 @@ import {
   GetCurrentAssetPriceUseCase,
   GetExpectedYieldUseCase,
   GetMarketProviderStatusUseCase,
+  RuleBasedMentorService,
   ListAvailableAssetsUseCase,
   RefreshMarketPricesUseCase,
   GetTransactionHistoryUseCase,
@@ -30,6 +31,7 @@ import {
   AssetSymbol,
   AssetType,
   IncomeEvent,
+  MentorGameLoopMoment,
   MoneyCents,
   RiskLevel,
   Transaction,
@@ -44,6 +46,7 @@ import {
   ExpectedYieldResponseDto,
   MarketQuoteResponseDto,
   MarketProviderStatusResponseDto,
+  MentorTipResponseDto,
   PlayerResponseDto,
   RefreshMarketPricesRequestDto,
   TradeAssetRequestDto,
@@ -275,6 +278,64 @@ export class PlayerApiService {
         marketValueCents: position.marketValue.cents,
       })),
     };
+  }
+
+  async evaluateMentorTips(playerId: string): Promise<MentorTipResponseDto[]> {
+    this.assertString(playerId, "playerId");
+    const wallet = await this.wallets.findByPlayerId(playerId);
+    if (!wallet) {
+      throw new BadRequestException("Wallet not found for player.");
+    }
+
+    const prices = await this.prices.getCurrentPrices(
+      wallet.positions.map((position) => position.asset),
+    );
+    const investedValue = wallet.investedValue(prices);
+    const totalEquity = wallet.account.availableBalance.add(investedValue);
+    const mentor = new RuleBasedMentorService({ now: () => new Date() });
+    const tips = mentor.evaluate({
+      playerId,
+      currentCashInCents: wallet.account.availableBalance,
+      totalEquityInCents: totalEquity,
+      portfolioPositions: wallet.positions.map((position) => {
+        const price = prices.find((item) =>
+          item.asset.symbol.equals(position.asset.symbol),
+        );
+        return {
+          assetId: position.asset.id,
+          symbol: position.asset.symbol.value,
+          name: position.asset.name,
+          assetType: position.asset.type,
+          quantity: position.totalQuantity,
+          averagePrice: position.averagePriceCents,
+          marketValue: price
+            ? position.marketValue(price.unitPrice)
+            : MoneyCents.zero(),
+        };
+      }),
+      assetAllocation: wallet.allocationByAssetType(prices),
+      recentEvents: [],
+      completedMissions: [],
+      activeMissions: [],
+      alreadyShownTips: [],
+      currentGameLoopMoment: MentorGameLoopMoment.PORTFOLIO,
+      emergencyReserveTargetCents: 20_000,
+    });
+
+    return tips.map((tip) => ({
+      id: tip.id,
+      ruleId: tip.ruleId,
+      type: tip.type,
+      title: tip.title,
+      message: tip.message,
+      concept: tip.concept,
+      severity: tip.severity,
+      createdAt: tip.createdAt.toISOString(),
+      actionLabel: tip.actionLabel,
+      relatedMissionId: tip.relatedMissionId,
+      relatedAssetId: tip.relatedAssetId,
+      metadata: tip.metadata,
+    }));
   }
 
   async getTransactions(playerId: string): Promise<TransactionResponseDto[]> {
