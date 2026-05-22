@@ -6,6 +6,8 @@ import { CityEvolutionService } from "./CityEvolutionService.js";
 import { GameEventService } from "./GameEventService.js";
 import type { GameLoopCommand, GameLoopResult } from "./GameplaySnapshots.js";
 import { MentorFeedbackService } from "./MentorFeedbackService.js";
+import { MVP_MISSIONS } from "../missions/MissionCatalog.js";
+import { MissionEvaluator } from "../missions/MissionEvaluator.js";
 import {
   createInitialPlayerProgress,
   type PlayerProgress,
@@ -23,6 +25,7 @@ export class GameLoopService {
     private readonly cityEvolutionService: CityEvolutionService,
     private readonly mentorFeedbackService: MentorFeedbackService,
     private readonly clock: Clock,
+    private readonly missionEvaluator?: MissionEvaluator,
   ) {}
 
   async handle(command: GameLoopCommand): Promise<GameLoopResult> {
@@ -69,6 +72,29 @@ export class GameLoopService {
           command.correlationId,
         ),
       );
+    }
+
+    if (this.missionEvaluator) {
+      for (const mission of MVP_MISSIONS) {
+        const result = this.missionEvaluator.evaluate(mission, {
+          playerId: command.playerId,
+          events: createdEvents,
+          progress: currentProgress,
+          portfolio: command.portfolio,
+        });
+
+        if (result.completedNow) {
+          createdEvents.push(
+            this.eventService.create(
+              command.playerId,
+              "MISSION_COMPLETED",
+              { missionId: mission.id },
+              "MISSION",
+              command.correlationId,
+            ),
+          );
+        }
+      }
     }
 
     const afterGameplayEvents = this.progressionService.applyEvents(

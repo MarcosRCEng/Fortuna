@@ -1,4 +1,13 @@
 export const GAME_EVENT_TYPES = [
+  "PLAYER_CREATED",
+  "ASSET_PURCHASED",
+  "ASSET_SOLD",
+  "INCOME_COLLECTED",
+  "PORTFOLIO_UPDATED",
+  "MENTOR_TIP_READ",
+  "TRANSACTION_HISTORY_VIEWED",
+  "CITY_DISTRICT_UNLOCKED",
+  "REPORT_VIEWED",
   "FIRST_BUY",
   "FIRST_SELL",
   "FIRST_INCOME_RECEIVED",
@@ -14,6 +23,7 @@ export const GAME_EVENT_TYPES = [
   "MARKET_CYCLE_ADVANCED",
   "PLAYER_LEVEL_UP",
   "EDUCATIONAL_BADGE_GRANTED",
+  "MISSION_REWARD_CLAIMED",
 ] as const;
 
 export type GameEventType = (typeof GAME_EVENT_TYPES)[number];
@@ -27,7 +37,14 @@ export interface GameEvent {
   playerId: string;
   type: GameEventType;
   occurredAt: Date;
-  source: "GAMEPLAY" | "FINANCIAL_EVENT" | "MARKET_CYCLE" | "MISSION";
+  source:
+    | "GAMEPLAY"
+    | "FINANCIAL_EVENT"
+    | "MARKET_CYCLE"
+    | "MISSION"
+    | "MENTOR"
+    | "CITY"
+    | "REPORT";
   correlationId?: string;
   metadata?: GameEventMetadata;
 }

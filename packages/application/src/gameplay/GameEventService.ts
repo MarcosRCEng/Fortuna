@@ -57,10 +57,23 @@ export class GameEventService {
             type: "FIRST_BUY",
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
               amountCents: financialEvent.total.cents,
             },
           },
           "FINANCIAL_EVENT",
+        );
+        events.push(
+          this.create(
+            financialEvent.playerId,
+            "ASSET_PURCHASED",
+            {
+              assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
+              amountCents: financialEvent.total.cents,
+            },
+            "FINANCIAL_EVENT",
+          ),
         );
       }
 
@@ -73,10 +86,23 @@ export class GameEventService {
             type: "FIRST_SELL",
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
               amountCents: financialEvent.total.cents,
             },
           },
           "FINANCIAL_EVENT",
+        );
+        events.push(
+          this.create(
+            financialEvent.playerId,
+            "ASSET_SOLD",
+            {
+              assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
+              amountCents: financialEvent.total.cents,
+            },
+            "FINANCIAL_EVENT",
+          ),
         );
       }
 
@@ -89,10 +115,23 @@ export class GameEventService {
             type: "FIRST_INCOME_RECEIVED",
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
               amountCents: financialEvent.total.cents,
             },
           },
           "FINANCIAL_EVENT",
+        );
+        events.push(
+          this.create(
+            financialEvent.playerId,
+            "INCOME_COLLECTED",
+            {
+              assetSymbol: financialEvent.asset.symbol.value,
+              assetType: financialEvent.asset.type,
+              amountCents: financialEvent.total.cents,
+            },
+            "FINANCIAL_EVENT",
+          ),
         );
       }
     }
@@ -116,6 +155,13 @@ export class GameEventService {
     }
 
     const events: GameEvent[] = [];
+    events.push(
+      this.create(playerId, "PORTFOLIO_UPDATED", {
+        availableBalanceCents: portfolio.wallet.availableBalance.cents,
+        totalEquityCents: portfolio.wallet.totalEquity.cents,
+        positionCount: portfolio.wallet.positionCount,
+      }),
+    );
     const positionCount = portfolio.wallet.positionCount;
     if (positionCount >= 2) {
       this.pushOnce(events, context.progress, playerId, {

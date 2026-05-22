@@ -6,6 +6,7 @@ export * from "./events/GameEvents.js";
 export * from "./income/IncomeEvent.js";
 export * from "./market/MarketPrice.js";
 export * from "./money/Money.js";
+export * from "./missions/Mission.js";
 export * from "./orders/Order.js";
 export * from "./portfolio/PortfolioSnapshot.js";
 export * from "./transactions/Transaction.js";

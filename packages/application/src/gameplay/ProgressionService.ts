@@ -19,6 +19,16 @@ const EXPERIENCE_BY_EVENT: Record<GameEventType, number> = {
   MARKET_CYCLE_ADVANCED: 30,
   PLAYER_LEVEL_UP: 0,
   EDUCATIONAL_BADGE_GRANTED: 75,
+  MISSION_REWARD_CLAIMED: 50,
+  PLAYER_CREATED: 0,
+  ASSET_PURCHASED: 0,
+  ASSET_SOLD: 0,
+  INCOME_COLLECTED: 0,
+  PORTFOLIO_UPDATED: 0,
+  MENTOR_TIP_READ: 25,
+  TRANSACTION_HISTORY_VIEWED: 25,
+  CITY_DISTRICT_UNLOCKED: 0,
+  REPORT_VIEWED: 25,
 };
 
 export class ProgressionService {
@@ -28,6 +38,7 @@ export class ProgressionService {
     const next: PlayerProgress = {
       ...progress,
       completedMissionIds: [...progress.completedMissionIds],
+      rewardedMissionIds: [...(progress.rewardedMissionIds ?? [])],
       grantedBadges: [...progress.grantedBadges],
       unlockedDistricts: [...progress.unlockedDistricts],
       unlockedAssetClasses: [...progress.unlockedAssetClasses],
@@ -47,6 +58,16 @@ export class ProgressionService {
       if (event.type === "MISSION_COMPLETED" && event.metadata?.missionId) {
         this.addUnique(
           next.completedMissionIds,
+          String(event.metadata.missionId),
+        );
+      }
+
+      if (
+        event.type === "MISSION_REWARD_CLAIMED" &&
+        event.metadata?.missionId
+      ) {
+        this.addUnique(
+          next.rewardedMissionIds,
           String(event.metadata.missionId),
         );
       }

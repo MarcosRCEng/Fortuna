@@ -5,6 +5,7 @@ export interface PlayerProgress {
   level: number;
   experiencePoints: number;
   completedMissionIds: string[];
+  rewardedMissionIds: string[];
   grantedBadges: string[];
   unlockedDistricts: string[];
   unlockedAssetClasses: string[];
@@ -25,6 +26,7 @@ export function createInitialPlayerProgress(
     level: 1,
     experiencePoints: 0,
     completedMissionIds: [],
+    rewardedMissionIds: [],
     grantedBadges: [],
     unlockedDistricts: ["CENTRO_FINANCEIRO"],
     unlockedAssetClasses: ["CASH"],
