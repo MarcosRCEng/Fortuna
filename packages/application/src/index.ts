@@ -1,5 +1,7 @@
+export * from "./config/FutureIntegrationFlags.js";
 export * from "./ports/AssetRepository.js";
 export * from "./ports/Clock.js";
+export * from "./ports/FutureIntegrationPorts.js";
 export * from "./ports/IncomeEventRepository.js";
 export * from "./ports/LoggerPort.js";
 export * from "./ports/MarketDataProvider.js";
@@ -10,6 +12,7 @@ export * from "./ports/WalletRepository.js";
 export * from "./ports/gameplay/GameEventRepository.js";
 export * from "./ports/gameplay/PlayerProgressRepository.js";
 export * from "./events/AppEvent.js";
+export * from "./events/AuditEvents.js";
 export * from "./events/DomainEventPublisher.js";
 export * from "./events/EventDispatcher.js";
 export * from "./events/EventHandler.js";
