@@ -8,7 +8,7 @@ application packages still depend only on ports and domain objects.
 - `players`: player identity and status. Primary key `id`; audit fields
   `created_at` and `updated_at`.
 - `wallets`: one simulated financial wallet per player. `available_balance_cents`
-  is `BIGINT` and has a non-negative check constraint.
+  is `INTEGER` cents and has a non-negative check constraint.
 - `assets`: tradable game assets. Symbols are unique and uppercase. Prices are
   not stored as current truth in this table.
 - `market_prices`: historical/mock prices in integer cents, indexed by
@@ -29,8 +29,9 @@ application packages still depend only on ports and domain objects.
 - `game_events`: relevant game events for audit, analytics, mentor context and
   future replay.
 
-All monetary fields use integer cents (`BIGINT`). The mapper checks that values
-fit in JavaScript safe integers before creating domain `MoneyCents` objects.
+All monetary fields use integer cents (`INTEGER` in PostgreSQL, `Int` in
+Prisma). The mapper still checks values before creating domain `MoneyCents`
+objects.
 
 ## Migrations And Seeds
 
@@ -44,6 +45,15 @@ Generate Prisma client:
 
 ```bash
 corepack pnpm --filter @fortuna/infrastructure db:generate
+```
+
+From the repository root, the equivalent commands are:
+
+```bash
+pnpm prisma:migrate
+pnpm prisma:generate
+pnpm prisma:studio
+pnpm prisma:reset
 ```
 
 Seed MVP catalog:

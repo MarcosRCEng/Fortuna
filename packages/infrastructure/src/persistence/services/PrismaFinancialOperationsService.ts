@@ -83,6 +83,7 @@ export class PrismaFinancialOperationsService {
             playerId: command.id,
             walletId,
             transactionType: "INITIAL_DEPOSIT",
+            status: "CONFIRMED",
             grossAmountCents: initialBalance.cents,
             feesCents: 0,
             netAmountCents: initialBalance.cents,
@@ -125,7 +126,7 @@ export class PrismaFinancialOperationsService {
       }
 
       const walletRows = await tx.$queryRaw<
-        Array<{ id: string; available_balance_cents: bigint }>
+        Array<{ id: string; available_balance_cents: number }>
       >`SELECT id, available_balance_cents FROM wallets WHERE player_id = ${command.playerId} FOR UPDATE`;
       const wallet = walletRows[0];
       if (!wallet) {
@@ -143,7 +144,7 @@ export class PrismaFinancialOperationsService {
         Array<{
           id: string;
           quantity: number;
-          average_price_cents: bigint;
+          average_price_cents: number;
         }>
       >`SELECT id, quantity, average_price_cents FROM positions WHERE player_id = ${command.playerId} AND asset_id = ${asset.id} FOR UPDATE`;
       const position = positionRows[0];
@@ -192,6 +193,7 @@ export class PrismaFinancialOperationsService {
           walletId: wallet.id,
           assetId: asset.id,
           transactionType: "BUY",
+          status: "CONFIRMED",
           quantity: quantity.units,
           unitPriceCents,
           grossAmountCents: totalCents,
@@ -232,7 +234,7 @@ export class PrismaFinancialOperationsService {
       }
 
       const walletRows = await tx.$queryRaw<
-        Array<{ id: string; available_balance_cents: bigint }>
+        Array<{ id: string; available_balance_cents: number }>
       >`SELECT id, available_balance_cents FROM wallets WHERE player_id = ${command.playerId} FOR UPDATE`;
       const wallet = walletRows[0];
       if (!wallet) {
@@ -240,7 +242,7 @@ export class PrismaFinancialOperationsService {
       }
 
       const positionRows = await tx.$queryRaw<
-        Array<{ id: string; quantity: number; average_price_cents: bigint }>
+        Array<{ id: string; quantity: number; average_price_cents: number }>
       >`SELECT id, quantity, average_price_cents FROM positions WHERE player_id = ${command.playerId} AND asset_id = ${asset.id} FOR UPDATE`;
       const position = positionRows[0];
       if (!position || position.quantity < quantity.units) {
@@ -287,6 +289,7 @@ export class PrismaFinancialOperationsService {
           walletId: wallet.id,
           assetId: asset.id,
           transactionType: "SELL",
+          status: "CONFIRMED",
           quantity: quantity.units,
           unitPriceCents,
           grossAmountCents: totalCents,
@@ -322,7 +325,7 @@ export class PrismaFinancialOperationsService {
 
     return this.prisma.$transaction(async (tx) => {
       const walletRows = await tx.$queryRaw<
-        Array<{ id: string; available_balance_cents: bigint }>
+        Array<{ id: string; available_balance_cents: number }>
       >`SELECT id, available_balance_cents FROM wallets WHERE player_id = ${command.playerId} FOR UPDATE`;
       const wallet = walletRows[0];
       if (!wallet) {
@@ -333,7 +336,7 @@ export class PrismaFinancialOperationsService {
         Array<{
           id: string;
           asset_id: string;
-          amount_cents: bigint;
+          amount_cents: number;
           status: string;
         }>
       >`SELECT id, asset_id, amount_cents, status FROM income_events WHERE id = ${command.incomeEventId} AND player_id = ${command.playerId} FOR UPDATE`;
@@ -364,6 +367,7 @@ export class PrismaFinancialOperationsService {
           walletId: wallet.id,
           assetId: asset.id,
           transactionType: "INCOME_COLLECTED",
+          status: "CONFIRMED",
           grossAmountCents: amountCents,
           feesCents: 0,
           netAmountCents: amountCents,

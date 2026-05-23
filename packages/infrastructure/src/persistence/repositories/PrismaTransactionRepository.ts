@@ -35,6 +35,7 @@ export class PrismaTransactionRepository implements TransactionRepository {
         walletId: wallet.id,
         assetId: transaction.asset?.id,
         transactionType: type,
+        status: "CONFIRMED",
         quantity: transaction.quantity?.units,
         unitPriceCents: transaction.unitPrice?.cents,
         grossAmountCents: total,

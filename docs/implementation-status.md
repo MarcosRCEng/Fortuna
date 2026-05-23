@@ -30,7 +30,7 @@ Durante a auditoria foram corrigidos o contrato HTTP de erros financeiros, a doc
 - Domínio financeiro com `MoneyCents`, `PlayerAccount`, `Wallet`, `Position`, `Order`, `PortfolioSnapshot`, `Transaction`, `Quantity`, `AssetSymbol` e erros financeiros explícitos.
 - Use cases financeiros principais: criar jogador, comprar ativo, vender ativo, consultar carteira, consultar alocação, histórico e coletar rendimento.
 - Provider mockado de mercado com interface `MarketDataProvider`/`MarketPriceProvider`, símbolos estáveis, preços em centavos e dados determinísticos.
-- Persistência Prisma já modelada em infraestrutura, com centavos em `BigInt` e testes de integração marcados como skip quando dependem de banco real.
+- Persistência Prisma já modelada em infraestrutura, com centavos em `Int` e testes de integração marcados como skip quando dependem de banco real.
 - Swagger em `/docs` com tags organizadas e DTOs para endpoints existentes.
 - Filtro global de exceções com contrato HTTP padronizado:
 
@@ -47,6 +47,48 @@ Durante a auditoria foram corrigidos o contrato HTTP de erros financeiros, a doc
   "path": "/api/v1/players/player-1/buy"
 }
 ```
+
+## Sprint 14 - Persistencia Prisma/PostgreSQL
+
+Status: implementada com persistencia real selecionavel por ambiente.
+
+- Prisma esta configurado em `packages/infrastructure/prisma`, com migration versionada e Prisma Client gerado por `pnpm prisma:generate`.
+- PostgreSQL local sobe por `docker compose up -d` usando database `fortuna`, user `fortuna`, password `fortuna_dev` e porta `5432`.
+- A API permanece em memoria por padrao, mas usa Prisma quando `FORTUNA_PERSISTENCE=prisma`.
+- `PrismaService` foi adicionado ao boundary de database da API e e importado apenas no modo Prisma.
+- Operacoes criticas de criar jogador, comprar, vender e coletar rendimento usam `PrismaFinancialOperationsService` com `prisma.$transaction` e locks `FOR UPDATE`.
+- Valores monetarios do schema usam `Int` em centavos inteiros; nao ha `Float` como fonte de verdade.
+- Positions zeradas em venda sao removidas. O historico permanece em `transactions` com `position_before_quantity` e `position_after_quantity`.
+- Adapters em memoria foram preservados e continuam sendo o padrao dos testes unitarios e da API sem banco.
+- Testes de integracao Prisma existem em `packages/infrastructure/test/persistence` e sao opt-in via `FORTUNA_TEST_DATABASE_URL`.
+
+Comandos locais:
+
+```bash
+docker compose up -d
+pnpm prisma:migrate
+pnpm prisma:generate
+corepack pnpm --filter @fortuna/infrastructure db:seed
+$env:FORTUNA_PERSISTENCE="prisma"; pnpm dev:api
+```
+
+Limitacoes conhecidas:
+
+- Testes Prisma dependem de um PostgreSQL de teste informado por `FORTUNA_TEST_DATABASE_URL`; sem a variavel, ficam pulados.
+- A API ainda concentra os endpoints financeiros em `PlayerApiService`; a separacao por modulos Nest pode evoluir em sprint futura.
+- Catalogo de assets persistido depende do seed em ambientes novos.
+
+Validacao desta sprint:
+
+- `corepack pnpm install`: OK.
+- `corepack pnpm prisma:generate`: OK.
+- `corepack pnpm build`: OK.
+- `corepack pnpm test`: OK; suite Prisma ficou pulada sem `FORTUNA_TEST_DATABASE_URL`.
+- `corepack pnpm test:coverage`: OK.
+- `docker compose up -d`: bloqueado no shell atual porque `docker` nao esta no PATH.
+- `corepack pnpm prisma:migrate` sem `.env`: falhou por `DATABASE_URL` ausente, esperado enquanto `.env` real nao existir.
+- `corepack pnpm prisma:migrate` com `DATABASE_URL=postgresql://fortuna:fortuna_dev@localhost:5432/fortuna`: bloqueado pelo PostgreSQL local atual, que rejeitou as credenciais `fortuna`/`fortuna_dev`. A causa provavel e uma instancia local preexistente diferente do `docker-compose.yml`.
+- Teste Prisma com `FORTUNA_TEST_DATABASE_URL=postgresql://fortuna:fortuna_dev@localhost:5432/fortuna`: bloqueado pelo mesmo erro de autenticacao local.
 
 ## Parcial
 
@@ -79,7 +121,7 @@ Durante a auditoria foram corrigidos o contrato HTTP de erros financeiros, a doc
 
 | Regra | Status | Evidência |
 |---|---|---|
-| Dinheiro em centavos inteiros | OK | `MoneyCents.fromCents`, DTOs `*Cents`, Prisma `BigInt` para campos monetários e mocks `priceCents`. |
+| Dinheiro em centavos inteiros | OK | `MoneyCents.fromCents`, DTOs `*Cents`, Prisma `Int` para campos monetários e mocks `priceCents`. |
 | Sem float como fonte de verdade | OK | `MoneyCents` rejeita valores não inteiros; cálculos de preço usam centavos e basis points. |
 | Sem saldo negativo | OK | `MoneyCents` rejeita negativo e `PlayerAccount.debit` bloqueia débito acima do saldo. |
 | Sem compra sem saldo | OK | `BuyAssetUseCase` valida saldo, lança `INSUFFICIENT_BALANCE` e não cria transação. |

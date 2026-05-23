@@ -52,10 +52,10 @@ describeIntegration("PrismaFinancialOperationsService integration", () => {
       where: { playerId: "player-1" },
     });
 
-    expect(wallet.availableBalanceCents).toBe(20_000n);
+    expect(wallet.availableBalanceCents).toBe(20_000);
     expect(cityState.level).toBe(1);
     expect(transactions[0].transactionType).toBe("INITIAL_DEPOSIT");
-    expect(transactions[0].balanceAfterCents).toBe(20_000n);
+    expect(transactions[0].balanceAfterCents).toBe(20_000);
   });
 
   it("buys with sufficient balance and writes balance, position and transaction in one database transaction", async () => {
@@ -75,9 +75,9 @@ describeIntegration("PrismaFinancialOperationsService integration", () => {
     });
 
     expect(transaction.type).toBe("BUY");
-    expect(wallet.availableBalanceCents).toBe(17_000n);
+    expect(wallet.availableBalanceCents).toBe(17_000);
     expect(position.quantity).toBe(3);
-    expect(position.averagePriceCents).toBe(1_000n);
+    expect(position.averagePriceCents).toBe(1_000);
   });
 
   it("rejects buy without balance and rolls back all financial state", async () => {
@@ -120,7 +120,7 @@ describeIntegration("PrismaFinancialOperationsService integration", () => {
       where: { playerId: "player-1" },
     });
 
-    expect(wallet.availableBalanceCents).toBe(19_000n);
+    expect(wallet.availableBalanceCents).toBe(19_000);
     expect(position.quantity).toBe(1);
 
     await expect(
@@ -161,7 +161,7 @@ describeIntegration("PrismaFinancialOperationsService integration", () => {
 
     expect(income.status).toBe("COLLECTED");
     expect(income.transactionId).toBeTruthy();
-    expect(wallet.availableBalanceCents).toBe(19_250n);
+    expect(wallet.availableBalanceCents).toBe(19_250);
 
     await expect(
       service.collectIncome({

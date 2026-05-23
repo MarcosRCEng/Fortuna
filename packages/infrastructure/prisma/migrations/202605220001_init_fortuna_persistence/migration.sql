@@ -3,9 +3,11 @@ CREATE TYPE "AssetType" AS ENUM ('STOCK', 'FII', 'FIXED_INCOME', 'TREASURY', 'CA
 CREATE TYPE "RiskLevel" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH');
 CREATE TYPE "LiquidityType" AS ENUM ('DAILY', 'D_PLUS_1', 'D_PLUS_30', 'MATURITY');
 CREATE TYPE "TransactionType" AS ENUM ('BUY', 'SELL', 'INCOME_COLLECTED', 'INITIAL_DEPOSIT', 'ADJUSTMENT');
+CREATE TYPE "TransactionStatus" AS ENUM ('PENDING', 'CONFIRMED', 'REJECTED', 'CANCELLED');
 CREATE TYPE "IncomeType" AS ENUM ('DIVIDEND', 'INTEREST', 'RENT', 'YIELD');
 CREATE TYPE "IncomeStatus" AS ENUM ('AVAILABLE', 'COLLECTED', 'CANCELLED');
 CREATE TYPE "MissionStatus" AS ENUM ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'REWARD_CLAIMED');
+CREATE TYPE "MentorMessageType" AS ENUM ('EDUCATIONAL', 'WARNING', 'CELEBRATION', 'MISSION_HINT');
 
 CREATE TABLE "players" (
   "id" VARCHAR(80) NOT NULL,
@@ -21,7 +23,7 @@ CREATE TABLE "players" (
 CREATE TABLE "wallets" (
   "id" VARCHAR(100) NOT NULL,
   "player_id" VARCHAR(80) NOT NULL,
-  "available_balance_cents" BIGINT NOT NULL DEFAULT 0,
+  "available_balance_cents" INTEGER NOT NULL DEFAULT 0,
   "metadata" JSONB,
   "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,8 +61,8 @@ CREATE TABLE "positions" (
   "wallet_id" VARCHAR(100) NOT NULL,
   "asset_id" VARCHAR(80) NOT NULL,
   "quantity" INTEGER NOT NULL,
-  "average_price_cents" BIGINT NOT NULL,
-  "total_invested_cents" BIGINT NOT NULL,
+  "average_price_cents" INTEGER NOT NULL,
+  "total_invested_cents" INTEGER NOT NULL,
   "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "positions_pkey" PRIMARY KEY ("id"),
@@ -82,13 +84,14 @@ CREATE TABLE "transactions" (
   "wallet_id" VARCHAR(100) NOT NULL,
   "asset_id" VARCHAR(80),
   "transaction_type" "TransactionType" NOT NULL,
+  "status" "TransactionStatus" NOT NULL DEFAULT 'CONFIRMED',
   "quantity" INTEGER,
-  "unit_price_cents" BIGINT,
-  "gross_amount_cents" BIGINT NOT NULL,
-  "fees_cents" BIGINT NOT NULL DEFAULT 0,
-  "net_amount_cents" BIGINT NOT NULL,
-  "balance_before_cents" BIGINT NOT NULL,
-  "balance_after_cents" BIGINT NOT NULL,
+  "unit_price_cents" INTEGER,
+  "gross_amount_cents" INTEGER NOT NULL,
+  "fees_cents" INTEGER NOT NULL DEFAULT 0,
+  "net_amount_cents" INTEGER NOT NULL,
+  "balance_before_cents" INTEGER NOT NULL,
+  "balance_after_cents" INTEGER NOT NULL,
   "position_before_quantity" INTEGER,
   "position_after_quantity" INTEGER,
   "occurred_at" TIMESTAMPTZ(6) NOT NULL,
@@ -108,7 +111,10 @@ CREATE TABLE "transactions" (
 );
 
 CREATE INDEX "transactions_player_id_occurred_at_idx" ON "transactions"("player_id", "occurred_at");
+CREATE INDEX "transactions_player_id_idx" ON "transactions"("player_id");
 CREATE INDEX "transactions_asset_id_occurred_at_idx" ON "transactions"("asset_id", "occurred_at");
+CREATE INDEX "transactions_asset_id_idx" ON "transactions"("asset_id");
+CREATE INDEX "transactions_created_at_idx" ON "transactions"("created_at");
 CREATE INDEX "transactions_transaction_type_idx" ON "transactions"("transaction_type");
 
 CREATE TABLE "income_events" (
@@ -117,7 +123,7 @@ CREATE TABLE "income_events" (
   "asset_id" VARCHAR(80) NOT NULL,
   "position_id" VARCHAR(100),
   "income_type" "IncomeType" NOT NULL,
-  "amount_cents" BIGINT NOT NULL,
+  "amount_cents" INTEGER NOT NULL,
   "due_date" DATE NOT NULL,
   "collected_at" TIMESTAMPTZ(6),
   "status" "IncomeStatus" NOT NULL DEFAULT 'AVAILABLE',
@@ -138,7 +144,7 @@ CREATE INDEX "income_events_asset_id_due_date_idx" ON "income_events"("asset_id"
 CREATE TABLE "market_prices" (
   "id" VARCHAR(100) NOT NULL,
   "asset_id" VARCHAR(80) NOT NULL,
-  "price_cents" BIGINT NOT NULL,
+  "price_cents" INTEGER NOT NULL,
   "reference_datetime" TIMESTAMPTZ(6) NOT NULL,
   "source" VARCHAR(80) NOT NULL,
   "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -158,7 +164,7 @@ CREATE TABLE "missions" (
   "objective" TEXT NOT NULL,
   "completion_criteria" JSONB NOT NULL,
   "reward_type" VARCHAR(40) NOT NULL,
-  "reward_amount_cents" BIGINT NOT NULL DEFAULT 0,
+  "reward_amount_cents" INTEGER NOT NULL DEFAULT 0,
   "educational_explanation" TEXT NOT NULL,
   "is_active" BOOLEAN NOT NULL DEFAULT true,
   "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -189,6 +195,23 @@ CREATE TABLE "player_missions" (
 CREATE UNIQUE INDEX "player_missions_player_id_mission_id_key" ON "player_missions"("player_id", "mission_id");
 CREATE INDEX "player_missions_player_id_status_idx" ON "player_missions"("player_id", "status");
 
+CREATE TABLE "mission_progress" (
+  "id" VARCHAR(100) NOT NULL,
+  "player_id" VARCHAR(80) NOT NULL,
+  "mission_id" VARCHAR(100) NOT NULL,
+  "status" "MissionStatus" NOT NULL DEFAULT 'NOT_STARTED',
+  "progress" INTEGER NOT NULL DEFAULT 0,
+  "completed_at" TIMESTAMPTZ(6),
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "mission_progress_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "mission_progress_player_id_fkey" FOREIGN KEY ("player_id") REFERENCES "players"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT "mission_progress_progress_non_negative" CHECK ("progress" >= 0)
+);
+
+CREATE UNIQUE INDEX "mission_progress_player_id_mission_id_key" ON "mission_progress"("player_id", "mission_id");
+CREATE INDEX "mission_progress_player_id_idx" ON "mission_progress"("player_id");
+
 CREATE TABLE "city_state" (
   "id" VARCHAR(100) NOT NULL,
   "player_id" VARCHAR(80) NOT NULL,
@@ -204,6 +227,20 @@ CREATE TABLE "city_state" (
 );
 
 CREATE UNIQUE INDEX "city_state_player_id_key" ON "city_state"("player_id");
+
+CREATE TABLE "mentor_messages" (
+  "id" VARCHAR(100) NOT NULL,
+  "player_id" VARCHAR(80) NOT NULL,
+  "type" "MentorMessageType" NOT NULL,
+  "title" VARCHAR(140) NOT NULL,
+  "message" TEXT NOT NULL,
+  "read_at" TIMESTAMPTZ(6),
+  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "mentor_messages_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "mentor_messages_player_id_fkey" FOREIGN KEY ("player_id") REFERENCES "players"("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+CREATE INDEX "mentor_messages_player_id_idx" ON "mentor_messages"("player_id");
 
 CREATE TABLE "mentor_tips_history" (
   "id" VARCHAR(100) NOT NULL,

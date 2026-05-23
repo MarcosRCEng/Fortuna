@@ -31,6 +31,10 @@ import {
 import {
   MockMarketDataProvider,
   PinoLogger,
+  PrismaFinancialOperationsService,
+  PrismaMarketPriceProvider,
+  PrismaTransactionRepository,
+  PrismaWalletRepository,
   toDomainAsset,
 } from "@fortuna/infrastructure";
 import {
@@ -62,6 +66,14 @@ import {
   TransactionResponseDto,
   WalletSummaryResponseDto,
 } from "./player.dto.js";
+import type { PrismaService } from "../../infra/database/prisma.service.js";
+
+interface PersistentPlayerApiDependencies {
+  operations: PrismaFinancialOperationsService;
+  wallets: PrismaWalletRepository;
+  prices: PrismaMarketPriceProvider;
+  transactions: PrismaTransactionRepository;
+}
 
 class InMemoryPlayerRepository implements PlayerRepository {
   private readonly players = new Map<string, PlayerProfile>();
@@ -148,6 +160,21 @@ class InMemoryIncomeEventRepository implements IncomeEventRepository {
 
 @Injectable()
 export class PlayerApiService {
+  static withPrisma(prisma: PrismaService): PlayerApiService {
+    let nextPersistentId = 0;
+    const clock = { now: () => new Date() };
+    return new PlayerApiService({
+      operations: new PrismaFinancialOperationsService(
+        prisma,
+        clock,
+        () => `tx-${++nextPersistentId}`,
+      ),
+      wallets: new PrismaWalletRepository(prisma),
+      prices: new PrismaMarketPriceProvider(prisma),
+      transactions: new PrismaTransactionRepository(prisma),
+    });
+  }
+
   private readonly marketData: MarketDataProvider & MarketPriceProvider =
     new MockMarketDataProvider();
   private readonly assets = new InMemoryAssetRepository(this.marketData);
@@ -177,6 +204,9 @@ export class PlayerApiService {
       new Date("2026-05-21T12:00:00.000Z"),
     ),
   ]);
+
+  constructor(private readonly persistence?: PersistentPlayerApiDependencies) {}
+
   async createPlayer(
     request: CreatePlayerRequestDto,
   ): Promise<PlayerResponseDto> {
@@ -195,6 +225,26 @@ export class PlayerApiService {
         request.initialBalanceCents,
         "initialBalanceCents",
       );
+    }
+
+    if (this.persistence) {
+      const createdAt = new Date();
+      const playerId = request.id?.trim() || `player-${++this.nextId}`;
+      const initialBalanceCents = request.initialBalanceCents ?? 20_000;
+      await this.persistence.operations.createPlayer({
+        id: playerId,
+        name: request.name,
+        nickname: request.nickname,
+        initialBalanceCents,
+      });
+
+      return {
+        id: playerId,
+        name: request.name.trim(),
+        nickname: request.nickname?.trim(),
+        initialBalanceCents,
+        createdAt: createdAt.toISOString(),
+      };
     }
 
     const useCase = new CreatePlayerUseCase(
@@ -219,6 +269,16 @@ export class PlayerApiService {
     request: TradeAssetRequestDto,
   ): Promise<TransactionResponseDto> {
     this.assertTradeRequest(request);
+    if (this.persistence) {
+      const transaction = await this.persistence.operations.buy({
+        playerId,
+        symbol: request.symbol,
+        quantity: request.quantity,
+        correlationId: `api-${this.nextId}`,
+      });
+      return this.toTransactionResponse(transaction);
+    }
+
     const useCase = new BuyAssetUseCase(
       this.assets,
       this.wallets,
@@ -244,6 +304,16 @@ export class PlayerApiService {
     request: TradeAssetRequestDto,
   ): Promise<TransactionResponseDto> {
     this.assertTradeRequest(request);
+    if (this.persistence) {
+      const transaction = await this.persistence.operations.sell({
+        playerId,
+        symbol: request.symbol,
+        quantity: request.quantity,
+        correlationId: `api-${this.nextId}`,
+      });
+      return this.toTransactionResponse(transaction);
+    }
+
     const useCase = new SellAssetUseCase(
       this.assets,
       this.wallets,
@@ -268,6 +338,15 @@ export class PlayerApiService {
     playerId: string,
     incomeEventId: string,
   ): Promise<TransactionResponseDto> {
+    if (this.persistence) {
+      const transaction = await this.persistence.operations.collectIncome({
+        playerId,
+        incomeEventId,
+        correlationId: `api-${this.nextId}`,
+      });
+      return this.toTransactionResponse(transaction);
+    }
+
     const useCase = new CollectIncomeUseCase(
       this.wallets,
       this.incomeEvents,
@@ -287,6 +366,27 @@ export class PlayerApiService {
   }
 
   async getWallet(playerId: string): Promise<WalletSummaryResponseDto> {
+    if (this.persistence) {
+      const summary = await new GetWalletSummaryUseCase(
+        this.persistence.wallets,
+        this.persistence.prices,
+      ).execute(playerId);
+
+      return {
+        availableBalanceCents: summary.availableBalance.cents,
+        investedValueCents: summary.investedValue.cents,
+        totalEquityCents: summary.totalEquity.cents,
+        positionCount: summary.positionCount,
+        positions: summary.positions.map((position) => ({
+          symbol: position.symbol,
+          name: position.name,
+          quantity: position.quantity.units,
+          averagePriceCents: position.averagePrice.cents,
+          marketValueCents: position.marketValue.cents,
+        })),
+      };
+    }
+
     const summary = await new GetWalletSummaryUseCase(
       this.wallets,
       this.prices,
@@ -366,6 +466,15 @@ export class PlayerApiService {
   }
 
   async getTransactions(playerId: string): Promise<TransactionResponseDto[]> {
+    if (this.persistence) {
+      const transactions = await new GetTransactionHistoryUseCase(
+        this.persistence.transactions,
+      ).execute(playerId);
+      return transactions.map((transaction) =>
+        this.toTransactionResponse(transaction),
+      );
+    }
+
     const transactions = await new GetTransactionHistoryUseCase(
       this.transactions,
     ).execute(playerId);

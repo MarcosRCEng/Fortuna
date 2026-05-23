@@ -16,8 +16,8 @@ All money is represented internally as integer cents. Floats are not a source of
 - pnpm workspaces
 - NestJS API
 - React + Vite + TypeScript web app
-- PostgreSQL planned
-- Prisma planned
+- PostgreSQL
+- Prisma
 - Vitest
 - Swagger/OpenAPI
 - Pino structured logs
@@ -40,6 +40,29 @@ All money is represented internally as integer cents. Floats are not a source of
 
 ```bash
 pnpm install
+```
+
+Copy `.env.example` to `.env` for local development and keep `DATABASE_URL`
+pointing to PostgreSQL. The default development URL is:
+
+```bash
+DATABASE_URL=postgresql://fortuna:fortuna_dev@localhost:5432/fortuna
+```
+
+## Run PostgreSQL And Prisma
+
+```bash
+docker compose up -d
+pnpm prisma:migrate
+pnpm prisma:generate
+corepack pnpm --filter @fortuna/infrastructure db:seed
+```
+
+The API uses in-memory adapters by default so unit tests remain fast and
+isolated. To run the API with PostgreSQL persistence, set:
+
+```bash
+FORTUNA_PERSISTENCE=prisma
 ```
 
 ## Run The API
