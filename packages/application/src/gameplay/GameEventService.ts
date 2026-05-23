@@ -106,7 +106,10 @@ export class GameEventService {
         );
       }
 
-      if (financialEvent.type === "IncomeCollected") {
+      if (
+        financialEvent.type === "IncomeCollected" ||
+        financialEvent.type === "YieldCollected"
+      ) {
         this.pushOnce(
           events,
           context.progress,

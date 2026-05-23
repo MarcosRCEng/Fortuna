@@ -15,6 +15,7 @@ import type { LoggerPort } from "../ports/LoggerPort.js";
 import type { MarketPriceProvider } from "../ports/MarketPriceProvider.js";
 import type { TransactionRepository } from "../ports/TransactionRepository.js";
 import type { WalletRepository } from "../ports/WalletRepository.js";
+import type { DomainEventPublisher } from "../events/DomainEventPublisher.js";
 import type { UseCaseResult } from "./UseCaseResult.js";
 
 export interface SellAssetCommand {
@@ -33,6 +34,7 @@ export class SellAssetUseCase {
     private readonly clock: Clock,
     private readonly idGenerator: () => string,
     private readonly logger?: LoggerPort,
+    private readonly events?: DomainEventPublisher,
   ) {}
 
   async execute(
@@ -115,6 +117,25 @@ export class SellAssetUseCase {
       throw error;
     }
 
+    const events: FinancialEvent[] = [
+      {
+        type: "AssetSold",
+        playerId: command.playerId,
+        occurredAt,
+        walletId: wallet.id,
+        asset,
+        quantity,
+        unitPrice: price.unitPrice,
+        total,
+        transactionId: transaction.id,
+      },
+    ];
+
+    await this.events?.publishFinancialEvents(events, {
+      correlationId: command.correlationId,
+      causationId: transaction.id,
+    });
+
     this.logger?.info("Asset sale completed successfully", {
       module: "financial_operation",
       action: "asset_sale_completed",
@@ -135,16 +156,7 @@ export class SellAssetUseCase {
 
     return {
       data: transaction,
-      events: [
-        {
-          type: "AssetSold",
-          playerId: command.playerId,
-          occurredAt,
-          asset,
-          quantity,
-          total,
-        },
-      ],
+      events,
     };
   }
 }

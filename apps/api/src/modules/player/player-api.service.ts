@@ -3,6 +3,8 @@ import {
   BuyAssetUseCase,
   CollectIncomeUseCase,
   CreatePlayerUseCase,
+  DomainEventPublisher,
+  EventDispatcher,
   GetAssetDetailsUseCase,
   GetAssetHistoryUseCase,
   GetCurrentAssetPriceUseCase,
@@ -10,6 +12,7 @@ import {
   GetMarketProviderStatusUseCase,
   RuleBasedMentorService,
   ListAvailableAssetsUseCase,
+  LogEventHandler,
   RefreshMarketPricesUseCase,
   GetTransactionHistoryUseCase,
   GetWalletSummaryUseCase,
@@ -25,7 +28,11 @@ import {
   type TransactionRepository,
   type WalletRepository,
 } from "@fortuna/application";
-import { MockMarketDataProvider, toDomainAsset } from "@fortuna/infrastructure";
+import {
+  MockMarketDataProvider,
+  PinoLogger,
+  toDomainAsset,
+} from "@fortuna/infrastructure";
 import {
   Asset,
   AssetSymbol,
@@ -146,6 +153,14 @@ export class PlayerApiService {
   private readonly players = new InMemoryPlayerRepository();
   private readonly prices = this.marketData;
   private readonly transactions = new InMemoryTransactionRepository();
+  private readonly logger = new PinoLogger();
+  private nextId = 0;
+  private readonly dispatcher = this.createEventDispatcher();
+  private readonly eventPublisher = new DomainEventPublisher(
+    this.dispatcher,
+    () => `event-${++this.nextId}`,
+    this.logger,
+  );
   private readonly incomeEvents = new InMemoryIncomeEventRepository([
     new IncomeEvent(
       "income-001",
@@ -160,8 +175,6 @@ export class PlayerApiService {
       new Date("2026-05-21T12:00:00.000Z"),
     ),
   ]);
-  private nextId = 0;
-
   async createPlayer(
     request: CreatePlayerRequestDto,
   ): Promise<PlayerResponseDto> {
@@ -205,6 +218,8 @@ export class PlayerApiService {
       this.transactions,
       { now: () => new Date() },
       () => `tx-${++this.nextId}`,
+      this.logger,
+      this.eventPublisher,
     );
     const result = await useCase.execute({
       playerId,
@@ -228,6 +243,8 @@ export class PlayerApiService {
       this.transactions,
       { now: () => new Date() },
       () => `tx-${++this.nextId}`,
+      this.logger,
+      this.eventPublisher,
     );
     const result = await useCase.execute({
       playerId,
@@ -249,6 +266,8 @@ export class PlayerApiService {
       this.transactions,
       { now: () => new Date() },
       () => `tx-${++this.nextId}`,
+      this.logger,
+      this.eventPublisher,
     );
     const result = await useCase.execute({
       playerId,
@@ -522,5 +541,28 @@ export class PlayerApiService {
     }
 
     return date;
+  }
+
+  private createEventDispatcher(): EventDispatcher {
+    const dispatcher = new EventDispatcher(this.logger);
+    const logHandler = new LogEventHandler(this.logger);
+    for (const eventType of [
+      "AssetBought",
+      "AssetSold",
+      "YieldGenerated",
+      "YieldCollected",
+      "TransactionCreated",
+      "MarketPricesUpdated",
+      "PortfolioEvaluated",
+      "CycleAdvanced",
+      "MissionProgressUpdated",
+      "MentorTipGenerated",
+      "CityStateUpdated",
+      "CityRefreshRequested",
+    ]) {
+      dispatcher.register(eventType, logHandler);
+    }
+
+    return dispatcher;
   }
 }
