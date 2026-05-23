@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Inject, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
@@ -10,13 +10,17 @@ import { PlayerApiService } from "../player/player-api.service.js";
 import {
   ApiErrorDto,
   AssetDetailsResponseDto,
+  AssetHistoryResponseDto,
+  AssetPriceResponseDto,
   AssetResponseDto,
+  AssetYieldResponseDto,
 } from "../player/player.dto.js";
 
 @ApiTags("assets")
 @Controller(["api/v1/assets", "assets"])
 export class AssetsController {
-  constructor(private readonly api: PlayerApiService) {}
+  @Inject(PlayerApiService)
+  private readonly api!: PlayerApiService;
 
   @Get()
   @ApiOperation({
@@ -29,7 +33,36 @@ export class AssetsController {
     return this.api.listAssets();
   }
 
-  @Get(":symbol")
+  @Get(":assetId/history")
+  @ApiOperation({ summary: "Consultar historico de precos do ativo." })
+  @ApiOkResponse({ type: AssetHistoryResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getAssetHistory(
+    @Param("assetId") assetId: string,
+  ): Promise<AssetHistoryResponseDto> {
+    return this.api.getAssetHistoryResponse(assetId);
+  }
+
+  @Get(":assetId/price")
+  @ApiOperation({ summary: "Consultar preco atual do ativo." })
+  @ApiOkResponse({ type: AssetPriceResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getAssetPrice(@Param("assetId") assetId: string): Promise<AssetPriceResponseDto> {
+    return this.api.getAssetPrice(assetId);
+  }
+
+  @Get(":assetId/yield")
+  @ApiOperation({ summary: "Consultar informacoes de rendimento do ativo." })
+  @ApiOkResponse({ type: AssetYieldResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getAssetYield(@Param("assetId") assetId: string): Promise<AssetYieldResponseDto> {
+    return this.api.getAssetYield(assetId);
+  }
+
+  @Get(":assetId")
   @ApiOperation({
     summary: "Consultar detalhes educativos de um ativo.",
     description:
@@ -39,8 +72,8 @@ export class AssetsController {
   @ApiBadRequestResponse({ type: ApiErrorDto })
   @ApiNotFoundResponse({ type: ApiErrorDto })
   getAssetDetails(
-    @Param("symbol") symbol: string,
+    @Param("assetId") assetId: string,
   ): Promise<AssetDetailsResponseDto> {
-    return this.api.getAssetDetails(symbol);
+    return this.api.getAssetDetails(assetId);
   }
 }

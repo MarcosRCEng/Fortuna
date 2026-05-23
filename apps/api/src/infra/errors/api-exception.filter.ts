@@ -10,6 +10,7 @@ import { OperationRejectedError } from "@fortuna/domain";
 
 interface ApiErrorResponse {
   statusCode: number;
+  error: string;
   code: string;
   message: string;
   details?: Record<string, unknown>;
@@ -27,8 +28,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof OperationRejectedError) {
       const statusCode = this.statusForBusinessError(exception.code);
+      const mapped = this.mapBusinessError(exception);
       response.status(statusCode).json(
-        this.toResponseBody(statusCode, exception.code, exception.message, {
+        this.toResponseBody(statusCode, mapped.code, mapped.message, {
           path: request.url,
           details: this.detailsFromBusinessError(exception),
         }),
@@ -79,15 +81,53 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   private statusForBusinessError(code: string): number {
     if (
+      code === "PLAYER_NOT_FOUND" ||
       code === "ASSET_NOT_FOUND" ||
       code === "WALLET_NOT_FOUND" ||
-      code === "POSITION_NOT_FOUND" ||
       code === "INCOME_EVENT_NOT_FOUND"
     ) {
       return HttpStatus.NOT_FOUND;
     }
 
+    if (
+      code === "INSUFFICIENT_BALANCE" ||
+      code === "INSUFFICIENT_POSITION" ||
+      code === "INCOME_ALREADY_COLLECTED" ||
+      code === "NO_INCOME_AVAILABLE"
+    ) {
+      return HttpStatus.UNPROCESSABLE_ENTITY;
+    }
+
     return HttpStatus.BAD_REQUEST;
+  }
+
+  private mapBusinessError(exception: OperationRejectedError): {
+    code: string;
+    message: string;
+  } {
+    const messages: Record<string, string> = {
+      PLAYER_NOT_FOUND: "Jogador nao encontrado.",
+      ASSET_NOT_FOUND: "Ativo nao encontrado.",
+      WALLET_NOT_FOUND: "Carteira nao encontrada.",
+      POSITION_NOT_FOUND: "Posicao nao encontrada.",
+      INSUFFICIENT_BALANCE: "Saldo insuficiente para realizar a compra.",
+      INSUFFICIENT_POSITION:
+        "Quantidade insuficiente em carteira para realizar a venda.",
+      INVALID_QUANTITY: "Quantidade invalida para a ordem.",
+      NO_INCOME_AVAILABLE: "Nao ha rendimentos disponiveis para coleta.",
+      INCOME_ALREADY_COLLECTED: "Rendimento ja coletado.",
+      INCOME_EVENT_NOT_FOUND: "Rendimento nao encontrado.",
+    };
+
+    return {
+      code:
+        exception.code === "INSUFFICIENT_BALANCE"
+          ? "INSUFFICIENT_FUNDS"
+          : exception.code === "INVALID_QUANTITY"
+            ? "INVALID_ORDER_QUANTITY"
+            : exception.code,
+      message: messages[exception.code] ?? exception.message,
+    };
   }
 
   private messageFromHttpException(exception: HttpException): string {
@@ -116,6 +156,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
   ): ApiErrorResponse {
     return {
       statusCode,
+      error: code,
       code,
       message,
       ...(options.details ? { details: options.details } : {}),
@@ -134,6 +175,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if ("required" in event && "available" in event) {
       return {
+        requiredCents: event.required.cents,
+        availableCents: event.available.cents,
         requiredAmountCents: event.required.cents,
         availableAmountCents: event.available.cents,
       };

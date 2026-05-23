@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Optional,
+} from "@nestjs/common";
 import {
   BuyAssetUseCase,
   CollectIncomeUseCase,
@@ -32,7 +37,9 @@ import {
   MockMarketDataProvider,
   PinoLogger,
   PrismaFinancialOperationsService,
+  PrismaIncomeEventRepository,
   PrismaMarketPriceProvider,
+  PrismaPlayerRepository,
   PrismaTransactionRepository,
   PrismaWalletRepository,
   toDomainAsset,
@@ -45,6 +52,7 @@ import {
   IncomeEvent,
   MentorGameLoopMoment,
   MoneyCents,
+  OperationRejectedError,
   RiskLevel,
   Transaction,
   TransactionType,
@@ -53,26 +61,45 @@ import {
 } from "@fortuna/domain";
 import {
   AssetResponseDto,
+  AssetHistoryResponseDto,
+  AssetPriceResponseDto,
+  AssetYieldResponseDto,
   AssetDetailsResponseDto,
   AssetHistoryPointResponseDto,
+  CollectIncomeRequestDto,
+  CollectIncomeResponseDto,
   CreatePlayerRequestDto,
   ExpectedYieldResponseDto,
   MarketQuoteResponseDto,
   MarketProviderStatusResponseDto,
+  OrderExecutionResponseDto,
+  PlayerSummaryResponseDto,
+  PortfolioAllocationResponseDto,
+  PortfolioResponseDto,
+  RefreshMarketPricesResponseDto,
   MentorTipResponseDto,
   PlayerResponseDto,
   RefreshMarketPricesRequestDto,
   TradeAssetRequestDto,
   TransactionResponseDto,
+  TransactionsListResponseDto,
+  WalletResponseDto,
   WalletSummaryResponseDto,
 } from "./player.dto.js";
+import {
+  formatBasisPoints,
+  formatFortuna,
+  toMoneyResponse,
+} from "./money-response.js";
 import type { PrismaService } from "../../infra/database/prisma.service.js";
 
 interface PersistentPlayerApiDependencies {
   operations: PrismaFinancialOperationsService;
+  players: PrismaPlayerRepository;
   wallets: PrismaWalletRepository;
   prices: PrismaMarketPriceProvider;
   transactions: PrismaTransactionRepository;
+  incomeEvents: PrismaIncomeEventRepository;
 }
 
 class InMemoryPlayerRepository implements PlayerRepository {
@@ -156,6 +183,12 @@ class InMemoryIncomeEventRepository implements IncomeEventRepository {
   async save(incomeEvent: IncomeEvent): Promise<void> {
     this.incomeEvents.set(incomeEvent.id, incomeEvent);
   }
+
+  async listAvailableByPlayerId(_playerId: string): Promise<IncomeEvent[]> {
+    return [...this.incomeEvents.values()].filter(
+      (incomeEvent) => !incomeEvent.isCollected,
+    );
+  }
 }
 
 @Injectable()
@@ -170,8 +203,10 @@ export class PlayerApiService {
         () => `tx-${++nextPersistentId}`,
       ),
       wallets: new PrismaWalletRepository(prisma),
+      players: new PrismaPlayerRepository(prisma),
       prices: new PrismaMarketPriceProvider(prisma),
       transactions: new PrismaTransactionRepository(prisma),
+      incomeEvents: new PrismaIncomeEventRepository(prisma),
     });
   }
 
@@ -205,7 +240,11 @@ export class PlayerApiService {
     ),
   ]);
 
-  constructor(private readonly persistence?: PersistentPlayerApiDependencies) {}
+  constructor(
+    @Optional()
+    @Inject("PLAYER_API_PERSISTENCE")
+    private readonly persistence?: PersistentPlayerApiDependencies,
+  ) {}
 
   async createPlayer(
     request: CreatePlayerRequestDto,
@@ -242,7 +281,7 @@ export class PlayerApiService {
         id: playerId,
         name: request.name.trim(),
         nickname: request.nickname?.trim(),
-        initialBalanceCents,
+        wallet: toMoneyResponse(initialBalanceCents),
         createdAt: createdAt.toISOString(),
       };
     }
@@ -259,24 +298,70 @@ export class PlayerApiService {
       id: result.player.id,
       name: result.player.name,
       nickname: result.player.nickname,
-      initialBalanceCents: result.initialBalance.cents,
+      wallet: toMoneyResponse(result.initialBalance.cents),
       createdAt: result.player.createdAt.toISOString(),
+    };
+  }
+
+  async getPlayer(playerId: string): Promise<PlayerResponseDto> {
+    this.assertString(playerId, "playerId");
+    const player = this.persistence
+      ? await this.persistence.players.findById(playerId)
+      : await this.players.findById(playerId);
+    if (!player) {
+      throw new OperationRejectedError(
+        "Jogador nao encontrado.",
+        "PLAYER_NOT_FOUND",
+      );
+    }
+
+    const wallet = this.persistence
+      ? await this.persistence.wallets.findByPlayerId(playerId)
+      : await this.wallets.findByPlayerId(playerId);
+
+    return {
+      id: player.id,
+      name: player.name,
+      nickname: player.nickname,
+      wallet: toMoneyResponse(wallet?.account.availableBalance.cents ?? 0),
+      createdAt: player.createdAt.toISOString(),
+    };
+  }
+
+  async getPlayerSummary(playerId: string): Promise<PlayerSummaryResponseDto> {
+    await this.getPlayer(playerId);
+    const wallet = await this.getWallet(playerId);
+    const transactions = await this.getTransactionItems(playerId);
+    const allocation = await this.getPortfolioAllocation(playerId);
+    const totalIncomeCollected = transactions
+      .filter((transaction) => transaction.type === "INCOME_COLLECTED")
+      .reduce((total, transaction) => total + transaction.totalCents, 0);
+
+    return {
+      playerId,
+      walletBalance: toMoneyResponse(wallet.availableBalanceCents),
+      totalInvested: toMoneyResponse(wallet.investedValueCents),
+      portfolioMarketValue: toMoneyResponse(wallet.investedValueCents),
+      totalEquity: toMoneyResponse(wallet.totalEquityCents),
+      totalIncomeCollected: toMoneyResponse(totalIncomeCollected),
+      totalTransactions: transactions.length,
+      allocation,
     };
   }
 
   async buyAsset(
     playerId: string,
     request: TradeAssetRequestDto,
-  ): Promise<TransactionResponseDto> {
-    this.assertTradeRequest(request);
+  ): Promise<OrderExecutionResponseDto> {
+    const trade = await this.parseTradeRequest(request);
     if (this.persistence) {
       const transaction = await this.persistence.operations.buy({
         playerId,
-        symbol: request.symbol,
-        quantity: request.quantity,
+        symbol: trade.symbol,
+        quantity: trade.quantity,
         correlationId: `api-${this.nextId}`,
       });
-      return this.toTransactionResponse(transaction);
+      return this.toOrderResponse(transaction);
     }
 
     const useCase = new BuyAssetUseCase(
@@ -291,27 +376,27 @@ export class PlayerApiService {
     );
     const result = await useCase.execute({
       playerId,
-      symbol: request.symbol,
-      quantity: request.quantity,
+      symbol: trade.symbol,
+      quantity: trade.quantity,
       correlationId: `api-${this.nextId}`,
     });
 
-    return this.toTransactionResponse(result.data);
+    return this.toOrderResponse(result.data);
   }
 
   async sellAsset(
     playerId: string,
     request: TradeAssetRequestDto,
-  ): Promise<TransactionResponseDto> {
-    this.assertTradeRequest(request);
+  ): Promise<OrderExecutionResponseDto> {
+    const trade = await this.parseTradeRequest(request);
     if (this.persistence) {
       const transaction = await this.persistence.operations.sell({
         playerId,
-        symbol: request.symbol,
-        quantity: request.quantity,
+        symbol: trade.symbol,
+        quantity: trade.quantity,
         correlationId: `api-${this.nextId}`,
       });
-      return this.toTransactionResponse(transaction);
+      return this.toOrderResponse(transaction);
     }
 
     const useCase = new SellAssetUseCase(
@@ -326,25 +411,30 @@ export class PlayerApiService {
     );
     const result = await useCase.execute({
       playerId,
-      symbol: request.symbol,
-      quantity: request.quantity,
+      symbol: trade.symbol,
+      quantity: trade.quantity,
       correlationId: `api-${this.nextId}`,
     });
 
-    return this.toTransactionResponse(result.data);
+    return this.toOrderResponse(result.data);
   }
 
   async collectIncome(
     playerId: string,
-    incomeEventId: string,
-  ): Promise<TransactionResponseDto> {
+    request: CollectIncomeRequestDto = {},
+  ): Promise<CollectIncomeResponseDto> {
+    const incomeEventId = await this.resolveIncomeEventId(
+      playerId,
+      request.incomeEventId,
+      request.assetId,
+    );
     if (this.persistence) {
       const transaction = await this.persistence.operations.collectIncome({
         playerId,
         incomeEventId,
         correlationId: `api-${this.nextId}`,
       });
-      return this.toTransactionResponse(transaction);
+      return this.toCollectIncomeResponse(transaction);
     }
 
     const useCase = new CollectIncomeUseCase(
@@ -362,7 +452,22 @@ export class PlayerApiService {
       correlationId: `api-${this.nextId}`,
     });
 
-    return this.toTransactionResponse(result.data);
+    return this.toCollectIncomeResponse(result.data);
+  }
+
+  async collectIncomeById(
+    playerId: string,
+    incomeEventId: string,
+  ): Promise<TransactionResponseDto> {
+    const result = await this.collectIncome(playerId, { incomeEventId });
+    return {
+      id: result.events[0]?.incomeEventId ?? result.createdAt,
+      type: "INCOME_COLLECTED",
+      symbol: result.events[0]?.symbol,
+      totalCents: result.collectedIncomeCents,
+      balanceAfterCents: result.walletBalanceAfterCents,
+      occurredAt: result.createdAt,
+    };
   }
 
   async getWallet(playerId: string): Promise<WalletSummaryResponseDto> {
@@ -404,6 +509,123 @@ export class PlayerApiService {
         averagePriceCents: position.averagePrice.cents,
         marketValueCents: position.marketValue.cents,
       })),
+    };
+  }
+
+  async getWalletResponse(playerId: string): Promise<WalletResponseDto> {
+    const wallet = this.persistence
+      ? await this.persistence.wallets.findByPlayerId(playerId)
+      : await this.wallets.findByPlayerId(playerId);
+    if (!wallet) {
+      throw new WalletNotFoundError(playerId);
+    }
+
+    const balanceCents = wallet.account.availableBalance.cents;
+    return {
+      playerId,
+      balanceCents,
+      currency: "FORTUNA",
+      formatted: formatFortuna(balanceCents),
+      balance: toMoneyResponse(balanceCents),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getPortfolio(playerId: string): Promise<PortfolioResponseDto> {
+    const wallet = this.persistence
+      ? await this.persistence.wallets.findByPlayerId(playerId)
+      : await this.wallets.findByPlayerId(playerId);
+    if (!wallet) {
+      throw new WalletNotFoundError(playerId);
+    }
+
+    const marketPrices = await (this.persistence?.prices ?? this.prices).getCurrentPrices(
+      wallet.positions.map((position) => position.asset),
+    );
+    const positions = wallet.positions.map((position) => {
+      const price = marketPrices.find((item) =>
+        item.asset.symbol.equals(position.asset.symbol),
+      );
+      const currentPriceCents = price?.unitPrice.cents ?? 0;
+      const marketValueCents = price
+        ? position.marketValue(price.unitPrice).cents
+        : 0;
+      const investedValueCents =
+        position.averagePriceCents.cents * position.totalQuantity.units;
+
+      return {
+        assetId: position.asset.id,
+        symbol: position.asset.symbol.value,
+        name: position.asset.name,
+        quantity: String(position.totalQuantity.units),
+        averagePriceCents: position.averagePriceCents.cents,
+        currentPriceCents,
+        investedValueCents,
+        marketValueCents,
+        unrealizedResultCents: marketValueCents - investedValueCents,
+        formattedMarketValue: formatFortuna(marketValueCents),
+      };
+    });
+    const totalInvestedCents = positions.reduce(
+      (total, position) => total + position.investedValueCents,
+      0,
+    );
+    const totalMarketValueCents = positions.reduce(
+      (total, position) => total + position.marketValueCents,
+      0,
+    );
+
+    return {
+      playerId,
+      positions,
+      totalInvestedCents,
+      totalMarketValueCents,
+      formattedTotalMarketValue: formatFortuna(totalMarketValueCents),
+    };
+  }
+
+  async getPortfolioAllocation(
+    playerId: string,
+  ): Promise<PortfolioAllocationResponseDto> {
+    const portfolio = await this.getPortfolio(playerId);
+    const total = portfolio.totalMarketValueCents;
+    const byAssetTypeValues = new Map<string, number>();
+
+    for (const position of portfolio.positions) {
+      const asset = await this.resolveMarketAsset(position.assetId);
+      const assetType = asset.assetClass;
+      byAssetTypeValues.set(
+        assetType,
+        (byAssetTypeValues.get(assetType) ?? 0) + position.marketValueCents,
+      );
+    }
+
+    const toBasisPoints = (value: number) =>
+      total === 0 ? 0 : Math.floor((value * 10_000) / total);
+
+    return {
+      playerId,
+      byAssetType: [...byAssetTypeValues.entries()].map(
+        ([assetType, valueCents]) => {
+          const basisPoints = toBasisPoints(valueCents);
+          return {
+            assetType,
+            valueCents,
+            basisPoints,
+            percentageFormatted: formatBasisPoints(basisPoints),
+          };
+        },
+      ),
+      byAsset: portfolio.positions.map((position) => {
+        const basisPoints = toBasisPoints(position.marketValueCents);
+        return {
+          assetId: position.assetId,
+          symbol: position.symbol,
+          valueCents: position.marketValueCents,
+          basisPoints,
+          percentageFormatted: formatBasisPoints(basisPoints),
+        };
+      }),
     };
   }
 
@@ -465,7 +687,31 @@ export class PlayerApiService {
     }));
   }
 
-  async getTransactions(playerId: string): Promise<TransactionResponseDto[]> {
+  async getTransactions(
+    playerId: string,
+    filter: { type?: string; assetId?: string; limit?: string; offset?: string } = {},
+  ): Promise<TransactionsListResponseDto> {
+    let items = await this.getTransactionItems(playerId);
+    if (filter.type) {
+      items = items.filter((transaction) => transaction.type === filter.type);
+    }
+    if (filter.assetId) {
+      const asset = await this.resolveMarketAsset(filter.assetId);
+      items = items.filter((transaction) => transaction.symbol === asset.symbol);
+    }
+    const offset = filter.offset ? this.parseNonNegativeInteger(filter.offset, "offset") : 0;
+    const limit = filter.limit ? this.parsePositiveInteger(filter.limit, "limit") : items.length;
+    const paginated = items.slice(offset, offset + limit);
+    return {
+      playerId,
+      items: paginated,
+      total: items.length,
+    };
+  }
+
+  private async getTransactionItems(
+    playerId: string,
+  ): Promise<TransactionResponseDto[]> {
     if (this.persistence) {
       const transactions = await new GetTransactionHistoryUseCase(
         this.persistence.transactions,
@@ -491,13 +737,13 @@ export class PlayerApiService {
     return assets.map((asset) => this.toAssetResponse(asset));
   }
 
-  async getAssetDetails(symbol: string): Promise<AssetDetailsResponseDto> {
-    this.assertString(symbol, "symbol");
+  async getAssetDetails(assetId: string): Promise<AssetDetailsResponseDto> {
+    const assetReference = await this.resolveMarketAsset(assetId);
     const details = await new GetAssetDetailsUseCase(this.marketData).execute(
-      symbol,
+      assetReference.symbol,
     );
     if (!details) {
-      throw new AssetNotFoundError(symbol);
+      throw new AssetNotFoundError(assetId);
     }
 
     return {
@@ -534,6 +780,37 @@ export class PlayerApiService {
     }));
   }
 
+  async getAssetHistoryResponse(
+    assetId: string,
+    from?: string,
+    to?: string,
+  ): Promise<AssetHistoryResponseDto> {
+    const asset = await this.resolveMarketAsset(assetId);
+    const history = await this.getAssetHistory(asset.symbol, from, to);
+    return {
+      assetId: asset.id,
+      symbol: asset.symbol,
+      history: history.map((point) => ({
+        date: point.date,
+        priceCents: point.closePriceCents,
+        formatted: formatFortuna(point.closePriceCents),
+      })),
+    };
+  }
+
+  async getAssetPrice(assetId: string): Promise<AssetPriceResponseDto> {
+    const asset = await this.resolveMarketAsset(assetId);
+    const quote = await this.getQuote(asset.symbol);
+    return {
+      assetId: asset.id,
+      symbol: asset.symbol,
+      priceCents: quote.priceCents,
+      currency: "FORTUNA",
+      formatted: formatFortuna(quote.priceCents),
+      updatedAt: quote.asOf,
+    };
+  }
+
   async getExpectedYield(symbol: string): Promise<ExpectedYieldResponseDto> {
     this.assertString(symbol, "symbol");
     const expectedYield = await new GetExpectedYieldUseCase(
@@ -549,6 +826,25 @@ export class PlayerApiService {
     };
   }
 
+  async getAssetYield(assetId: string): Promise<AssetYieldResponseDto> {
+    const asset = await this.resolveMarketAsset(assetId);
+    const expectedYield = await this.getExpectedYield(asset.symbol);
+    const lastYieldCents = expectedYield.amountPerUnitCents ?? 0;
+    const hasYield =
+      expectedYield.yieldType !== "NONE" &&
+      (lastYieldCents > 0 || (expectedYield.rateBps ?? 0) > 0);
+
+    return {
+      assetId: asset.id,
+      symbol: asset.symbol,
+      hasYield,
+      yieldType: hasYield ? expectedYield.yieldType : null,
+      lastYieldCents,
+      formattedLastYield: formatFortuna(lastYieldCents),
+      nextPaymentDate: expectedYield.nextPaymentDate?.slice(0, 10) ?? null,
+    };
+  }
+
   async refreshMarketPrices(
     request: RefreshMarketPricesRequestDto = {},
   ): Promise<AssetResponseDto[]> {
@@ -560,6 +856,23 @@ export class PlayerApiService {
     ).execute({ asOf });
 
     return assets.map((asset) => this.toAssetResponse(asset));
+  }
+
+  async refreshMockPrices(
+    request: RefreshMarketPricesRequestDto = {},
+  ): Promise<RefreshMarketPricesResponseDto> {
+    const assets = await this.refreshMarketPrices(request);
+    return {
+      updatedAssets: assets.map((asset) => ({
+        assetId: asset.id,
+        symbol: asset.symbol,
+        previousPriceCents: asset.previousPriceCents ?? asset.currentPriceCents,
+        currentPriceCents: asset.currentPriceCents,
+        variationBasisPoints: asset.variationBps,
+        updatedAt: asset.updatedAt,
+      })),
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   async getMarketProviderStatus(): Promise<MarketProviderStatusResponseDto> {
@@ -597,6 +910,8 @@ export class PlayerApiService {
       name: asset.name,
       assetClass: asset.assetClass,
       currentPriceCents: asset.currentPriceCents,
+      currentPrice: toMoneyResponse(asset.currentPriceCents),
+      formattedCurrentPrice: formatFortuna(asset.currentPriceCents),
       previousPriceCents: asset.previousPriceCents,
       variationBps: asset.variationBps,
       riskLevel: asset.riskLevel,
@@ -625,12 +940,130 @@ export class PlayerApiService {
     };
   }
 
-  private assertTradeRequest(request: TradeAssetRequestDto): void {
-    this.assertString(request.symbol, "symbol");
-    this.assertSafeInteger(request.quantity, "quantity");
-    if (request.quantity <= 0) {
-      throw new BadRequestException("quantity must be positive.");
+  private toOrderResponse(transaction: Transaction): OrderExecutionResponseDto {
+    return {
+      orderId: transaction.id,
+      type: transaction.type,
+      playerId: transaction.playerId,
+      assetId: transaction.asset?.id ?? "",
+      symbol: transaction.asset?.symbol.value ?? "",
+      quantity: String(transaction.quantity?.units ?? 0),
+      unitPriceCents: transaction.unitPrice?.cents ?? 0,
+      totalCents: transaction.total.cents,
+      walletBalanceAfterCents: transaction.balanceAfter.cents,
+      createdAt: transaction.occurredAt.toISOString(),
+    };
+  }
+
+  private toCollectIncomeResponse(
+    transaction: Transaction,
+  ): CollectIncomeResponseDto {
+    const incomeEventId = transaction.metadata?.incomeEventId ?? "";
+    return {
+      playerId: transaction.playerId,
+      collectedIncomeCents: transaction.total.cents,
+      formattedCollectedIncome: formatFortuna(transaction.total.cents),
+      events: [
+        {
+          incomeEventId,
+          assetId: transaction.asset?.id ?? "",
+          symbol: transaction.asset?.symbol.value ?? "",
+          amountCents: transaction.total.cents,
+        },
+      ],
+      walletBalanceAfterCents: transaction.balanceAfter.cents,
+      createdAt: transaction.occurredAt.toISOString(),
+    };
+  }
+
+  private async parseTradeRequest(
+    request: TradeAssetRequestDto,
+  ): Promise<{ symbol: string; quantity: number }> {
+    const identifier = request.assetId ?? request.symbol;
+    this.assertString(identifier, "assetId");
+    const asset = await this.resolveMarketAsset(identifier);
+    const quantity =
+      typeof request.quantity === "number"
+        ? request.quantity
+        : this.parsePositiveInteger(request.quantity, "quantity");
+    return { symbol: asset.symbol, quantity };
+  }
+
+  private async resolveMarketAsset(identifier: string): Promise<MarketAsset> {
+    this.assertString(identifier, "assetId");
+    const assets = await this.marketData.listAssets();
+    const normalized = identifier.trim().toUpperCase();
+    const found = assets.find(
+      (asset) => asset.id === identifier || asset.symbol === normalized,
+    );
+    if (found) {
+      return found;
     }
+
+    throw new AssetNotFoundError(identifier);
+  }
+
+  private async resolveIncomeEventId(
+    playerId: string,
+    incomeEventId?: string,
+    assetId?: string,
+  ): Promise<string> {
+    if (incomeEventId) {
+      return incomeEventId;
+    }
+
+    const events = this.persistence
+      ? await this.persistence.incomeEvents.listAvailableByPlayerId(playerId)
+      : await this.incomeEvents.listAvailableByPlayerId(playerId);
+    const filteredEvents = assetId
+      ? events.filter((event) => event.asset.id === assetId)
+      : events;
+    const [event] = filteredEvents;
+    if (!event) {
+      throw new OperationRejectedError(
+        "Nao ha rendimentos disponiveis para coleta.",
+        "NO_INCOME_AVAILABLE",
+      );
+    }
+
+    return event.id;
+  }
+
+  private parsePositiveInteger(value: unknown, fieldName: string): number {
+    if (typeof value !== "string" && typeof value !== "number") {
+      throw new BadRequestException(`${fieldName} must be a positive integer.`);
+    }
+    const parsed =
+      typeof value === "number" ? value : Number.parseInt(value.trim(), 10);
+    if (
+      !Number.isSafeInteger(parsed) ||
+      parsed <= 0 ||
+      String(value).trim() !== String(parsed)
+    ) {
+      throw new BadRequestException(`${fieldName} must be a positive integer.`);
+    }
+
+    return parsed;
+  }
+
+  private parseNonNegativeInteger(value: unknown, fieldName: string): number {
+    if (typeof value !== "string" && typeof value !== "number") {
+      throw new BadRequestException(
+        `${fieldName} must be a non-negative integer.`,
+      );
+    }
+    const parsed =
+      typeof value === "number" ? value : Number.parseInt(value.trim(), 10);
+    if (
+      !Number.isSafeInteger(parsed) ||
+      parsed < 0 ||
+      String(value).trim() !== String(parsed)
+    ) {
+      throw new BadRequestException(
+        `${fieldName} must be a non-negative integer.`,
+      );
+    }
+    return parsed;
   }
 
   private assertString(

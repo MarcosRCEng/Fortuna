@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+  Query,
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiNotFoundResponse,
@@ -14,13 +23,15 @@ import {
   ExpectedYieldResponseDto,
   MarketProviderStatusResponseDto,
   MarketQuoteResponseDto,
+  RefreshMarketPricesResponseDto,
   RefreshMarketPricesRequestDto,
 } from "../player/player.dto.js";
 
 @ApiTags("market")
 @Controller(["api/v1/market", "market"])
 export class MarketController {
-  constructor(private readonly api: PlayerApiService) {}
+  @Inject(PlayerApiService)
+  private readonly api!: PlayerApiService;
 
   @Get("quotes/:symbol")
   @ApiOperation({
@@ -78,6 +89,7 @@ export class MarketController {
   }
 
   @Post("refresh")
+  @HttpCode(200)
   @ApiOperation({
     summary: "Recalcular precos mockados com data simulada.",
     description:
@@ -89,5 +101,20 @@ export class MarketController {
     @Body() request: RefreshMarketPricesRequestDto,
   ): Promise<AssetResponseDto[]> {
     return this.api.refreshMarketPrices(request);
+  }
+
+  @Post("refresh-mock-prices")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Atualizar precos mockados do mercado.",
+    description:
+      "Atualiza cotacoes simuladas e retorna resumo em centavos inteiros.",
+  })
+  @ApiOkResponse({ type: RefreshMarketPricesResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  refreshMockPrices(
+    @Body() request: RefreshMarketPricesRequestDto = {},
+  ): Promise<RefreshMarketPricesResponseDto> {
+    return this.api.refreshMockPrices(request);
   }
 }

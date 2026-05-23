@@ -90,11 +90,36 @@ pnpm test:integration
 pnpm test:coverage
 ```
 
+The Sprint 15 HTTP flow is covered by `apps/api/test/financial-api.e2e.test.ts`
+and runs with the API test suite.
+
 ## Build
 
 ```bash
 pnpm build
 ```
+
+## MVP Financial API
+
+Swagger is available at `http://localhost:3000/docs`. The minimum financial
+cycle is exposed through:
+
+- `POST /players`, `GET /players/:playerId`, `GET /players/:playerId/summary`
+- `GET /assets`, `GET /assets/:assetId`, `GET /assets/:assetId/history`,
+  `GET /assets/:assetId/price`, `GET /assets/:assetId/yield`
+- `GET /players/:playerId/wallet`, `GET /players/:playerId/portfolio`,
+  `GET /players/:playerId/portfolio/allocation`
+- `POST /players/:playerId/orders/buy`,
+  `POST /players/:playerId/orders/sell`
+- `GET /players/:playerId/transactions`
+- `POST /players/:playerId/income/collect`
+- `POST /market/refresh-mock-prices`
+
+Money is returned as integer cent fields plus formatted display helpers, for
+example `{ "amountCents": 123456, "currency": "FORTUNA", "formatted":
+"F$ 1.234,56" }`. Bruno requests for the flow live in
+`api-tests/bruno/fortuna`, organized by Players, Assets, Wallet, Portfolio,
+Orders, Income, Transactions, and Market.
 
 ## Current Status
 

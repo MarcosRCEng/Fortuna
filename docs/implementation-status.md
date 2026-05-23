@@ -36,10 +36,13 @@ Durante a auditoria foram corrigidos o contrato HTTP de erros financeiros, a doc
 
 ```json
 {
-  "statusCode": 400,
-  "code": "INSUFFICIENT_BALANCE",
-  "message": "Insufficient balance to complete the operation.",
+  "statusCode": 422,
+  "error": "INSUFFICIENT_FUNDS",
+  "code": "INSUFFICIENT_FUNDS",
+  "message": "Saldo insuficiente para realizar a compra.",
   "details": {
+    "requiredCents": 100000,
+    "availableCents": 50000,
     "requiredAmountCents": 100000,
     "availableAmountCents": 50000
   },
@@ -153,3 +156,53 @@ Swagger está disponível em `/docs`. Os endpoints possuem tags, summaries, DTOs
 - Definir ambiente de teste Prisma automatizado para remover skips de integração.
 - Adicionar exemplos completos de request/response no Swagger para operações financeiras principais.
 - Manter a regra de centavos inteiros como gate obrigatório antes de integrar qualquer provider real de mercado.
+## Sprint 15 - API financeira minima do MVP
+
+Status: implementada.
+
+Endpoints consolidados:
+
+- `POST /players`
+- `GET /players/:playerId`
+- `GET /players/:playerId/summary`
+- `GET /assets`
+- `GET /assets/:assetId`
+- `GET /assets/:assetId/history`
+- `GET /assets/:assetId/price`
+- `GET /assets/:assetId/yield`
+- `GET /players/:playerId/wallet`
+- `GET /players/:playerId/portfolio`
+- `GET /players/:playerId/portfolio/allocation`
+- `POST /players/:playerId/orders/buy`
+- `POST /players/:playerId/orders/sell`
+- `GET /players/:playerId/transactions`
+- `POST /players/:playerId/income/collect`
+- `POST /market/refresh-mock-prices`
+
+Contratos financeiros:
+
+- A API retorna dinheiro em centavos inteiros e inclui helpers de exibicao `formatted` em `FORTUNA`.
+- Compra e venda aceitam `assetId` e `quantity` como string inteira positiva.
+- Percentuais de alocacao usam `basisPoints` e `percentageFormatted`; dinheiro continua em centavos.
+- Erros financeiros seguem `{ statusCode, error, code, message, details, timestamp, path }`.
+- `INSUFFICIENT_FUNDS`, `INSUFFICIENT_POSITION`, `NO_INCOME_AVAILABLE` e `INCOME_ALREADY_COLLECTED` retornam HTTP 422.
+- `PLAYER_NOT_FOUND` e `ASSET_NOT_FOUND` retornam HTTP 404.
+
+Implementacao:
+
+- Controllers continuam finos e chamam `PlayerApiService`, que orquestra os use cases existentes.
+- Regras criticas permanecem em dominio/use cases (`BuyAssetUseCase`, `SellAssetUseCase`, `CollectIncomeUseCase`) ou em `PrismaFinancialOperationsService` quando `FORTUNA_PERSISTENCE=prisma`.
+- Adapters em memoria permanecem o padrao para testes e desenvolvimento sem banco.
+- Operacoes Prisma de criar jogador, comprar, vender e coletar rendimento continuam transacionais.
+- Swagger em `/docs` foi atualizado com DTOs para respostas de wallet, portfolio, allocation, ordens, renda, transactions, precos e refresh mockado.
+- Colecao Bruno foi expandida em `api-tests/bruno/fortuna` com pastas Players, Assets, Wallet, Portfolio, Orders, Income, Transactions e Market.
+- Teste HTTP E2E adicionado em `apps/api/test/financial-api.e2e.test.ts`, cobrindo fluxo feliz e erros obrigatorios.
+
+Validacao manual:
+
+```bash
+pnpm dev:api
+```
+
+Abra `http://localhost:3000/docs` para Swagger ou execute a colecao Bruno
+`api-tests/bruno/fortuna` usando o environment `Local`.

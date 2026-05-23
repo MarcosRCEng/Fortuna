@@ -1,0 +1,17 @@
+meta {
+  name: 02 Buy Without Funds
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/players/{{playerId}}/orders/buy
+  body: json
+}
+
+body:json {
+  {
+    "assetId": "{{assetId}}",
+    "quantity": "999999"
+  }
+}

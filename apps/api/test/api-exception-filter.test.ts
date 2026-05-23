@@ -55,12 +55,15 @@ describe("ApiExceptionFilter", () => {
       context.host as never,
     );
 
-    expect(context.statusCode).toBe(HttpStatus.BAD_REQUEST);
+    expect(context.statusCode).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
     expect(context.body).toMatchObject({
-      statusCode: HttpStatus.BAD_REQUEST,
-      code: "INSUFFICIENT_BALANCE",
-      message: "Insufficient balance to complete the operation.",
+      statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+      error: "INSUFFICIENT_FUNDS",
+      code: "INSUFFICIENT_FUNDS",
+      message: "Saldo insuficiente para realizar a compra.",
       details: {
+        requiredCents: 100_000,
+        availableCents: 50_000,
         requiredAmountCents: 100_000,
         availableAmountCents: 50_000,
       },

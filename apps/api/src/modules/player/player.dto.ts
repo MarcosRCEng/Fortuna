@@ -1,10 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
+export class MoneyResponseDto {
+  @ApiProperty({ example: 123456 })
+  amountCents!: number;
+
+  @ApiProperty({ example: "FORTUNA" })
+  currency!: string;
+
+  @ApiProperty({ example: "F$ 1.234,56" })
+  formatted!: string;
+}
+
 export class ApiErrorDto {
   @ApiProperty({ example: 400 })
   statusCode!: number;
 
-  @ApiProperty({ example: "INSUFFICIENT_BALANCE" })
+  @ApiProperty({ example: "INSUFFICIENT_FUNDS" })
+  error!: string;
+
+  @ApiProperty({ example: "INSUFFICIENT_FUNDS" })
   code!: string;
 
   @ApiProperty({
@@ -53,22 +67,28 @@ export class PlayerResponseDto {
   @ApiPropertyOptional({ example: "Investidor Iniciante" })
   nickname?: string;
 
-  @ApiProperty({
-    example: 20000,
-    description: "Saldo inicial em centavos inteiros.",
-  })
-  initialBalanceCents!: number;
+  @ApiProperty({ type: MoneyResponseDto })
+  wallet!: MoneyResponseDto;
 
   @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
   createdAt!: string;
 }
 
 export class TradeAssetRequestDto {
-  @ApiProperty({ example: "FIISF001" })
-  symbol!: string;
+  @ApiProperty({
+    example: "asset-fiisf001",
+    description: "ID do ativo. Simbolos legados tambem sao aceitos no MVP.",
+  })
+  assetId!: string;
 
-  @ApiProperty({ example: 5, description: "Quantidade inteira de cotas." })
-  quantity!: number;
+  @ApiPropertyOptional({ example: "FIISF001" })
+  symbol?: string;
+
+  @ApiProperty({
+    example: "5",
+    description: "Quantidade inteira positiva serializada como string.",
+  })
+  quantity!: string;
 }
 
 export class TransactionResponseDto {
@@ -145,6 +165,217 @@ export class WalletSummaryResponseDto {
   }>;
 }
 
+export class WalletResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ example: 20000 })
+  balanceCents!: number;
+
+  @ApiProperty({ example: "FORTUNA" })
+  currency!: string;
+
+  @ApiProperty({ example: "F$ 200,00" })
+  formatted!: string;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  balance!: MoneyResponseDto;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  updatedAt!: string;
+}
+
+export class PortfolioPositionResponseDto {
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: "FII Shopping Fortuna" })
+  name!: string;
+
+  @ApiProperty({ example: "5" })
+  quantity!: string;
+
+  @ApiProperty({ example: 10000 })
+  averagePriceCents!: number;
+
+  @ApiProperty({ example: 10000 })
+  currentPriceCents!: number;
+
+  @ApiProperty({ example: 50000 })
+  investedValueCents!: number;
+
+  @ApiProperty({ example: 50000 })
+  marketValueCents!: number;
+
+  @ApiProperty({ example: 0 })
+  unrealizedResultCents!: number;
+
+  @ApiProperty({ example: "F$ 500,00" })
+  formattedMarketValue!: string;
+}
+
+export class PortfolioResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ type: PortfolioPositionResponseDto, isArray: true })
+  positions!: PortfolioPositionResponseDto[];
+
+  @ApiProperty({ example: 50000 })
+  totalInvestedCents!: number;
+
+  @ApiProperty({ example: 50000 })
+  totalMarketValueCents!: number;
+
+  @ApiProperty({ example: "F$ 500,00" })
+  formattedTotalMarketValue!: string;
+}
+
+export class AllocationItemResponseDto {
+  @ApiProperty({ example: "FII", required: false })
+  assetType?: string;
+
+  @ApiProperty({ example: "asset-fiisf001", required: false })
+  assetId?: string;
+
+  @ApiProperty({ example: "FIISF001", required: false })
+  symbol?: string;
+
+  @ApiProperty({ example: 50000 })
+  valueCents!: number;
+
+  @ApiProperty({ example: 10000 })
+  basisPoints!: number;
+
+  @ApiProperty({ example: "100,00%" })
+  percentageFormatted!: string;
+}
+
+export class PortfolioAllocationResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ type: AllocationItemResponseDto, isArray: true })
+  byAssetType!: AllocationItemResponseDto[];
+
+  @ApiProperty({ type: AllocationItemResponseDto, isArray: true })
+  byAsset!: AllocationItemResponseDto[];
+}
+
+export class PlayerSummaryResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  walletBalance!: MoneyResponseDto;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  totalInvested!: MoneyResponseDto;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  portfolioMarketValue!: MoneyResponseDto;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  totalEquity!: MoneyResponseDto;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  totalIncomeCollected!: MoneyResponseDto;
+
+  @ApiProperty({ example: 3 })
+  totalTransactions!: number;
+
+  @ApiProperty({ type: PortfolioAllocationResponseDto })
+  allocation!: PortfolioAllocationResponseDto;
+}
+
+export class OrderExecutionResponseDto {
+  @ApiProperty({ example: "tx-1" })
+  orderId!: string;
+
+  @ApiProperty({ example: "BUY" })
+  type!: string;
+
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: "5" })
+  quantity!: string;
+
+  @ApiProperty({ example: 10000 })
+  unitPriceCents!: number;
+
+  @ApiProperty({ example: 50000 })
+  totalCents!: number;
+
+  @ApiProperty({ example: 150000 })
+  walletBalanceAfterCents!: number;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  createdAt!: string;
+}
+
+export class TransactionsListResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ type: TransactionResponseDto, isArray: true })
+  items!: TransactionResponseDto[];
+
+  @ApiProperty({ example: 1 })
+  total!: number;
+}
+
+export class CollectIncomeRequestDto {
+  @ApiPropertyOptional({ example: "asset-fiisf001" })
+  assetId?: string;
+
+  @ApiPropertyOptional({ example: "income-001" })
+  incomeEventId?: string;
+}
+
+export class IncomeEventCollectedResponseDto {
+  @ApiProperty({ example: "income-001" })
+  incomeEventId!: string;
+
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: 250 })
+  amountCents!: number;
+}
+
+export class CollectIncomeResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ example: 250 })
+  collectedIncomeCents!: number;
+
+  @ApiProperty({ example: "F$ 2,50" })
+  formattedCollectedIncome!: string;
+
+  @ApiProperty({ type: IncomeEventCollectedResponseDto, isArray: true })
+  events!: IncomeEventCollectedResponseDto[];
+
+  @ApiProperty({ example: 20250 })
+  walletBalanceAfterCents!: number;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  createdAt!: string;
+}
+
 export class AssetResponseDto {
   @ApiProperty({ example: "asset-tsf001" })
   id!: string;
@@ -163,6 +394,12 @@ export class AssetResponseDto {
     description: "Preco atual em centavos inteiros.",
   })
   currentPriceCents!: number;
+
+  @ApiProperty({ type: MoneyResponseDto })
+  currentPrice!: MoneyResponseDto;
+
+  @ApiProperty({ example: "F$ 100,00" })
+  formattedCurrentPrice!: string;
 
   @ApiProperty({
     example: 9998,
@@ -287,6 +524,62 @@ export class ExpectedYieldResponseDto {
   nextPaymentDate?: string;
 }
 
+export class AssetPriceResponseDto {
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: 10000 })
+  priceCents!: number;
+
+  @ApiProperty({ example: "FORTUNA" })
+  currency!: string;
+
+  @ApiProperty({ example: "F$ 100,00" })
+  formatted!: string;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  updatedAt!: string;
+}
+
+export class AssetYieldResponseDto {
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: true })
+  hasYield!: boolean;
+
+  @ApiProperty({ example: "MONTHLY_INCOME", nullable: true })
+  yieldType!: string | null;
+
+  @ApiProperty({ example: 70 })
+  lastYieldCents!: number;
+
+  @ApiProperty({ example: "F$ 0,70" })
+  formattedLastYield!: string;
+
+  @ApiProperty({ example: "2026-06-15", nullable: true })
+  nextPaymentDate!: string | null;
+}
+
+export class AssetHistoryResponseDto {
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({
+    example: [{ date: "2026-05-23", priceCents: 10000, formatted: "F$ 100,00" }],
+  })
+  history!: Array<{ date: string; priceCents: number; formatted: string }>;
+}
+
 export class AssetHistoryPointResponseDto {
   @ApiProperty({ example: "FIISF001" })
   symbol!: string;
@@ -350,6 +643,34 @@ export class RefreshMarketPricesRequestDto {
       "Data simulada opcional. Quando omitida, o provider usa o clock configurado.",
   })
   asOf?: string;
+}
+
+export class RefreshedAssetResponseDto {
+  @ApiProperty({ example: "asset-fiisf001" })
+  assetId!: string;
+
+  @ApiProperty({ example: "FIISF001" })
+  symbol!: string;
+
+  @ApiProperty({ example: 9980 })
+  previousPriceCents!: number;
+
+  @ApiProperty({ example: 10000 })
+  currentPriceCents!: number;
+
+  @ApiProperty({ example: 20 })
+  variationBasisPoints!: number;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  updatedAt!: string;
+}
+
+export class RefreshMarketPricesResponseDto {
+  @ApiProperty({ type: RefreshedAssetResponseDto, isArray: true })
+  updatedAssets!: RefreshedAssetResponseDto[];
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  updatedAt!: string;
 }
 
 export class MentorTipResponseDto {
