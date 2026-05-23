@@ -27,6 +27,8 @@ import {
   SuccessState,
 } from "../components/feedback/States.js";
 import { AppLayout, type ScreenKey } from "../components/layout/AppLayout.js";
+import { FortunaCity } from "../features/city/components/FortunaCity.js";
+import { createCitySnapshotFromOverview } from "../features/city/domain/citySnapshotAdapter.js";
 import {
   calculateBalanceAfterBuy,
   calculateBalanceAfterSell,
@@ -201,7 +203,7 @@ export function App() {
         <MentorPanel tips={overview.mentorTips} />
       ) : null}
       {activeScreen === "city" ? (
-        <CitySummaryPanel city={overview.city} />
+        <FortunaCity snapshot={createCitySnapshotFromOverview(overview)} />
       ) : null}
 
       {confirming && selectedAsset ? (
