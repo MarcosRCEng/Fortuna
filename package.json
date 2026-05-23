@@ -9,15 +9,18 @@
     "dev": "corepack pnpm --parallel --filter @fortuna/api --filter @fortuna/web dev",
     "dev:api": "corepack pnpm --filter @fortuna/api dev",
     "dev:web": "corepack pnpm --filter @fortuna/web dev",
+    "db:generate": "corepack pnpm --filter @fortuna/infrastructure db:generate",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml,css}\"",
     "lint": "corepack pnpm -r lint",
+    "postinstall": "corepack pnpm --filter @fortuna/infrastructure db:generate",
     "test": "corepack pnpm -r test",
     "test:unit": "corepack pnpm --filter @fortuna/domain test && corepack pnpm --filter @fortuna/application test",
     "test:integration": "corepack pnpm --filter @fortuna/api test",
-    "test:coverage": "corepack pnpm -r test -- --coverage"
+    "test:coverage": "corepack pnpm -r test --coverage"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
+    "@vitest/coverage-v8": "3.2.4",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"

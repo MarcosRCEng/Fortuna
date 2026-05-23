@@ -1,19 +1,28 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class ApiErrorDto {
+  @ApiProperty({ example: 400 })
+  statusCode!: number;
+
+  @ApiProperty({ example: "INSUFFICIENT_BALANCE" })
+  code!: string;
+
   @ApiProperty({
-    example: {
-      type: "business_rule_violation",
-      code: "INSUFFICIENT_BALANCE",
-      message: "Insufficient balance to complete the operation.",
-    },
+    example: "Insufficient balance to complete the operation.",
   })
-  error!: {
-    type: string;
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
+  message!: string;
+
+  @ApiProperty({
+    required: false,
+    example: { requiredAmountCents: 100000, availableAmountCents: 50000 },
+  })
+  details?: Record<string, unknown>;
+
+  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
+  timestamp!: string;
+
+  @ApiProperty({ example: "/api/v1/players/player-1/buy" })
+  path!: string;
 }
 
 export class CreatePlayerRequestDto {
@@ -44,7 +53,10 @@ export class PlayerResponseDto {
   @ApiPropertyOptional({ example: "Investidor Iniciante" })
   nickname?: string;
 
-  @ApiProperty({ example: 20000 })
+  @ApiProperty({
+    example: 20000,
+    description: "Saldo inicial em centavos inteiros.",
+  })
   initialBalanceCents!: number;
 
   @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
@@ -72,13 +84,19 @@ export class TransactionResponseDto {
   @ApiPropertyOptional({ example: 5 })
   quantity?: number;
 
-  @ApiPropertyOptional({ example: 1234 })
+  @ApiPropertyOptional({
+    example: 1234,
+    description: "Preco unitario em centavos inteiros.",
+  })
   unitPriceCents?: number;
 
-  @ApiProperty({ example: 6170 })
+  @ApiProperty({ example: 6170, description: "Total em centavos inteiros." })
   totalCents!: number;
 
-  @ApiProperty({ example: 13830 })
+  @ApiProperty({
+    example: 13830,
+    description: "Saldo apos a operacao em centavos inteiros.",
+  })
   balanceAfterCents!: number;
 
   @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
@@ -86,13 +104,22 @@ export class TransactionResponseDto {
 }
 
 export class WalletSummaryResponseDto {
-  @ApiProperty({ example: 13830 })
+  @ApiProperty({
+    example: 13830,
+    description: "Saldo disponivel em centavos inteiros.",
+  })
   availableBalanceCents!: number;
 
-  @ApiProperty({ example: 6170 })
+  @ApiProperty({
+    example: 6170,
+    description: "Valor investido em centavos inteiros.",
+  })
   investedValueCents!: number;
 
-  @ApiProperty({ example: 20000 })
+  @ApiProperty({
+    example: 20000,
+    description: "Patrimonio total em centavos inteiros.",
+  })
   totalEquityCents!: number;
 
   @ApiProperty({ example: 1 })
@@ -131,10 +158,17 @@ export class AssetResponseDto {
   @ApiProperty({ example: "FIXED_INCOME" })
   assetClass!: string;
 
-  @ApiProperty({ example: 10000 })
+  @ApiProperty({
+    example: 10000,
+    description: "Preco atual em centavos inteiros.",
+  })
   currentPriceCents!: number;
 
-  @ApiProperty({ example: 9998, required: false })
+  @ApiProperty({
+    example: 9998,
+    required: false,
+    description: "Preco anterior em centavos inteiros.",
+  })
   previousPriceCents?: number;
 
   @ApiProperty({ example: 2 })
@@ -171,7 +205,10 @@ export class MarketQuoteResponseDto {
   @ApiProperty({ example: "TSF001" })
   symbol!: string;
 
-  @ApiProperty({ example: 1234 })
+  @ApiProperty({
+    example: 1234,
+    description: "Cotacao em centavos inteiros.",
+  })
   priceCents!: number;
 
   @ApiProperty({ example: "2026-05-21T12:00:00.000Z" })
@@ -230,7 +267,11 @@ export class ExpectedYieldResponseDto {
   @ApiProperty({ example: "DAILY" })
   periodicity!: string;
 
-  @ApiProperty({ example: 70, required: false })
+  @ApiProperty({
+    example: 70,
+    required: false,
+    description: "Rendimento por unidade em centavos inteiros.",
+  })
   amountPerUnitCents?: number;
 
   @ApiProperty({ example: 8, required: false })
@@ -253,16 +294,28 @@ export class AssetHistoryPointResponseDto {
   @ApiProperty({ example: "2026-05-21" })
   date!: string;
 
-  @ApiProperty({ example: 10000 })
+  @ApiProperty({
+    example: 10000,
+    description: "Preco de abertura em centavos inteiros.",
+  })
   openPriceCents!: number;
 
-  @ApiProperty({ example: 10045 })
+  @ApiProperty({
+    example: 10045,
+    description: "Preco de fechamento em centavos inteiros.",
+  })
   closePriceCents!: number;
 
-  @ApiProperty({ example: 9980 })
+  @ApiProperty({
+    example: 9980,
+    description: "Preco minimo em centavos inteiros.",
+  })
   minPriceCents!: number;
 
-  @ApiProperty({ example: 10080 })
+  @ApiProperty({
+    example: 10080,
+    description: "Preco maximo em centavos inteiros.",
+  })
   maxPriceCents!: number;
 
   @ApiProperty({ example: 15000, required: false })

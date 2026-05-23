@@ -2,10 +2,10 @@ import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
-  ApiUnprocessableEntityResponse,
 } from "@nestjs/swagger";
 import { PlayerApiService } from "./player-api.service.js";
 import {
@@ -35,8 +35,11 @@ export class PlayerController {
   @Get(":playerId/wallet")
   @ApiOperation({
     summary: "Consultar saldo, patrimonio e posicoes da carteira.",
+    description:
+      "Retorna apenas valores monetarios em centavos inteiros. 1 moeda Fortuna = R$ 0,01.",
   })
   @ApiOkResponse({ type: WalletSummaryResponseDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   getWallet(
     @Param("playerId") playerId: string,
   ): Promise<WalletSummaryResponseDto> {
@@ -46,10 +49,12 @@ export class PlayerController {
   @Post(":playerId/buy")
   @ApiOperation({
     summary: "Comprar ativo usando apenas saldo disponivel em centavos.",
+    description:
+      "Executa compra simulada sem alavancagem. Compra sem saldo retorna erro financeiro padronizado.",
   })
   @ApiOkResponse({ type: TransactionResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
-  @ApiUnprocessableEntityResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   buyAsset(
     @Param("playerId") playerId: string,
     @Body() request: TradeAssetRequestDto,
@@ -60,10 +65,12 @@ export class PlayerController {
   @Post(":playerId/sell")
   @ApiOperation({
     summary: "Vender ativo sem permitir venda acima da posicao.",
+    description:
+      "Executa venda simulada somente quando a carteira possui quantidade inteira suficiente.",
   })
   @ApiOkResponse({ type: TransactionResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
-  @ApiUnprocessableEntityResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   sellAsset(
     @Param("playerId") playerId: string,
     @Body() request: TradeAssetRequestDto,
@@ -72,9 +79,14 @@ export class PlayerController {
   }
 
   @Post(":playerId/incomes/:incomeEventId/collect")
-  @ApiOperation({ summary: "Colher rendimento mockado uma unica vez." })
+  @ApiOperation({
+    summary: "Colher rendimento mockado uma unica vez.",
+    description:
+      "Credita rendimento em centavos inteiros e cria uma transacao quando a coleta e valida.",
+  })
   @ApiOkResponse({ type: TransactionResponseDto })
-  @ApiUnprocessableEntityResponse({ type: ApiErrorDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   collectIncome(
     @Param("playerId") playerId: string,
     @Param("incomeEventId") incomeEventId: string,

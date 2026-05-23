@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -22,15 +23,24 @@ export class MarketController {
   constructor(private readonly api: PlayerApiService) {}
 
   @Get("quotes/:symbol")
-  @ApiOperation({ summary: "Consultar cotacao mockada de um ativo." })
+  @ApiOperation({
+    summary: "Consultar cotacao mockada de um ativo.",
+    description:
+      "Retorna preco em centavos inteiros com status e origem do provider mockado.",
+  })
   @ApiOkResponse({ type: MarketQuoteResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   getQuote(@Param("symbol") symbol: string): Promise<MarketQuoteResponseDto> {
     return this.api.getQuote(symbol);
   }
 
   @Get("history/:symbol")
-  @ApiOperation({ summary: "Consultar historico simulado de precos." })
+  @ApiOperation({
+    summary: "Consultar historico simulado de precos.",
+    description:
+      "Retorna serie deterministica com abertura, fechamento, minima e maxima em centavos inteiros.",
+  })
   @ApiOkResponse({ type: AssetHistoryPointResponseDto, isArray: true })
   @ApiBadRequestResponse({ type: ApiErrorDto })
   getHistory(
@@ -42,9 +52,14 @@ export class MarketController {
   }
 
   @Get("yields/:symbol")
-  @ApiOperation({ summary: "Consultar rendimento esperado do ativo." })
+  @ApiOperation({
+    summary: "Consultar rendimento esperado do ativo.",
+    description:
+      "Retorna regra educativa de rendimento esperado; valores monetarios usam centavos inteiros.",
+  })
   @ApiOkResponse({ type: ExpectedYieldResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   getExpectedYield(
     @Param("symbol") symbol: string,
   ): Promise<ExpectedYieldResponseDto> {
@@ -52,14 +67,22 @@ export class MarketController {
   }
 
   @Get("status")
-  @ApiOperation({ summary: "Consultar status do provider de mercado." })
+  @ApiOperation({
+    summary: "Consultar status do provider de mercado.",
+    description:
+      "Informa que o MVP usa provider simulado e deterministico, sem dados reais de mercado.",
+  })
   @ApiOkResponse({ type: MarketProviderStatusResponseDto })
   getStatus(): Promise<MarketProviderStatusResponseDto> {
     return this.api.getMarketProviderStatus();
   }
 
   @Post("refresh")
-  @ApiOperation({ summary: "Recalcular precos mockados com data simulada." })
+  @ApiOperation({
+    summary: "Recalcular precos mockados com data simulada.",
+    description:
+      "Atualiza a data de referencia do provider mockado mantendo precos em centavos inteiros.",
+  })
   @ApiOkResponse({ type: AssetResponseDto, isArray: true })
   @ApiBadRequestResponse({ type: ApiErrorDto })
   refreshPrices(

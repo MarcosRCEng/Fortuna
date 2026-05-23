@@ -1,6 +1,7 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -18,16 +19,25 @@ export class AssetsController {
   constructor(private readonly api: PlayerApiService) {}
 
   @Get()
-  @ApiOperation({ summary: "Listar ativos mockados disponiveis no MVP." })
+  @ApiOperation({
+    summary: "Listar ativos mockados disponiveis no MVP.",
+    description:
+      "Retorna catalogo educativo com precos em centavos inteiros e origem MOCK.",
+  })
   @ApiOkResponse({ type: AssetResponseDto, isArray: true })
   listAssets(): Promise<AssetResponseDto[]> {
     return this.api.listAssets();
   }
 
   @Get(":symbol")
-  @ApiOperation({ summary: "Consultar detalhes educativos de um ativo." })
+  @ApiOperation({
+    summary: "Consultar detalhes educativos de um ativo.",
+    description:
+      "Consulta detalhes do ativo pelo identificador simbolico estavel do catalogo mockado.",
+  })
   @ApiOkResponse({ type: AssetDetailsResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
   getAssetDetails(
     @Param("symbol") symbol: string,
   ): Promise<AssetDetailsResponseDto> {

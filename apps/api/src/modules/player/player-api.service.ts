@@ -34,6 +34,7 @@ import {
   toDomainAsset,
 } from "@fortuna/infrastructure";
 import {
+  AssetNotFoundError,
   Asset,
   AssetSymbol,
   AssetType,
@@ -44,6 +45,7 @@ import {
   Transaction,
   TransactionType,
   Wallet,
+  WalletNotFoundError,
 } from "@fortuna/domain";
 import {
   AssetResponseDto,
@@ -179,8 +181,14 @@ export class PlayerApiService {
     request: CreatePlayerRequestDto,
   ): Promise<PlayerResponseDto> {
     this.assertString(request.name, "name");
+    this.assertMaxLength(request.name, "name", 80);
     if (request.nickname !== undefined) {
       this.assertString(request.nickname, "nickname");
+      this.assertMaxLength(request.nickname, "nickname", 80);
+    }
+    if (request.id !== undefined) {
+      this.assertString(request.id, "id");
+      this.assertMaxLength(request.id, "id", 80);
     }
     if (request.initialBalanceCents !== undefined) {
       this.assertSafeInteger(
@@ -303,7 +311,7 @@ export class PlayerApiService {
     this.assertString(playerId, "playerId");
     const wallet = await this.wallets.findByPlayerId(playerId);
     if (!wallet) {
-      throw new BadRequestException("Wallet not found for player.");
+      throw new WalletNotFoundError(playerId);
     }
 
     const prices = await this.prices.getCurrentPrices(
@@ -380,7 +388,7 @@ export class PlayerApiService {
       symbol,
     );
     if (!details) {
-      throw new BadRequestException("Asset symbol is not available.");
+      throw new AssetNotFoundError(symbol);
     }
 
     return {
@@ -423,7 +431,7 @@ export class PlayerApiService {
       this.marketData,
     ).execute(symbol);
     if (!expectedYield) {
-      throw new BadRequestException("Asset symbol is not available.");
+      throw new AssetNotFoundError(symbol);
     }
 
     return {
@@ -461,7 +469,7 @@ export class PlayerApiService {
       this.marketData,
     ).execute(symbol);
     if (!price) {
-      throw new BadRequestException("Asset symbol is not available.");
+      throw new AssetNotFoundError(symbol);
     }
 
     return {
@@ -531,6 +539,18 @@ export class PlayerApiService {
   ): asserts value is number {
     if (!Number.isSafeInteger(value)) {
       throw new BadRequestException(`${fieldName} must be an integer.`);
+    }
+  }
+
+  private assertMaxLength(
+    value: string,
+    fieldName: string,
+    maxLength: number,
+  ): void {
+    if (value.trim().length > maxLength) {
+      throw new BadRequestException(
+        `${fieldName} must contain at most ${maxLength} characters.`,
+      );
     }
   }
 
