@@ -520,6 +520,122 @@ export class PlayerApiService {
     };
   }
 
+  async initializePlayerMissions(playerId: string) {
+    await this.getPlayer(playerId);
+    const existing = await this.playerProgress.findByPlayerId(playerId);
+    if (!existing) {
+      await this.playerProgress.save(
+        createInitialPlayerProgress(playerId, this.clock.now()),
+      );
+    }
+
+    return this.listPlayerMissions(playerId);
+  }
+
+  async listPlayerMissions(playerId: string) {
+    await this.getPlayer(playerId);
+    const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
+    const progress =
+      (await this.playerProgress.findByPlayerId(playerId)) ??
+      createInitialPlayerProgress(playerId, this.clock.now());
+    const events = await this.gameEvents.listByPlayerId(playerId);
+    const evaluator = new MissionEvaluator();
+
+    return {
+      missions: MVP_MISSIONS.map((mission) => {
+        const evaluated = evaluator.evaluate(mission, {
+          playerId,
+          events,
+          progress,
+          portfolio,
+        }).mission;
+
+        return {
+          id: evaluated.id,
+          code: evaluated.code,
+          title: evaluated.title,
+          description: evaluated.description,
+          objective: evaluated.objective,
+          educationalExplanation: evaluated.educationalExplanation,
+          type: evaluated.type,
+          status: evaluated.status === "REWARDED" ? "CLAIMED" : evaluated.status,
+          currentValue: evaluated.progress.current,
+          targetValue: evaluated.progress.target,
+          progressCurrent: evaluated.progress.current,
+          progressTarget: evaluated.progress.target,
+          reward: {
+            type: evaluated.reward.type,
+            amount: evaluated.reward.amount,
+            label: evaluated.reward.label,
+          },
+          rewardLabel: evaluated.reward.label,
+          completedAt: this.completedAt(events, evaluated.id)?.toISOString(),
+        };
+      }),
+    };
+  }
+
+  async getPlayerMission(playerId: string, missionId: string) {
+    const missions = await this.listPlayerMissions(playerId);
+    const mission = missions.missions.find((item) => item.id === missionId);
+    if (!mission) {
+      throw new OperationRejectedError(
+        "Missao nao encontrada.",
+        "MISSION_NOT_FOUND",
+      );
+    }
+
+    return mission;
+  }
+
+  async viewAssetEducation(playerId: string, assetId: string) {
+    await this.getPlayer(playerId);
+    const asset = await this.resolveMarketAsset(assetId);
+    const details = await this.getAssetDetails(asset.id);
+    const domainAsset = toDomainAsset(asset);
+    const events: GameEvent[] = [
+      new GameEventService(this.clock, () => `game-event-${++this.nextId}`).create(
+        playerId,
+        "ASSET_DETAILS_VIEWED",
+        {
+          assetId: asset.id,
+          assetSymbol: asset.symbol,
+          assetType: domainAsset.type,
+          riskLevel: domainAsset.riskLevel,
+        },
+        "MENTOR",
+      ),
+    ];
+
+    if (domainAsset.riskLevel === RiskLevel.HIGH) {
+      events.push(
+        new GameEventService(this.clock, () => `game-event-${++this.nextId}`).create(
+          playerId,
+          "RISK_EDUCATION_VIEWED",
+          {
+            assetId: asset.id,
+            assetSymbol: asset.symbol,
+            riskLevel: domainAsset.riskLevel,
+          },
+          "MENTOR",
+        ),
+      );
+    }
+
+    const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
+    await this.gameLoop.handle({
+      playerId,
+      gameplayEvents: events,
+      portfolio,
+      correlationId: `asset-education-${++this.nextId}`,
+    });
+
+    return {
+      ...details,
+      missions: await this.listPlayerMissions(playerId),
+    };
+  }
+
   async runGameLoopTick(
     playerId: string,
   ): Promise<RunGameLoopTickResponseDto> {
@@ -1311,6 +1427,14 @@ export class PlayerApiService {
         new Date(right.occurredAt).getTime() -
         new Date(left.occurredAt).getTime(),
     );
+  }
+
+  private completedAt(events: GameEvent[], missionId: string): Date | undefined {
+    return events.find(
+      (event) =>
+        event.type === "MISSION_COMPLETED" &&
+        event.metadata?.missionId === missionId,
+    )?.occurredAt;
   }
 
   private historyTitle(type: string): string {

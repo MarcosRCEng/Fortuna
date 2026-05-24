@@ -685,6 +685,8 @@ export function toDomainAsset(asset: Asset): DomainAsset {
     asset.name,
     toDomainAssetType(asset.assetClass),
     toDomainRiskLevel(asset.riskLevel),
+    true,
+    asset.liquidity,
   );
 }
 

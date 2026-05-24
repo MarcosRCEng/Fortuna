@@ -1,11 +1,7 @@
 import { AssetType, type GameEvent, type Mission } from "@fortuna/domain";
 import type { GameplayPortfolioSnapshot } from "../gameplay/GameplaySnapshots.js";
 import type { PlayerProgress } from "../gameplay/PlayerProgress.js";
-import {
-  CONCENTRATION_MAXIMUM_BASIS_POINTS,
-  EMERGENCY_RESERVE_MINIMUM_CENTS,
-  SAFETY_CASH_MINIMUM_BASIS_POINTS,
-} from "./MissionCatalog.js";
+import { MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS } from "./MissionCatalog.js";
 
 export interface MissionEvaluationContext {
   playerId: string;
@@ -54,52 +50,43 @@ export class MissionEvaluator {
     context: MissionEvaluationContext,
   ): Mission["progress"] {
     switch (mission.id) {
-      case "initial-reserve":
-        return {
-          current: Math.min(
-            context.portfolio?.wallet.availableBalance.cents ?? 0,
-            EMERGENCY_RESERVE_MINIMUM_CENTS,
-          ),
-          target: EMERGENCY_RESERVE_MINIMUM_CENTS,
-          unit: "CENTS",
-        };
-      case "first-fixed-income":
+      case "mission-first-investment":
+        return this.eventProgress(context.events, "ASSET_PURCHASED");
+      case "mission-liquidity-reserve":
         return this.eventProgress(context.events, "ASSET_PURCHASED", {
           assetType: AssetType.FIXED_INCOME,
+          liquidity: "DAILY",
         });
-      case "first-income":
+      case "mission-initial-diversification":
+        return {
+          current: Math.min(this.positiveAssetClassCount(context), 2),
+          target: 2,
+          unit: "COUNT",
+        };
+      case "mission-first-income-collected":
         return this.eventProgress(context.events, "INCOME_COLLECTED", {
           minimumAmountCents: 1,
         });
-      case "first-reit":
-        return this.eventProgress(context.events, "ASSET_PURCHASED", {
-          assetType: AssetType.FII,
-        });
-      case "diversify-three-classes":
-        return {
-          current: Math.min(this.positiveAssetClassCount(context), 3),
-          target: 3,
-          unit: "COUNT",
-        };
-      case "keep-safety-cash":
-        return {
-          current: Math.min(
-            this.cashPercentageBasisPoints(context),
-            SAFETY_CASH_MINIMUM_BASIS_POINTS,
-          ),
-          target: SAFETY_CASH_MINIMUM_BASIS_POINTS,
-          unit: "BASIS_POINTS",
-        };
-      case "view-transaction-history":
-        return this.eventProgress(context.events, "TRANSACTION_HISTORY_VIEWED");
-      case "read-mentor-tip":
-        return this.eventProgress(context.events, "MENTOR_TIP_READ");
-      case "reduce-concentration":
-        return {
-          current: this.isConcentrationBelowLimit(context) ? 1 : 0,
-          target: 1,
-          unit: "COUNT",
-        };
+      case "mission-high-risk-viewed":
+        return this.eventProgress(context.events, "RISK_EDUCATION_VIEWED");
+      case "mission-concentration-alert":
+        return this.eventProgress(
+          [
+            ...context.events,
+            ...(this.hasConcentrationAboveLimit(context)
+              ? [
+                  {
+                    id: "calculated-concentration-alert",
+                    playerId: context.playerId,
+                    type: "CONCENTRATION_ALERT_TRIGGERED" as const,
+                    occurredAt: new Date(0),
+                    source: "GAMEPLAY" as const,
+                  },
+                ]
+              : []),
+          ],
+          "CONCENTRATION_ALERT_TRIGGERED",
+        );
       default:
         return mission.progress;
     }
@@ -108,7 +95,11 @@ export class MissionEvaluator {
   private eventProgress(
     events: GameEvent[],
     eventType: GameEvent["type"],
-    filter?: { assetType?: AssetType; minimumAmountCents?: number },
+    filter?: {
+      assetType?: AssetType;
+      minimumAmountCents?: number;
+      liquidity?: string;
+    },
   ): Mission["progress"] {
     const matched = events.some((event) => {
       if (event.type !== eventType) {
@@ -116,6 +107,10 @@ export class MissionEvaluator {
       }
 
       if (filter?.assetType && event.metadata?.assetType !== filter.assetType) {
+        return false;
+      }
+
+      if (filter?.liquidity && event.metadata?.liquidity !== filter.liquidity) {
         return false;
       }
 
@@ -140,12 +135,8 @@ export class MissionEvaluator {
       return 0;
     }
 
-    if (portfolio.wallet.availableBalance.cents > 0) {
-      classes.add(AssetType.CASH);
-    }
-
     for (const allocation of portfolio.allocation) {
-      if (allocation.value.cents > 0) {
+      if (allocation.assetType !== AssetType.CASH && allocation.value.cents > 0) {
         classes.add(allocation.assetType);
       }
     }
@@ -153,27 +144,7 @@ export class MissionEvaluator {
     return classes.size;
   }
 
-  private cashPercentageBasisPoints(context: MissionEvaluationContext): number {
-    const portfolio = context.portfolio;
-    if (!portfolio || portfolio.wallet.totalEquity.cents <= 0) {
-      return 0;
-    }
-
-    if (
-      portfolio.wallet.availableBalance.cents >= EMERGENCY_RESERVE_MINIMUM_CENTS
-    ) {
-      return SAFETY_CASH_MINIMUM_BASIS_POINTS;
-    }
-
-    return Math.floor(
-      (portfolio.wallet.availableBalance.cents * 10_000) /
-        portfolio.wallet.totalEquity.cents,
-    );
-  }
-
-  private isConcentrationBelowLimit(
-    context: MissionEvaluationContext,
-  ): boolean {
+  private hasConcentrationAboveLimit(context: MissionEvaluationContext): boolean {
     const portfolio = context.portfolio;
     if (!portfolio || portfolio.allocation.length === 0) {
       return false;
@@ -187,6 +158,6 @@ export class MissionEvaluator {
       0,
     );
 
-    return maximum > 0 && maximum <= CONCENTRATION_MAXIMUM_BASIS_POINTS;
+    return maximum > MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS;
   }
 }

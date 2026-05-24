@@ -9,6 +9,61 @@ export class MentorFeedbackService {
   }
 
   private fromEvent(event: GameEvent): MentorFeedback | undefined {
+    if (event.type === "MISSION_COMPLETED") {
+      const missionCode = String(event.metadata?.missionCode ?? "");
+      const messages: Record<
+        string,
+        { title: string; message: string; severity: MentorFeedback["severity"] }
+      > = {
+        FIRST_INVESTMENT: {
+          title: "Primeiro investimento",
+          message:
+            "Parabens pelo primeiro investimento. Mais importante que comprar e entender o que voce comprou.",
+          severity: "positive",
+        },
+        LIQUIDITY_RESERVE: {
+          title: "Reserva de liquidez",
+          message:
+            "Boa escolha ao conhecer ativos com liquidez. Reserva de liquidez ajuda a lidar com imprevistos.",
+          severity: "positive",
+        },
+        INITIAL_DIVERSIFICATION: {
+          title: "Diversificacao inicial",
+          message:
+            "Sua carteira comecou a se diversificar. Isso reduz a dependencia de um unico tipo de ativo.",
+          severity: "positive",
+        },
+        FIRST_INCOME_COLLECTED: {
+          title: "Rendimento coletado",
+          message:
+            "Voce coletou rendimentos. Renda recorrente pode ajudar no crescimento ao longo do tempo, sem garantir ganho real.",
+          severity: "positive",
+        },
+        HIGH_RISK_VIEWED: {
+          title: "Risco estudado",
+          message:
+            "Ativos de maior risco podem oscilar mais. Antes de comprar, entenda o risco e o prazo.",
+          severity: "info",
+        },
+        CONCENTRATION_ALERT: {
+          title: "Concentracao percebida",
+          message:
+            "Percebi concentracao em um ativo. Isso nao e proibido, mas aumenta sua exposicao a riscos especificos.",
+          severity: "warning",
+        },
+      };
+      const found = messages[missionCode];
+      if (found) {
+        return {
+          code: `MENTOR_MISSION_${missionCode}`,
+          title: found.title,
+          message: found.message,
+          severity: found.severity,
+          relatedEventType: event.type,
+        };
+      }
+    }
+
     if (event.type === "FIRST_BUY") {
       return {
         code: "MENTOR_FIRST_BUY",

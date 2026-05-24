@@ -31,6 +31,7 @@ export class GameLoopService {
   async handle(command: GameLoopCommand): Promise<GameLoopResult> {
     const currentProgress = await this.loadProgress(command.playerId);
     const createdEvents: GameEvent[] = [
+      ...(command.gameplayEvents ?? []),
       ...this.eventService.fromFinancialEvents(command.financialEvents ?? [], {
         portfolio: command.portfolio,
         progress: currentProgress,
@@ -102,7 +103,12 @@ export class GameLoopService {
             this.eventService.create(
               command.playerId,
               "MISSION_COMPLETED",
-              { missionId: mission.id },
+              {
+                missionId: mission.id,
+                missionCode: mission.code,
+                rewardType: mission.reward.type,
+                rewardXp: mission.reward.amount ?? 0,
+              },
               "MISSION",
               command.correlationId,
             ),

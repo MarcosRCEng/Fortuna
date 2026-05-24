@@ -16,6 +16,7 @@ export interface GameplayPortfolioSnapshot {
 export interface GameLoopCommand {
   playerId: string;
   financialEvents?: FinancialEvent[];
+  gameplayEvents?: GameEvent[];
   portfolio?: GameplayPortfolioSnapshot;
   missionId?: string;
   advanceMarketCycle?: boolean;

@@ -7,10 +7,17 @@ import type { ScreenKey } from "../components/NavigationTabs.js";
 import { DashboardPage } from "../pages/DashboardPage.js";
 import { HistoryPage } from "../pages/HistoryPage.js";
 import { MarketPage } from "../pages/MarketPage.js";
+import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
 import { getAssets } from "../services/assetApi.js";
 import { collectIncome } from "../services/incomeApi.js";
 import { refreshMockPrices } from "../services/marketApi.js";
+import {
+  getMissions,
+  initializeMissions,
+  type PlayerMission,
+  viewAssetEducation,
+} from "../services/missionApi.js";
 import { buyAsset, sellAsset } from "../services/orderApi.js";
 import { createPlayer, getPlayerSummary } from "../services/playerApi.js";
 import { getTransactions } from "../services/transactionApi.js";
@@ -42,6 +49,7 @@ export function App() {
   const [portfolio, setPortfolio] = useState<Portfolio>();
   const [allocation, setAllocation] = useState<PortfolioAllocation>();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [missions, setMissions] = useState<PlayerMission[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshingMarket, setRefreshingMarket] = useState(false);
@@ -56,6 +64,7 @@ export function App() {
       setPortfolio(undefined);
       setAllocation(undefined);
       setTransactions([]);
+      setMissions([]);
       setAssets([]);
       return;
     }
@@ -70,6 +79,7 @@ export function App() {
         nextPortfolio,
         nextAllocation,
         nextTransactions,
+        nextMissions,
       ] = await Promise.all([
         getPlayerSummary(playerId),
         getAssets(),
@@ -77,6 +87,7 @@ export function App() {
         getPortfolio(playerId),
         getPortfolioAllocation(playerId),
         getTransactions(playerId),
+        getMissions(playerId).catch(() => initializeMissions(playerId)),
       ]);
       setSummary({
         ...nextSummary,
@@ -86,6 +97,7 @@ export function App() {
       setPortfolio(nextPortfolio);
       setAllocation(nextAllocation);
       setTransactions(nextTransactions);
+      setMissions(nextMissions.missions);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -114,6 +126,8 @@ export function App() {
       const player = await createPlayer("Jogador Fortuna");
       localStorage.setItem(playerStorageKey, player.id);
       setPlayerId(player.id);
+      const initializedMissions = await initializeMissions(player.id);
+      setMissions(initializedMissions.missions);
       setSuccess("Jogador criado. Agora voce pode explorar mercado, carteira e historico.");
     } catch (caught) {
       setError(
@@ -131,6 +145,7 @@ export function App() {
     setPortfolio(undefined);
     setAllocation(undefined);
     setTransactions([]);
+    setMissions([]);
     setSuccess("Jogador local removido. Crie ou carregue outro jogador para continuar.");
   }
 
@@ -226,6 +241,31 @@ export function App() {
     }
   }
 
+  async function handleViewAssetEducation(asset: Asset) {
+    if (!playerId) {
+      return;
+    }
+    setSubmitting(true);
+    setError(undefined);
+    setSuccess(undefined);
+    try {
+      await viewAssetEducation(playerId, asset.id);
+      setSuccess(
+        "Detalhes educativos registrados. Ativos de maior risco podem oscilar mais; entenda antes de comprar.",
+      );
+      await loadData();
+      setActiveScreen("missions");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Nao foi possivel registrar o estudo do ativo.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const currentPage = !playerId ? (
     <DashboardPage
       collecting={submitting}
@@ -238,6 +278,7 @@ export function App() {
       assets={assets}
       refreshing={refreshingMarket}
       onBuy={openBuy}
+      onViewEducation={handleViewAssetEducation}
       onRefreshMarket={handleRefreshMarket}
     />
   ) : activeScreen === "wallet" ? (
@@ -249,6 +290,8 @@ export function App() {
     />
   ) : activeScreen === "history" ? (
     <HistoryPage transactions={transactions} />
+  ) : activeScreen === "missions" ? (
+    <MissionsPage missions={missions} />
   ) : (
     <DashboardPage
       summary={summary}

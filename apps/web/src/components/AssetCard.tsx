@@ -5,9 +5,11 @@ import { assetTypeLabel, riskLabel, riskTone } from "../utils/risk.js";
 export function AssetCard({
   asset,
   onBuy,
+  onViewEducation,
 }: {
   asset: Asset;
   onBuy(asset: Asset): void;
+  onViewEducation(asset: Asset): void;
 }) {
   return (
     <article className="item-card asset-card">
@@ -48,14 +50,23 @@ export function AssetCard({
         {asset.expectedYieldDescription ??
           "Compare risco, liquidez e objetivo antes de decidir."}
       </p>
-      <button
-        type="button"
-        className="button button-primary"
-        disabled={!asset.isActive}
-        onClick={() => onBuy(asset)}
-      >
-        Comprar
-      </button>
+      <div className="button-row">
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={!asset.isActive}
+          onClick={() => onBuy(asset)}
+        >
+          Comprar
+        </button>
+        <button
+          type="button"
+          className="button button-ghost"
+          onClick={() => onViewEducation(asset)}
+        >
+          Estudar risco
+        </button>
+      </div>
     </article>
   );
 }

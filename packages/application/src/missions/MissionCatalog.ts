@@ -1,236 +1,151 @@
-import { AssetType, type Mission } from "@fortuna/domain";
+import { AssetType, RiskLevel, type Mission } from "@fortuna/domain";
 
-export const EMERGENCY_RESERVE_MINIMUM_CENTS = 10_000;
-export const SAFETY_CASH_MINIMUM_BASIS_POINTS = 1_000;
-export const CONCENTRATION_MAXIMUM_BASIS_POINTS = 6_000;
+export const MAX_RECOMMENDED_ASSET_CONCENTRATION_PERCENT = 50;
+export const MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS =
+  MAX_RECOMMENDED_ASSET_CONCENTRATION_PERCENT * 100;
 
 export const MVP_MISSIONS: readonly Mission[] = [
   {
-    id: "initial-reserve",
-    title: "Criar reserva inicial",
-    description: "Mantenha uma parte do saldo disponivel como reserva.",
-    objective: "Manter pelo menos 10.000 moedas Fortuna em caixa.",
+    id: "mission-first-investment",
+    code: "FIRST_INVESTMENT",
+    title: "Primeiro investimento",
+    description: "Compre seu primeiro ativo.",
+    objective: "Comprar qualquer ativo pela primeira vez.",
     educationalExplanation:
-      "Uma reserva ajuda a lidar com imprevistos sem precisar vender investimentos em um momento ruim. Antes de buscar rentabilidade, e importante construir seguranca.",
-    cityRelation:
-      "Desbloqueia uma pequena praca-cofre que representa seguranca na Cidade Fortuna.",
-    type: "FIRST_RESERVE",
+      "Investir começa com uma decisao consciente: entender o ativo comprado, o risco assumido e o objetivo daquela escolha.",
+    cityRelation: "Marca o primeiro passo educativo do jogador na Cidade Fortuna.",
+    type: "ACTION",
     status: "AVAILABLE",
+    criteria: { kind: "FIRST_ASSET_BOUGHT", targetValue: 1 },
     completionRule: {
-      ruleType: "PORTFOLIO_STATE_BASED",
-      targetValue: EMERGENCY_RESERVE_MINIMUM_CENTS,
+      ruleType: "EVENT_BASED",
+      requiredEvent: "ASSET_PURCHASED",
+      requiredCount: 1,
     },
-    reward: {
-      type: "EDUCATIONAL_BADGE",
-      targetId: "PRIMEIRA_RESERVA",
-      label: "Primeira Reserva",
-    },
-    progress: {
-      current: 0,
-      target: EMERGENCY_RESERVE_MINIMUM_CENTS,
-      unit: "CENTS",
-    },
-    relatedEvents: ["PORTFOLIO_UPDATED", "EMERGENCY_RESERVE_COMPLETED"],
+    reward: { type: "XP", label: "50 XP", amount: 50 },
+    progress: { current: 0, target: 1, unit: "COUNT" },
+    relatedEvents: ["ASSET_PURCHASED", "FIRST_BUY"],
   },
   {
-    id: "first-fixed-income",
-    title: "Primeiro passo na renda fixa",
-    description: "Compre seu primeiro ativo de renda fixa.",
-    objective: "Comprar pelo menos um ativo de renda fixa.",
+    id: "mission-liquidity-reserve",
+    code: "LIQUIDITY_RESERVE",
+    title: "Reserva de liquidez",
+    description: "Compre renda fixa com liquidez diaria.",
+    objective: "Comprar pelo menos um ativo de renda fixa com liquidez diaria.",
     educationalExplanation:
-      "Renda fixa representa investimentos com regras de remuneracao mais previsiveis. Ela costuma ser usada para objetivos de menor risco e maior planejamento.",
-    cityRelation:
-      "Desbloqueia o Banco Comunitario na Cidade Fortuna e uma dica basica sobre renda fixa.",
-    type: "UNDERSTAND_FIXED_INCOME",
+      "Reserva de liquidez ajuda a lidar com imprevistos antes de assumir riscos maiores. No jogo, ela representa uma base de seguranca.",
+    cityRelation: "Desbloqueia uma leitura educativa sobre liquidez.",
+    type: "EDUCATIONAL",
     status: "AVAILABLE",
+    criteria: {
+      kind: "BUY_DAILY_LIQUIDITY_FIXED_INCOME",
+      targetValue: 1,
+      assetType: AssetType.FIXED_INCOME,
+      liquidity: "DAILY",
+    },
     completionRule: {
       ruleType: "EVENT_BASED",
       requiredEvent: "ASSET_PURCHASED",
       targetAssetClass: AssetType.FIXED_INCOME,
       requiredCount: 1,
     },
-    reward: {
-      type: "UNLOCK_BUILDING",
-      targetId: "community-bank",
-      label: "Banco Comunitario",
-    },
+    reward: { type: "XP", label: "75 XP", amount: 75 },
     progress: { current: 0, target: 1, unit: "COUNT" },
     relatedEvents: ["ASSET_PURCHASED"],
   },
   {
-    id: "first-income",
-    title: "Colher primeiro rendimento",
-    description: "Receba o primeiro rendimento positivo de um investimento.",
-    objective: "Colher um rendimento maior que zero.",
+    id: "mission-initial-diversification",
+    code: "INITIAL_DIVERSIFICATION",
+    title: "Diversificacao inicial",
+    description: "Tenha pelo menos dois tipos de ativos na carteira.",
+    objective: "Manter posicao positiva em dois tipos diferentes de ativos.",
     educationalExplanation:
-      "Rendimentos sao valores gerados por alguns investimentos ao longo do tempo. Eles mostram a importancia da paciencia e da constancia.",
-    cityRelation:
-      "Ativa uma animacao simples de crescimento e concede o selo Primeiro Rendimento.",
-    type: "FIRST_INCOME",
+      "Diversificar ajuda a reduzir concentracao e exposicao excessiva a uma unica classe de ativo. Isso nao elimina riscos, mas melhora a leitura da carteira.",
+    cityRelation: "Sinaliza uma carteira com primeiras bases de diversificacao.",
+    type: "PORTFOLIO",
     status: "AVAILABLE",
+    criteria: { kind: "HOLD_AT_LEAST_TWO_ASSET_TYPES", targetValue: 2 },
+    completionRule: {
+      ruleType: "PORTFOLIO_STATE_BASED",
+      requiredCount: 2,
+    },
+    reward: { type: "XP", label: "100 XP", amount: 100 },
+    progress: { current: 0, target: 2, unit: "COUNT" },
+    relatedEvents: ["ASSET_PURCHASED", "ASSET_SOLD", "PORTFOLIO_UPDATED"],
+  },
+  {
+    id: "mission-first-income-collected",
+    code: "FIRST_INCOME_COLLECTED",
+    title: "Colher rendimento",
+    description: "Colete rendimento pela primeira vez.",
+    objective: "Coletar o primeiro rendimento simulado disponivel.",
+    educationalExplanation:
+      "Alguns ativos geram renda recorrente, como juros, dividendos ou rendimentos simulados. Isso nao e garantia de ganho real.",
+    cityRelation: "Registra o primeiro fluxo de renda da carteira.",
+    type: "INCOME",
+    status: "AVAILABLE",
+    criteria: { kind: "FIRST_INCOME_COLLECTED", targetValue: 1 },
     completionRule: {
       ruleType: "EVENT_BASED",
       requiredEvent: "INCOME_COLLECTED",
-      targetValue: 1,
       requiredCount: 1,
     },
-    reward: {
-      type: "EDUCATIONAL_BADGE",
-      targetId: "PRIMEIRO_RENDIMENTO",
-      label: "Primeiro Rendimento",
-    },
+    reward: { type: "XP", label: "50 XP", amount: 50 },
     progress: { current: 0, target: 1, unit: "COUNT" },
     relatedEvents: ["INCOME_COLLECTED", "FIRST_INCOME_RECEIVED"],
   },
   {
-    id: "first-reit",
-    title: "Conhecer fundos imobiliarios",
-    description: "Compre seu primeiro FII simulado.",
-    objective: "Comprar pelo menos um ativo da classe FII.",
+    id: "mission-high-risk-viewed",
+    code: "HIGH_RISK_VIEWED",
+    title: "Conhecer risco",
+    description: "Visualize detalhes educativos de um ativo de maior risco.",
+    objective: "Estudar um ativo classificado como alto risco.",
     educationalExplanation:
-      "FIIs permitem exposicao ao mercado imobiliario de forma fracionada. Eles podem gerar rendimentos, mas tambem possuem riscos e variacao de preco.",
-    cityRelation:
-      "Desbloqueia o Centro Comercial e uma dica basica sobre FIIs.",
-    type: "UNDERSTAND_REITS",
+      "Risco significa possibilidade de variacao, perdas simuladas e incerteza. Maior retorno esperado geralmente vem acompanhado de maior risco.",
+    cityRelation: "Adiciona contexto educativo ao Mentor Fortuna.",
+    type: "EDUCATIONAL",
     status: "AVAILABLE",
-    completionRule: {
-      ruleType: "EVENT_BASED",
-      requiredEvent: "ASSET_PURCHASED",
-      targetAssetClass: AssetType.FII,
-      requiredCount: 1,
+    criteria: {
+      kind: "VIEW_HIGH_RISK_ASSET_DETAILS",
+      targetValue: 1,
+      riskLevel: RiskLevel.HIGH,
     },
-    reward: {
-      type: "UNLOCK_BUILDING",
-      targetId: "commercial-center",
-      label: "Centro Comercial",
-    },
-    progress: { current: 0, target: 1, unit: "COUNT" },
-    relatedEvents: ["ASSET_PURCHASED"],
-  },
-  {
-    id: "diversify-three-classes",
-    title: "Diversificar em 3 classes",
-    description: "Distribua a carteira entre diferentes classes de ativos.",
-    objective: "Ter posicao positiva em pelo menos 3 classes de ativos.",
-    educationalExplanation:
-      "Diversificar significa distribuir recursos entre diferentes tipos de ativos. Isso pode reduzir a dependencia de um unico investimento.",
-    cityRelation:
-      "Desbloqueia um novo distrito da Cidade Fortuna e o selo Carteira Diversificada.",
-    type: "FIRST_DIVERSIFICATION",
-    status: "AVAILABLE",
-    completionRule: {
-      ruleType: "PORTFOLIO_STATE_BASED",
-      requiredCount: 3,
-    },
-    reward: {
-      type: "UNLOCK_DISTRICT",
-      targetId: "DISTRITO_DIVERSIFICACAO",
-      label: "Distrito da Diversificacao",
-    },
-    progress: { current: 0, target: 3, unit: "COUNT" },
-    relatedEvents: ["PORTFOLIO_UPDATED", "FIRST_DIVERSIFICATION"],
-  },
-  {
-    id: "keep-safety-cash",
-    title: "Manter saldo de seguranca",
-    description: "Depois de investir, preserve liquidez para imprevistos.",
-    objective:
-      "Manter caixa de pelo menos 10% do patrimonio total ou 10.000 moedas Fortuna.",
-    educationalExplanation:
-      "Ter liquidez significa conseguir acessar recursos quando necessario. Nem todo investimento pode ser vendido rapidamente sem risco ou perda.",
-    cityRelation:
-      "Libera uma dica avancada sobre liquidez e melhora o distrito residencial.",
-    type: "UNDERSTAND_LIQUIDITY",
-    status: "AVAILABLE",
-    completionRule: {
-      ruleType: "BEHAVIOR_BASED",
-      requiredEvent: "ASSET_PURCHASED",
-      targetValue: SAFETY_CASH_MINIMUM_BASIS_POINTS,
-    },
-    reward: {
-      type: "UNLOCK_ADVANCED_TIP",
-      targetId: "advanced-liquidity-tip",
-      label: "Dica avancada sobre liquidez",
-    },
-    progress: {
-      current: 0,
-      target: SAFETY_CASH_MINIMUM_BASIS_POINTS,
-      unit: "BASIS_POINTS",
-    },
-    relatedEvents: ["ASSET_PURCHASED", "PORTFOLIO_UPDATED"],
-  },
-  {
-    id: "view-transaction-history",
-    title: "Consultar historico de transacoes",
-    description: "Acompanhe as movimentacoes ja realizadas.",
-    objective: "Abrir o historico de transacoes.",
-    educationalExplanation:
-      "Acompanhar o historico ajuda a entender decisoes passadas, custos, rendimentos e evolucao da carteira.",
-    cityRelation:
-      "Libera o relatorio basico da carteira e o selo Investidor Organizado.",
-    type: "TRANSACTION_HISTORY",
-    status: "AVAILABLE",
-    completionRule: {
-      ruleType: "EVENT_BASED",
-      requiredEvent: "TRANSACTION_HISTORY_VIEWED",
-      requiredCount: 1,
-    },
-    reward: {
-      type: "UNLOCK_REPORT",
-      targetId: "BASIC_PORTFOLIO_REPORT",
-      label: "Relatorio basico da carteira",
-    },
-    progress: { current: 0, target: 1, unit: "COUNT" },
-    relatedEvents: ["TRANSACTION_HISTORY_VIEWED"],
-  },
-  {
-    id: "read-mentor-tip",
-    title: "Ler uma dica do Mentor",
-    description: "Use o Mentor Fortuna como apoio educativo.",
-    objective: "Ler pelo menos uma dica do Mentor Fortuna.",
-    educationalExplanation:
-      "O Mentor Fortuna oferece explicacoes para apoiar decisoes conscientes. Aprender antes de agir e parte importante da educacao financeira.",
-    cityRelation:
-      "Desbloqueia uma nova dica e aumenta o progresso educativo do jogador.",
-    type: "EDUCATIONAL_INTERACTION",
-    status: "AVAILABLE",
     completionRule: {
       ruleType: "EDUCATIONAL_INTERACTION_BASED",
-      requiredEvent: "MENTOR_TIP_READ",
+      requiredEvent: "RISK_EDUCATION_VIEWED",
       requiredCount: 1,
     },
-    reward: {
-      type: "UNLOCK_ADVANCED_TIP",
-      targetId: "mentor-next-tip",
-      label: "Nova dica do Mentor",
-    },
+    reward: { type: "XP", label: "50 XP", amount: 50 },
     progress: { current: 0, target: 1, unit: "COUNT" },
-    relatedEvents: ["MENTOR_TIP_READ"],
+    relatedEvents: ["ASSET_DETAILS_VIEWED", "RISK_EDUCATION_VIEWED"],
   },
   {
-    id: "reduce-concentration",
-    title: "Reduzir concentracao da carteira",
-    description: "Evite depender demais de um unico ativo ou classe.",
-    objective: "Manter a maior classe abaixo de 60% da carteira.",
+    id: "mission-concentration-alert",
+    code: "CONCENTRATION_ALERT",
+    title: "Evitar concentracao",
+    description: "Receba um alerta quando um ativo passar de 50% da carteira.",
+    objective: "Perceber concentracao excessiva sem bloquear a operacao.",
     educationalExplanation:
-      "Concentracao alta aumenta a dependencia de um unico resultado. Reduzir exposicao ajuda a pensar em risco de forma mais consciente.",
-    cityRelation: "Libera uma ferramenta visual de alerta de concentracao.",
-    type: "REDUCE_CONCENTRATION",
+      "Concentrar muito patrimonio em um unico ativo aumenta a exposicao a riscos especificos. O alerta e orientativo, nao punitivo.",
+    cityRelation: "Libera o primeiro alerta educativo de concentracao.",
+    type: "RISK_ALERT",
     status: "AVAILABLE",
+    criteria: {
+      kind: "ASSET_CONCENTRATION_ALERT_TRIGGERED",
+      targetValue: MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS,
+    },
     completionRule: {
-      ruleType: "PORTFOLIO_STATE_BASED",
-      targetValue: CONCENTRATION_MAXIMUM_BASIS_POINTS,
+      ruleType: "EVENT_BASED",
+      requiredEvent: "CONCENTRATION_ALERT_TRIGGERED",
+      requiredCount: 1,
     },
-    reward: {
-      type: "UNLOCK_ADVANCED_TIP",
-      targetId: "concentration-risk-tip",
-      label: "Dica sobre concentracao",
-    },
-    progress: {
-      current: 10_000,
-      target: CONCENTRATION_MAXIMUM_BASIS_POINTS,
-      unit: "BASIS_POINTS",
-    },
-    relatedEvents: ["PORTFOLIO_UPDATED", "EXCESSIVE_CONCENTRATION_DETECTED"],
+    reward: { type: "XP", label: "75 XP", amount: 75 },
+    progress: { current: 0, target: 1, unit: "COUNT" },
+    relatedEvents: [
+      "ASSET_PURCHASED",
+      "ASSET_SOLD",
+      "MARKET_PRICES_REFRESHED",
+      "CONCENTRATION_ALERT_TRIGGERED",
+    ],
   },
 ];

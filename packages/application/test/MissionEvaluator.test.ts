@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AssetType, MoneyCents, type GameEvent } from "@fortuna/domain";
+import { AssetType, MoneyCents, RiskLevel, type GameEvent } from "@fortuna/domain";
 import {
   MissionEvaluator,
   MVP_MISSIONS,
@@ -11,26 +11,13 @@ const now = new Date("2026-05-22T12:00:00.000Z");
 const playerId = "player-1";
 const evaluator = new MissionEvaluator();
 
-function event(
-  type: GameEvent["type"],
-  metadata?: GameEvent["metadata"],
-): GameEvent {
-  return {
-    id: `${type}-1`,
-    playerId,
-    type,
-    occurredAt: now,
-    source: "GAMEPLAY",
-    metadata,
-  };
+function event(type: GameEvent["type"], metadata?: GameEvent["metadata"]): GameEvent {
+  return { id: `${type}-1`, playerId, type, occurredAt: now, source: "GAMEPLAY", metadata };
 }
 
 function mission(id: string) {
   const found = MVP_MISSIONS.find((item) => item.id === id);
-  if (!found) {
-    throw new Error(`Missing mission ${id}`);
-  }
-
+  if (!found) throw new Error(`Missing mission ${id}`);
   return found;
 }
 
@@ -42,9 +29,7 @@ function portfolio(
   return {
     wallet: {
       availableBalance: MoneyCents.fromCents(availableBalanceCents),
-      investedValue: MoneyCents.fromCents(
-        totalEquityCents - availableBalanceCents,
-      ),
+      investedValue: MoneyCents.fromCents(totalEquityCents - availableBalanceCents),
       totalEquity: MoneyCents.fromCents(totalEquityCents),
       positionCount: allocations.length,
       positions: [],
@@ -58,45 +43,87 @@ function portfolio(
 }
 
 describe("MissionEvaluator", () => {
-  it("completes fixed income mission when a fixed income purchase event arrives", () => {
-    const result = evaluator.evaluate(mission("first-fixed-income"), {
+  it("completes first investment after any purchase", () => {
+    const result = evaluator.evaluate(mission("mission-first-investment"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
-      events: [
-        event("ASSET_PURCHASED", {
-          assetType: AssetType.FIXED_INCOME,
-          amountCents: 1_000,
-        }),
-      ],
+      events: [event("ASSET_PURCHASED", { assetType: AssetType.STOCK })],
     });
 
     expect(result.completedNow).toBe(true);
     expect(result.mission.status).toBe("COMPLETED");
   });
 
-  it("does not complete fixed income mission when the purchase is a FII", () => {
-    const result = evaluator.evaluate(mission("first-fixed-income"), {
+  it("completes liquidity reserve only for daily liquidity fixed income", () => {
+    const progress = createInitialPlayerProgress(playerId, now);
+    const fixedIncome = evaluator.evaluate(mission("mission-liquidity-reserve"), {
       playerId,
-      progress: createInitialPlayerProgress(playerId, now),
+      progress,
       events: [
         event("ASSET_PURCHASED", {
-          assetType: AssetType.FII,
-          amountCents: 1_000,
+          assetType: AssetType.FIXED_INCOME,
+          liquidity: "DAILY",
         }),
       ],
     });
+    const stock = evaluator.evaluate(mission("mission-liquidity-reserve"), {
+      playerId,
+      progress,
+      events: [event("ASSET_PURCHASED", { assetType: AssetType.STOCK })],
+    });
+    const fii = evaluator.evaluate(mission("mission-liquidity-reserve"), {
+      playerId,
+      progress,
+      events: [event("ASSET_PURCHASED", { assetType: AssetType.FII })],
+    });
 
-    expect(result.completedNow).toBe(false);
-    expect(result.mission.status).toBe("AVAILABLE");
+    expect(fixedIncome.completedNow).toBe(true);
+    expect(stock.completedNow).toBe(false);
+    expect(fii.completedNow).toBe(false);
+  });
+
+  it("completes diversification with two positive asset types and keeps completed missions done", () => {
+    const oneType = evaluator.evaluate(mission("mission-initial-diversification"), {
+      playerId,
+      progress: createInitialPlayerProgress(playerId, now),
+      events: [],
+      portfolio: portfolio(10_000, 50_000, [
+        { assetType: AssetType.FIXED_INCOME, valueCents: 40_000, bps: 8_000 },
+      ]),
+    });
+    const twoTypes = evaluator.evaluate(mission("mission-initial-diversification"), {
+      playerId,
+      progress: createInitialPlayerProgress(playerId, now),
+      events: [],
+      portfolio: portfolio(10_000, 50_000, [
+        { assetType: AssetType.FIXED_INCOME, valueCents: 20_000, bps: 4_000 },
+        { assetType: AssetType.FII, valueCents: 20_000, bps: 4_000 },
+      ]),
+    });
+    const completedProgress = createInitialPlayerProgress(playerId, now);
+    completedProgress.completedMissionIds.push("mission-initial-diversification");
+    const afterSell = evaluator.evaluate(mission("mission-initial-diversification"), {
+      playerId,
+      progress: completedProgress,
+      events: [],
+      portfolio: portfolio(10_000, 50_000, [
+        { assetType: AssetType.FII, valueCents: 40_000, bps: 8_000 },
+      ]),
+    });
+
+    expect(oneType.completedNow).toBe(false);
+    expect(twoTypes.completedNow).toBe(true);
+    expect(afterSell.mission.status).toBe("COMPLETED");
+    expect(afterSell.completedNow).toBe(false);
   });
 
   it("completes first income only when collected income is positive", () => {
-    const positive = evaluator.evaluate(mission("first-income"), {
+    const positive = evaluator.evaluate(mission("mission-first-income-collected"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
       events: [event("INCOME_COLLECTED", { amountCents: 1 })],
     });
-    const zero = evaluator.evaluate(mission("first-income"), {
+    const zero = evaluator.evaluate(mission("mission-first-income-collected"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
       events: [event("INCOME_COLLECTED", { amountCents: 0 })],
@@ -106,76 +133,43 @@ describe("MissionEvaluator", () => {
     expect(zero.completedNow).toBe(false);
   });
 
-  it("completes diversification when portfolio has three positive classes", () => {
-    const result = evaluator.evaluate(mission("diversify-three-classes"), {
+  it("completes risk education only when high risk education is viewed", () => {
+    const high = evaluator.evaluate(mission("mission-high-risk-viewed"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
-      events: [],
-      portfolio: portfolio(10_000, 50_000, [
-        { assetType: AssetType.FIXED_INCOME, valueCents: 20_000, bps: 4_000 },
-        { assetType: AssetType.FII, valueCents: 20_000, bps: 4_000 },
-      ]),
+      events: [event("RISK_EDUCATION_VIEWED", { riskLevel: RiskLevel.HIGH })],
     });
-
-    expect(result.completedNow).toBe(true);
-    expect(result.mission.progress.current).toBe(3);
-  });
-
-  it("does not complete diversification with only two positive classes", () => {
-    const result = evaluator.evaluate(mission("diversify-three-classes"), {
+    const low = evaluator.evaluate(mission("mission-high-risk-viewed"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
-      events: [],
-      portfolio: portfolio(0, 40_000, [
-        { assetType: AssetType.FIXED_INCOME, valueCents: 20_000, bps: 5_000 },
-        { assetType: AssetType.FII, valueCents: 20_000, bps: 5_000 },
-      ]),
+      events: [event("ASSET_DETAILS_VIEWED", { riskLevel: RiskLevel.LOW })],
     });
 
-    expect(result.completedNow).toBe(false);
-    expect(result.mission.progress.current).toBe(2);
+    expect(high.completedNow).toBe(true);
+    expect(low.completedNow).toBe(false);
   });
 
-  it("completes concentration mission when largest allocation is below the limit", () => {
-    const result = evaluator.evaluate(mission("reduce-concentration"), {
-      playerId,
-      progress: createInitialPlayerProgress(playerId, now),
-      events: [],
-      portfolio: portfolio(10_000, 100_000, [
-        { assetType: AssetType.FIXED_INCOME, valueCents: 45_000, bps: 4_500 },
-        { assetType: AssetType.FII, valueCents: 45_000, bps: 4_500 },
-      ]),
-    });
-
-    expect(result.completedNow).toBe(true);
-  });
-
-  it("does not complete concentration mission when portfolio is concentrated", () => {
-    const result = evaluator.evaluate(mission("reduce-concentration"), {
+  it("completes concentration alert when an asset is above the configured limit", () => {
+    const concentrated = evaluator.evaluate(mission("mission-concentration-alert"), {
       playerId,
       progress: createInitialPlayerProgress(playerId, now),
       events: [],
       portfolio: portfolio(0, 100_000, [
-        { assetType: AssetType.STOCK, valueCents: 100_000, bps: 10_000 },
+        { assetType: AssetType.STOCK, valueCents: 60_000, bps: 6_000 },
+        { assetType: AssetType.FII, valueCents: 40_000, bps: 4_000 },
+      ]),
+    });
+    const balanced = evaluator.evaluate(mission("mission-concentration-alert"), {
+      playerId,
+      progress: createInitialPlayerProgress(playerId, now),
+      events: [],
+      portfolio: portfolio(0, 100_000, [
+        { assetType: AssetType.STOCK, valueCents: 50_000, bps: 5_000 },
+        { assetType: AssetType.FII, valueCents: 50_000, bps: 5_000 },
       ]),
     });
 
-    expect(result.completedNow).toBe(false);
-  });
-
-  it("completes educational missions from mentor and history events", () => {
-    const mentor = evaluator.evaluate(mission("read-mentor-tip"), {
-      playerId,
-      progress: createInitialPlayerProgress(playerId, now),
-      events: [event("MENTOR_TIP_READ")],
-    });
-    const history = evaluator.evaluate(mission("view-transaction-history"), {
-      playerId,
-      progress: createInitialPlayerProgress(playerId, now),
-      events: [event("TRANSACTION_HISTORY_VIEWED")],
-    });
-
-    expect(mentor.completedNow).toBe(true);
-    expect(history.completedNow).toBe(true);
+    expect(concentrated.completedNow).toBe(true);
+    expect(balanced.completedNow).toBe(false);
   });
 });

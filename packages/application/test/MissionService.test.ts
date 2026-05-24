@@ -81,43 +81,43 @@ describe("MissionService", () => {
 
     expect(result.completedEvents).toHaveLength(1);
     expect(result.completedEvents[0]?.metadata?.missionId).toBe(
-      "first-fixed-income",
+      "mission-first-investment",
     );
     expect(events.events).toHaveLength(1);
     expect(progressRepository.progress?.completedMissionIds).toContain(
-      "first-fixed-income",
+      "mission-first-investment",
     );
   });
 
   it("allows claiming a completed mission reward once", async () => {
     const progress = createInitialPlayerProgress(playerId, now);
-    progress.completedMissionIds.push("first-fixed-income");
+    progress.completedMissionIds.push("mission-first-investment");
     const { progressRepository, service } = makeService(progress);
 
-    const result = await service.claimReward(playerId, "first-fixed-income");
+    const result = await service.claimReward(playerId, "mission-first-investment");
 
     expect(result.mission.status).toBe("REWARDED");
     expect(result.events.map((event) => event.type)).toContain(
       "MISSION_REWARD_CLAIMED",
     );
     expect(progressRepository.progress?.rewardedMissionIds).toContain(
-      "first-fixed-income",
+      "mission-first-investment",
     );
   });
 
   it("blocks reward claim for incomplete or already rewarded missions", async () => {
     const incomplete = makeService();
     await expect(
-      incomplete.service.claimReward(playerId, "first-fixed-income"),
+      incomplete.service.claimReward(playerId, "mission-first-investment"),
     ).rejects.toThrow("Mission reward can only be claimed after completion.");
 
     const progress = createInitialPlayerProgress(playerId, now);
-    progress.completedMissionIds.push("first-fixed-income");
-    progress.rewardedMissionIds.push("first-fixed-income");
+    progress.completedMissionIds.push("mission-first-investment");
+    progress.rewardedMissionIds.push("mission-first-investment");
     const rewarded = makeService(progress);
 
     await expect(
-      rewarded.service.claimReward(playerId, "first-fixed-income"),
+      rewarded.service.claimReward(playerId, "mission-first-investment"),
     ).rejects.toThrow("Mission reward was already claimed.");
   });
 });

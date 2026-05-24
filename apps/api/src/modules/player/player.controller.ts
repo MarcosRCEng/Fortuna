@@ -99,6 +99,48 @@ export class PlayerController {
     return this.api.runGameLoopTick(playerId);
   }
 
+  @Get(":playerId/missions")
+  @ApiOperation({ summary: "Listar missoes educativas do jogador." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  listMissions(@Param("playerId") playerId: string) {
+    return this.api.listPlayerMissions(playerId);
+  }
+
+  @Get(":playerId/missions/:missionId")
+  @ApiOperation({ summary: "Consultar uma missao educativa do jogador." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getMission(
+    @Param("playerId") playerId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    return this.api.getPlayerMission(playerId, missionId);
+  }
+
+  @Post(":playerId/missions/initialize")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Inicializar missoes padrao do jogador." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  initializeMissions(@Param("playerId") playerId: string) {
+    return this.api.initializePlayerMissions(playerId);
+  }
+
+  @Post(":playerId/assets/:assetId/education-viewed")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Registrar visualizacao educativa de detalhes de ativo.",
+  })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  viewAssetEducation(
+    @Param("playerId") playerId: string,
+    @Param("assetId") assetId: string,
+  ) {
+    return this.api.viewAssetEducation(playerId, assetId);
+  }
+
   @Get(":playerId/wallet")
   @ApiOperation({
     summary: "Consultar saldo, patrimonio e posicoes da carteira.",

@@ -8,6 +8,7 @@ import {
 import type { Clock } from "../ports/Clock.js";
 import type { GameplayPortfolioSnapshot } from "./GameplaySnapshots.js";
 import type { PlayerProgress } from "./PlayerProgress.js";
+import { MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS } from "../missions/MissionCatalog.js";
 
 export interface GameEventServiceContext {
   portfolio?: GameplayPortfolioSnapshot;
@@ -15,7 +16,6 @@ export interface GameEventServiceContext {
 }
 
 const NET_WORTH_MILESTONES_CENTS = [10_000, 100_000, 500_000, 1_000_000];
-const EXCESSIVE_CONCENTRATION_BASIS_POINTS = 7_000;
 
 export class GameEventService {
   constructor(
@@ -58,6 +58,10 @@ export class GameEventService {
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
+              ...(financialEvent.asset.liquidity
+                ? { liquidity: financialEvent.asset.liquidity }
+                : {}),
               amountCents: financialEvent.total.cents,
             },
           },
@@ -70,6 +74,10 @@ export class GameEventService {
             {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
+              ...(financialEvent.asset.liquidity
+                ? { liquidity: financialEvent.asset.liquidity }
+                : {}),
               amountCents: financialEvent.total.cents,
             },
             "FINANCIAL_EVENT",
@@ -87,6 +95,10 @@ export class GameEventService {
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
+              ...(financialEvent.asset.liquidity
+                ? { liquidity: financialEvent.asset.liquidity }
+                : {}),
               amountCents: financialEvent.total.cents,
             },
           },
@@ -99,6 +111,10 @@ export class GameEventService {
             {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
+              ...(financialEvent.asset.liquidity
+                ? { liquidity: financialEvent.asset.liquidity }
+                : {}),
               amountCents: financialEvent.total.cents,
             },
             "FINANCIAL_EVENT",
@@ -119,6 +135,7 @@ export class GameEventService {
             metadata: {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
               amountCents: financialEvent.total.cents,
             },
           },
@@ -131,6 +148,7 @@ export class GameEventService {
             {
               assetSymbol: financialEvent.asset.symbol.value,
               assetType: financialEvent.asset.type,
+              riskLevel: financialEvent.asset.riskLevel,
               amountCents: financialEvent.total.cents,
             },
             "FINANCIAL_EVENT",
@@ -199,13 +217,21 @@ export class GameEventService {
       },
     );
     if (
-      maxAllocation.percentageBasisPoints >=
-      EXCESSIVE_CONCENTRATION_BASIS_POINTS
+      maxAllocation.percentageBasisPoints >
+      MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS
     ) {
       events.push(
         this.create(playerId, "EXCESSIVE_CONCENTRATION_DETECTED", {
           assetType: maxAllocation.assetType,
           percentageBasisPoints: maxAllocation.percentageBasisPoints,
+        }),
+      );
+      events.push(
+        this.create(playerId, "CONCENTRATION_ALERT_TRIGGERED", {
+          assetType: maxAllocation.assetType,
+          percentageBasisPoints: maxAllocation.percentageBasisPoints,
+          thresholdBasisPoints:
+            MAX_RECOMMENDED_ASSET_CONCENTRATION_BASIS_POINTS,
         }),
       );
     }

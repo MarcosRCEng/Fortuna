@@ -9,7 +9,7 @@ const EXPERIENCE_BY_EVENT: Record<GameEventType, number> = {
   FIRST_INCOME_RECEIVED: 120,
   FIRST_DIVERSIFICATION: 180,
   NET_WORTH_REACHED: 150,
-  MISSION_COMPLETED: 200,
+  MISSION_COMPLETED: 0,
   MARKET_PRICES_REFRESHED: 0,
   EMERGENCY_RESERVE_STARTED: 120,
   EMERGENCY_RESERVE_COMPLETED: 300,
@@ -21,6 +21,10 @@ const EXPERIENCE_BY_EVENT: Record<GameEventType, number> = {
   PLAYER_LEVEL_UP: 0,
   EDUCATIONAL_BADGE_GRANTED: 75,
   MISSION_REWARD_CLAIMED: 50,
+  MISSION_REWARD_APPLIED: 0,
+  ASSET_DETAILS_VIEWED: 0,
+  RISK_EDUCATION_VIEWED: 0,
+  CONCENTRATION_ALERT_TRIGGERED: 0,
   PLAYER_CREATED: 0,
   ASSET_PURCHASED: 0,
   ASSET_SOLD: 0,
@@ -53,7 +57,7 @@ export class ProgressionService {
     };
 
     for (const event of events) {
-      next.experiencePoints += EXPERIENCE_BY_EVENT[event.type];
+      next.experiencePoints += this.experienceForEvent(event);
       this.markSeen(next, event.type);
 
       if (event.type === "MISSION_COMPLETED" && event.metadata?.missionId) {
@@ -147,6 +151,17 @@ export class ProgressionService {
 
   private markSeen(progress: PlayerProgress, type: GameEventType): void {
     this.addUnique(progress.seenEventTypes, type);
+  }
+
+  private experienceForEvent(event: GameEvent): number {
+    if (
+      event.type === "MISSION_COMPLETED" &&
+      typeof event.metadata?.rewardXp === "number"
+    ) {
+      return event.metadata.rewardXp;
+    }
+
+    return EXPERIENCE_BY_EVENT[event.type];
   }
 
   private addUnique(values: string[], value: string): void {

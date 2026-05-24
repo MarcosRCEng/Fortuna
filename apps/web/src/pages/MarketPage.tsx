@@ -6,11 +6,13 @@ export function MarketPage({
   assets,
   refreshing,
   onBuy,
+  onViewEducation,
   onRefreshMarket,
 }: {
   assets: Asset[];
   refreshing: boolean;
   onBuy(asset: Asset): void;
+  onViewEducation(asset: Asset): void;
   onRefreshMarket(): void;
 }) {
   return (
@@ -44,7 +46,12 @@ export function MarketPage({
       ) : (
         <section className="card-grid">
           {assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onBuy={onBuy} />
+            <AssetCard
+              key={asset.id}
+              asset={asset}
+              onBuy={onBuy}
+              onViewEducation={onViewEducation}
+            />
           ))}
         </section>
       )}

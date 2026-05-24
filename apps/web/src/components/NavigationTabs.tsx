@@ -1,9 +1,10 @@
-export type ScreenKey = "dashboard" | "market" | "wallet" | "history";
+export type ScreenKey = "dashboard" | "market" | "wallet" | "missions" | "history";
 
 const tabs: Array<{ key: ScreenKey; label: string }> = [
   { key: "dashboard", label: "Dashboard" },
   { key: "market", label: "Mercado" },
   { key: "wallet", label: "Carteira" },
+  { key: "missions", label: "Missoes" },
   { key: "history", label: "Historico" },
 ];
 

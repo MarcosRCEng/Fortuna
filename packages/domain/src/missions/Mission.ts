@@ -1,17 +1,24 @@
 import type { AssetType } from "../value-objects/AssetType.js";
 import type { GameEventType } from "../events/GameEvents.js";
+import type { RiskLevel } from "../value-objects/RiskLevel.js";
 
 export const MISSION_STATUSES = [
   "LOCKED",
   "AVAILABLE",
   "IN_PROGRESS",
   "COMPLETED",
+  "CLAIMED",
   "REWARDED",
 ] as const;
 
 export type MissionStatus = (typeof MISSION_STATUSES)[number];
 
 export const MISSION_TYPES = [
+  "ACTION",
+  "EDUCATIONAL",
+  "PORTFOLIO",
+  "INCOME",
+  "RISK_ALERT",
   "FIRST_PURCHASE",
   "FIRST_RESERVE",
   "FIRST_DIVERSIFICATION",
@@ -29,6 +36,10 @@ export const MISSION_TYPES = [
 export type MissionType = (typeof MISSION_TYPES)[number];
 
 export const MISSION_REWARD_TYPES = [
+  "XP",
+  "COINS",
+  "UNLOCK",
+  "MENTOR_MESSAGE",
   "UNLOCK_DISTRICT",
   "UNLOCK_ASSET",
   "UNLOCK_BUILDING",
@@ -39,6 +50,25 @@ export const MISSION_REWARD_TYPES = [
 ] as const;
 
 export type MissionRewardType = (typeof MISSION_REWARD_TYPES)[number];
+
+export const MISSION_CRITERIA_KINDS = [
+  "FIRST_ASSET_BOUGHT",
+  "BUY_DAILY_LIQUIDITY_FIXED_INCOME",
+  "HOLD_AT_LEAST_TWO_ASSET_TYPES",
+  "FIRST_INCOME_COLLECTED",
+  "VIEW_HIGH_RISK_ASSET_DETAILS",
+  "ASSET_CONCENTRATION_ALERT_TRIGGERED",
+] as const;
+
+export type MissionCriteriaKind = (typeof MISSION_CRITERIA_KINDS)[number];
+
+export interface MissionCriteria {
+  kind: MissionCriteriaKind;
+  targetValue?: number;
+  assetType?: AssetType;
+  liquidity?: string;
+  riskLevel?: RiskLevel;
+}
 
 export const MISSION_RULE_TYPES = [
   "EVENT_BASED",
@@ -59,9 +89,11 @@ export interface MissionCompletionRule {
 
 export interface MissionReward {
   type: MissionRewardType;
-  targetId: string;
+  targetId?: string;
   label: string;
+  amount?: number;
   cityXp?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MissionProgress {
@@ -72,6 +104,7 @@ export interface MissionProgress {
 
 export interface Mission {
   id: string;
+  code: string;
   title: string;
   description: string;
   objective: string;
@@ -79,6 +112,7 @@ export interface Mission {
   cityRelation: string;
   type: MissionType;
   status: MissionStatus;
+  criteria: MissionCriteria;
   completionRule: MissionCompletionRule;
   reward: MissionReward;
   progress: MissionProgress;

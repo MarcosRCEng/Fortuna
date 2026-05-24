@@ -69,7 +69,12 @@ export class MissionService {
       this.eventService.create(
         playerId,
         "MISSION_COMPLETED",
-        { missionId: mission.id },
+        {
+          missionId: mission.id,
+          missionCode: mission.code,
+          rewardType: mission.reward.type,
+          rewardXp: mission.reward.amount ?? 0,
+        },
         "MISSION",
         correlationId,
       ),
@@ -126,13 +131,13 @@ export class MissionService {
 
     const events = [
       this.eventService.create(
-        playerId,
-        "MISSION_REWARD_CLAIMED",
-        {
-          missionId,
-          rewardType: mission.reward.type,
-          targetId: mission.reward.targetId,
-        },
+          playerId,
+          "MISSION_REWARD_CLAIMED",
+          {
+            missionId,
+            rewardType: mission.reward.type,
+            targetId: mission.reward.targetId ?? mission.id,
+          },
         "MISSION",
         correlationId,
       ),
@@ -200,7 +205,7 @@ export class MissionService {
         this.eventService.create(
           playerId,
           "EDUCATIONAL_BADGE_GRANTED",
-          { badgeId: mission.reward.targetId },
+          { badgeId: mission.reward.targetId ?? mission.id },
           "MISSION",
           correlationId,
         ),
@@ -212,7 +217,7 @@ export class MissionService {
         this.eventService.create(
           playerId,
           "NEW_DISTRICT_UNLOCKED",
-          { districtId: mission.reward.targetId },
+          { districtId: mission.reward.targetId ?? mission.id },
           "MISSION",
           correlationId,
         ),
@@ -224,7 +229,7 @@ export class MissionService {
         this.eventService.create(
           playerId,
           "NEW_TOOL_UNLOCKED",
-          { reportId: mission.reward.targetId },
+          { reportId: mission.reward.targetId ?? mission.id },
           "MISSION",
           correlationId,
         ),
@@ -236,7 +241,7 @@ export class MissionService {
         this.eventService.create(
           playerId,
           "NEW_TOOL_UNLOCKED",
-          { toolId: mission.reward.targetId },
+          { toolId: mission.reward.targetId ?? mission.id },
           "MISSION",
           correlationId,
         ),

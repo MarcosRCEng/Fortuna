@@ -388,6 +388,17 @@ button:disabled {
   width: 100%;
 }
 
+.button-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.button-row .button-secondary {
+  margin-top: 0;
+}
+
 .button-ghost {
   background: #ffffff;
   border-color: #cfd7e3;
@@ -562,6 +573,11 @@ input {
   background: #2f6f4e;
   display: block;
   height: 100%;
+}
+
+.mission-done {
+  border-color: #9ac7ae;
+  background: #fbfdfb;
 }
 
 .city-visual {
