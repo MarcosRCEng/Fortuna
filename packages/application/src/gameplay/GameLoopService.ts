@@ -74,6 +74,20 @@ export class GameLoopService {
       );
     }
 
+    if (command.marketPricesRefreshed) {
+      createdEvents.push(
+        this.eventService.create(
+          command.playerId,
+          "MARKET_PRICES_REFRESHED",
+          {
+            updatedAssetCount: command.marketPricesRefreshed.updatedAssetCount,
+          },
+          "MARKET_CYCLE",
+          command.correlationId,
+        ),
+      );
+    }
+
     if (this.missionEvaluator) {
       for (const mission of MVP_MISSIONS) {
         const result = this.missionEvaluator.evaluate(mission, {

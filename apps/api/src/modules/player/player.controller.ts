@@ -23,10 +23,12 @@ import {
   CollectIncomeResponseDto,
   CreatePlayerRequestDto,
   OrderExecutionResponseDto,
+  PlayerGameLoopStateResponseDto,
   PlayerSummaryResponseDto,
   PortfolioAllocationResponseDto,
   PortfolioResponseDto,
   PlayerResponseDto,
+  RunGameLoopTickResponseDto,
   TradeAssetRequestDto,
   TransactionResponseDto,
   TransactionsListResponseDto,
@@ -65,6 +67,36 @@ export class PlayerController {
     @Param("playerId") playerId: string,
   ): Promise<PlayerSummaryResponseDto> {
     return this.api.getPlayerSummary(playerId);
+  }
+
+  @Get(":playerId/game-loop/state")
+  @ApiOperation({
+    summary: "Consultar estado consolidado do game loop do jogador.",
+    description:
+      "Agrega carteira, alocacao, rendimentos, missoes, mentor, cidade e historico sem duplicar calculo financeiro no front-end.",
+  })
+  @ApiOkResponse({ type: PlayerGameLoopStateResponseDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getGameLoopState(
+    @Param("playerId") playerId: string,
+  ): Promise<PlayerGameLoopStateResponseDto> {
+    return this.api.getGameLoopState(playerId);
+  }
+
+  @Post(":playerId/game-loop/tick")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Executar um tick controlado do game loop.",
+    description:
+      "Atualiza precos mockados, reavalia carteira/progresso/cidade e retorna o estado consolidado.",
+  })
+  @ApiOkResponse({ type: RunGameLoopTickResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  runGameLoopTick(
+    @Param("playerId") playerId: string,
+  ): Promise<RunGameLoopTickResponseDto> {
+    return this.api.runGameLoopTick(playerId);
   }
 
   @Get(":playerId/wallet")

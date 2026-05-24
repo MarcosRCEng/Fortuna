@@ -31,6 +31,17 @@ export class MentorFeedbackService {
       };
     }
 
+    if (event.type === "FIRST_SELL" || event.type === "ASSET_SOLD") {
+      return {
+        code: event.type === "FIRST_SELL" ? "MENTOR_FIRST_SELL" : "MENTOR_SELL",
+        title: "Venda registrada",
+        message:
+          "Vender muda sua exposicao e pode reduzir diversificacao. Use a venda para revisar risco, liquidez e prazo, sem tratar resultado passado como promessa de ganho futuro.",
+        severity: "info",
+        relatedEventType: event.type,
+      };
+    }
+
     if (event.type === "FIRST_INCOME_RECEIVED") {
       return {
         code: "MENTOR_INCOME",

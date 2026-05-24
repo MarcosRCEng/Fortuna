@@ -6,32 +6,46 @@ import {
 } from "@nestjs/common";
 import {
   BuyAssetUseCase,
+  CityEvolutionService,
   CollectIncomeUseCase,
   CreatePlayerUseCase,
   DomainEventPublisher,
   EventDispatcher,
+  GameEventService,
+  GameLoopService,
   GetAssetDetailsUseCase,
   GetAssetHistoryUseCase,
   GetCurrentAssetPriceUseCase,
   GetExpectedYieldUseCase,
   GetMarketProviderStatusUseCase,
+  GetPortfolioAllocationUseCase,
   RuleBasedMentorService,
   ListAvailableAssetsUseCase,
   LogEventHandler,
+  MentorFeedbackService,
+  MissionEvaluator,
+  MVP_MISSIONS,
+  ProgressionService,
   RefreshMarketPricesUseCase,
   GetTransactionHistoryUseCase,
   GetWalletSummaryUseCase,
   SellAssetUseCase,
+  UnlockService,
   type Asset as MarketAsset,
   type AssetRepository,
+  type GameEventRepository,
+  type GameplayPortfolioSnapshot,
   type IncomeEventRepository,
   type MarketDataProvider,
   type MarketPriceProvider,
   type PlayerProfile,
+  type PlayerProgress,
+  type PlayerProgressRepository,
   type PlayerRepository,
   type TransactionHistoryFilter,
   type TransactionRepository,
   type WalletRepository,
+  createInitialPlayerProgress,
 } from "@fortuna/application";
 import {
   MockMarketDataProvider,
@@ -49,6 +63,8 @@ import {
   Asset,
   AssetSymbol,
   AssetType,
+  FinancialEvent,
+  GameEvent,
   IncomeEvent,
   MentorGameLoopMoment,
   MoneyCents,
@@ -85,6 +101,8 @@ import {
   TransactionsListResponseDto,
   WalletResponseDto,
   WalletSummaryResponseDto,
+  PlayerGameLoopStateResponseDto,
+  RunGameLoopTickResponseDto,
 } from "./player.dto.js";
 import {
   formatBasisPoints,
@@ -191,6 +209,40 @@ class InMemoryIncomeEventRepository implements IncomeEventRepository {
   }
 }
 
+class InMemoryGameEventRepository implements GameEventRepository {
+  private readonly eventsByPlayerId = new Map<string, GameEvent[]>();
+
+  async append(event: GameEvent): Promise<void> {
+    const current = this.eventsByPlayerId.get(event.playerId) ?? [];
+    current.push(event);
+    this.eventsByPlayerId.set(event.playerId, current);
+  }
+
+  async appendMany(events: GameEvent[]): Promise<void> {
+    for (const event of events) {
+      await this.append(event);
+    }
+  }
+
+  async listByPlayerId(playerId: string): Promise<GameEvent[]> {
+    return [...(this.eventsByPlayerId.get(playerId) ?? [])].sort(
+      (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
+    );
+  }
+}
+
+class InMemoryPlayerProgressRepository implements PlayerProgressRepository {
+  private readonly progressByPlayerId = new Map<string, PlayerProgress>();
+
+  async findByPlayerId(playerId: string): Promise<PlayerProgress | undefined> {
+    return this.progressByPlayerId.get(playerId);
+  }
+
+  async save(progress: PlayerProgress): Promise<void> {
+    this.progressByPlayerId.set(progress.playerId, progress);
+  }
+}
+
 @Injectable()
 export class PlayerApiService {
   static withPrisma(prisma: PrismaService): PlayerApiService {
@@ -219,6 +271,20 @@ export class PlayerApiService {
   private readonly transactions = new InMemoryTransactionRepository();
   private readonly logger = new PinoLogger();
   private nextId = 0;
+  private readonly clock = { now: () => new Date() };
+  private readonly gameEvents = new InMemoryGameEventRepository();
+  private readonly playerProgress = new InMemoryPlayerProgressRepository();
+  private readonly gameLoop = new GameLoopService(
+    this.gameEvents,
+    this.playerProgress,
+    new GameEventService(this.clock, () => `game-event-${++this.nextId}`),
+    new ProgressionService(this.clock),
+    new UnlockService(),
+    new CityEvolutionService(),
+    new MentorFeedbackService(),
+    this.clock,
+    new MissionEvaluator(),
+  );
   private readonly dispatcher = this.createEventDispatcher();
   private readonly eventPublisher = new DomainEventPublisher(
     this.dispatcher,
@@ -349,6 +415,138 @@ export class PlayerApiService {
     };
   }
 
+  async getGameLoopState(
+    playerId: string,
+  ): Promise<PlayerGameLoopStateResponseDto> {
+    const player = await this.getPlayer(playerId);
+    const wallet = await this.getWallet(playerId);
+    const allocation = await this.getPortfolioAllocation(playerId);
+    const incomeEvents = await (this.persistence
+      ? this.persistence.incomeEvents.listAvailableByPlayerId(playerId)
+      : this.incomeEvents.listAvailableByPlayerId(playerId));
+    const collectableCents = incomeEvents.reduce(
+      (total, incomeEvent) => total + incomeEvent.amount.cents,
+      0,
+    );
+    const progress =
+      (await this.playerProgress.findByPlayerId(playerId)) ??
+      createInitialPlayerProgress(playerId, this.clock.now());
+    const city = new CityEvolutionService().describe(progress);
+    const gameEvents = await this.gameEvents.listByPlayerId(playerId);
+    const transactions = await this.getTransactionItems(playerId);
+    const completedRecently = progress.completedMissionIds
+      .slice(-5)
+      .map((missionId) => MVP_MISSIONS.find((mission) => mission.id === missionId))
+      .filter((mission): mission is (typeof MVP_MISSIONS)[number] =>
+        Boolean(mission),
+      );
+
+    return {
+      player: {
+        id: player.id,
+        name: player.name,
+        level: progress.level,
+        progressPercent: Math.min(100, progress.experiencePoints % 100),
+      },
+      wallet: {
+        availableBalanceCents: wallet.availableBalanceCents,
+        availableBalanceFormatted: formatFortuna(wallet.availableBalanceCents),
+      },
+      portfolio: {
+        totalPatrimonyCents: wallet.totalEquityCents,
+        totalPatrimonyFormatted: formatFortuna(wallet.totalEquityCents),
+        allocation: allocation.byAssetType.map((item) => ({
+          assetClass: item.assetType ?? "UNKNOWN",
+          percentageBasisPoints: item.basisPoints,
+        })),
+      },
+      income: {
+        collectableCents,
+        collectableFormatted: formatFortuna(collectableCents),
+      },
+      missions: {
+        active: MVP_MISSIONS.filter(
+          (mission) => !progress.completedMissionIds.includes(mission.id),
+        ).map((mission) => ({
+          id: mission.id,
+          title: mission.title,
+          description: mission.description,
+          progress: mission.progress,
+        })),
+        completedRecently: completedRecently.map((mission) => ({
+          id: mission.id,
+          title: mission.title,
+          description: mission.description,
+        })),
+      },
+      mentor: {
+        latestMessages: new MentorFeedbackService()
+          .fromEvents(gameEvents.slice(-20))
+          .slice(-5)
+          .map((message) => ({
+            id: message.code,
+            type: message.severity === "warning" ? "warning" : "education",
+            title: message.title,
+            message: message.message,
+            relatedEventType: message.relatedEventType,
+            createdAt: this.clock.now().toISOString(),
+          })),
+      },
+      city: {
+        level: city.cityLevel,
+        districts: {
+          walletDistrictLevel: progress.seenEventTypes.includes("FIRST_BUY")
+            ? 2
+            : 1,
+          incomeDistrictLevel: progress.seenEventTypes.includes(
+            "FIRST_INCOME_RECEIVED",
+          )
+            ? 2
+            : 1,
+          diversificationDistrictLevel: progress.seenEventTypes.includes(
+            "FIRST_DIVERSIFICATION",
+          )
+            ? 2
+            : 1,
+          educationDistrictLevel: Math.max(1, progress.completedMissionIds.length),
+          unlockedDistricts: city.unlockedDistricts,
+          unlockedBuildings: city.unlockedBuildings,
+          visualSignals: city.visualSignals,
+        },
+      },
+      history: {
+        latest: this.buildHistory(transactions, gameEvents).slice(0, 20),
+      },
+    };
+  }
+
+  async runGameLoopTick(
+    playerId: string,
+  ): Promise<RunGameLoopTickResponseDto> {
+    await this.getPlayer(playerId);
+    const refreshed = await this.refreshMockPrices();
+    const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
+    const result = await this.gameLoop.handle({
+      playerId,
+      portfolio,
+      marketPricesRefreshed: {
+        updatedAssetCount: refreshed.updatedAssets.length,
+      },
+      correlationId: `tick-${++this.nextId}`,
+    });
+
+    return {
+      playerId,
+      events: result.events.map((event) => ({
+        id: event.id,
+        type: event.type,
+        occurredAt: event.occurredAt.toISOString(),
+        metadata: event.metadata,
+      })),
+      state: await this.getGameLoopState(playerId),
+    };
+  }
+
   async buyAsset(
     playerId: string,
     request: TradeAssetRequestDto,
@@ -361,6 +559,9 @@ export class PlayerApiService {
         quantity: trade.quantity,
         correlationId: `api-${this.nextId}`,
       });
+      await this.runGameLoopForFinancialEvents(playerId, [
+        this.transactionToFinancialEvent(transaction, "AssetBought"),
+      ]);
       return this.toOrderResponse(transaction);
     }
 
@@ -380,6 +581,7 @@ export class PlayerApiService {
       quantity: trade.quantity,
       correlationId: `api-${this.nextId}`,
     });
+    await this.runGameLoopForFinancialEvents(playerId, result.events);
 
     return this.toOrderResponse(result.data);
   }
@@ -396,6 +598,9 @@ export class PlayerApiService {
         quantity: trade.quantity,
         correlationId: `api-${this.nextId}`,
       });
+      await this.runGameLoopForFinancialEvents(playerId, [
+        this.transactionToFinancialEvent(transaction, "AssetSold"),
+      ]);
       return this.toOrderResponse(transaction);
     }
 
@@ -415,6 +620,7 @@ export class PlayerApiService {
       quantity: trade.quantity,
       correlationId: `api-${this.nextId}`,
     });
+    await this.runGameLoopForFinancialEvents(playerId, result.events);
 
     return this.toOrderResponse(result.data);
   }
@@ -434,6 +640,9 @@ export class PlayerApiService {
         incomeEventId,
         correlationId: `api-${this.nextId}`,
       });
+      await this.runGameLoopForFinancialEvents(playerId, [
+        this.transactionToFinancialEvent(transaction, "IncomeCollected"),
+      ]);
       return this.toCollectIncomeResponse(transaction);
     }
 
@@ -451,6 +660,7 @@ export class PlayerApiService {
       incomeEventId,
       correlationId: `api-${this.nextId}`,
     });
+    await this.runGameLoopForFinancialEvents(playerId, result.events);
 
     return this.toCollectIncomeResponse(result.data);
   }
@@ -862,6 +1072,12 @@ export class PlayerApiService {
     request: RefreshMarketPricesRequestDto = {},
   ): Promise<RefreshMarketPricesResponseDto> {
     const assets = await this.refreshMarketPrices(request);
+    const correlationId = `market-refresh-${++this.nextId}`;
+    await this.gameLoop.handle({
+      playerId: "system",
+      marketPricesRefreshed: { updatedAssetCount: assets.length },
+      correlationId,
+    });
     return {
       updatedAssets: assets.map((asset) => ({
         assetId: asset.id,
@@ -974,6 +1190,147 @@ export class PlayerApiService {
       walletBalanceAfterCents: transaction.balanceAfter.cents,
       createdAt: transaction.occurredAt.toISOString(),
     };
+  }
+
+  private async runGameLoopForFinancialEvents(
+    playerId: string,
+    events: FinancialEvent[],
+  ): Promise<void> {
+    const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
+    await this.gameLoop.handle({
+      playerId,
+      financialEvents: events,
+      portfolio,
+      correlationId: `game-loop-${++this.nextId}`,
+    });
+  }
+
+  private async buildGameplayPortfolioSnapshot(
+    playerId: string,
+  ): Promise<GameplayPortfolioSnapshot> {
+    const wallets = this.persistence?.wallets ?? this.wallets;
+    const prices = this.persistence?.prices ?? this.prices;
+    const wallet = await new GetWalletSummaryUseCase(wallets, prices).execute(
+      playerId,
+    );
+    const allocation = await new GetPortfolioAllocationUseCase(
+      wallets,
+      prices,
+    ).execute(playerId);
+    const pendingIncome = await (this.persistence
+      ? this.persistence.incomeEvents.listAvailableByPlayerId(playerId)
+      : this.incomeEvents.listAvailableByPlayerId(playerId));
+
+    return {
+      wallet,
+      allocation,
+      pendingIncomeCount: pendingIncome.length,
+      emergencyReserveTargetCents: 20_000,
+    };
+  }
+
+  private transactionToFinancialEvent(
+    transaction: Transaction,
+    type: "AssetBought" | "AssetSold" | "IncomeCollected",
+  ): FinancialEvent {
+    if (!transaction.asset) {
+      throw new OperationRejectedError(
+        "Operacao financeira inconsistente.",
+        "INCONSISTENT_FINANCIAL_OPERATION",
+      );
+    }
+
+    if (type === "IncomeCollected") {
+      return {
+        type,
+        playerId: transaction.playerId,
+        occurredAt: transaction.occurredAt,
+        incomeEventId: String(transaction.metadata?.incomeEventId ?? ""),
+        asset: transaction.asset,
+        total: transaction.total,
+        transactionId: transaction.id,
+      };
+    }
+
+    if (!transaction.quantity || !transaction.unitPrice) {
+      throw new OperationRejectedError(
+        "Operacao financeira inconsistente.",
+        "INCONSISTENT_FINANCIAL_OPERATION",
+      );
+    }
+
+    return {
+      type,
+      playerId: transaction.playerId,
+      occurredAt: transaction.occurredAt,
+      asset: transaction.asset,
+      quantity: transaction.quantity,
+      unitPrice: transaction.unitPrice,
+      total: transaction.total,
+      transactionId: transaction.id,
+    };
+  }
+
+  private buildHistory(
+    transactions: TransactionResponseDto[],
+    gameEvents: GameEvent[],
+  ): PlayerGameLoopStateResponseDto["history"]["latest"] {
+    const transactionHistory = transactions.map((transaction) => ({
+      id: transaction.id,
+      type: transaction.type,
+      occurredAt: transaction.occurredAt,
+      title: this.historyTitle(transaction.type),
+      description: transaction.symbol
+        ? `${transaction.symbol} - ${formatFortuna(transaction.totalCents)}`
+        : formatFortuna(transaction.totalCents),
+      amountCents: transaction.totalCents,
+      assetId: transaction.symbol,
+      metadata: {
+        quantity: transaction.quantity,
+        unitPriceCents: transaction.unitPriceCents,
+        balanceAfterCents: transaction.balanceAfterCents,
+      },
+    }));
+    const gameplayHistory = gameEvents.map((event) => ({
+      id: event.id,
+      type: event.type,
+      occurredAt: event.occurredAt.toISOString(),
+      title: this.historyTitle(event.type),
+      description: event.metadata
+        ? JSON.stringify(event.metadata)
+        : "Evento de gameplay registrado.",
+      missionId:
+        typeof event.metadata?.missionId === "string"
+          ? event.metadata.missionId
+          : undefined,
+      metadata: event.metadata,
+    }));
+
+    return [...transactionHistory, ...gameplayHistory].sort(
+      (left, right) =>
+        new Date(right.occurredAt).getTime() -
+        new Date(left.occurredAt).getTime(),
+    );
+  }
+
+  private historyTitle(type: string): string {
+    const titles: Record<string, string> = {
+      BUY: "Compra registrada",
+      SELL: "Venda registrada",
+      INCOME: "Rendimento coletado",
+      INCOME_COLLECTED: "Rendimento coletado",
+      ASSET_PURCHASED: "Compra no game loop",
+      ASSET_SOLD: "Venda no game loop",
+      FIRST_BUY: "Primeira compra concluida",
+      FIRST_SELL: "Primeira venda concluida",
+      FIRST_INCOME_RECEIVED: "Primeiro rendimento concluido",
+      MISSION_COMPLETED: "Missao concluida",
+      PLAYER_LEVEL_UP: "Jogador evoluiu",
+      MARKET_PRICES_REFRESHED: "Mercado mockado atualizado",
+      PORTFOLIO_UPDATED: "Carteira recalculada",
+    };
+
+    return titles[type] ?? type;
   }
 
   private async parseTradeRequest(

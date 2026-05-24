@@ -291,6 +291,110 @@ export class PlayerSummaryResponseDto {
   allocation!: PortfolioAllocationResponseDto;
 }
 
+export class PlayerGameLoopStateResponseDto {
+  @ApiProperty({ example: { id: "player-123", name: "Marcos", level: 2, progressPercent: 40 } })
+  player!: {
+    id: string;
+    name: string;
+    level: number;
+    progressPercent: number;
+  };
+
+  @ApiProperty({ example: { availableBalanceCents: 15000, availableBalanceFormatted: "F$ 150,00" } })
+  wallet!: {
+    availableBalanceCents: number;
+    availableBalanceFormatted: string;
+  };
+
+  @ApiProperty({
+    example: {
+      totalPatrimonyCents: 50000,
+      totalPatrimonyFormatted: "F$ 500,00",
+      allocation: [{ assetClass: "FII", percentageBasisPoints: 4500 }],
+    },
+  })
+  portfolio!: {
+    totalPatrimonyCents: number;
+    totalPatrimonyFormatted: string;
+    allocation: Array<{
+      assetClass: string;
+      percentageBasisPoints: number;
+    }>;
+  };
+
+  @ApiProperty({ example: { collectableCents: 250, collectableFormatted: "F$ 2,50" } })
+  income!: {
+    collectableCents: number;
+    collectableFormatted: string;
+  };
+
+  @ApiProperty({ example: { active: [], completedRecently: [] } })
+  missions!: {
+    active: unknown[];
+    completedRecently: unknown[];
+  };
+
+  @ApiProperty({ example: { latestMessages: [] } })
+  mentor!: {
+    latestMessages: unknown[];
+  };
+
+  @ApiProperty({
+    example: {
+      level: 2,
+      districts: {
+        walletDistrictLevel: 2,
+        incomeDistrictLevel: 1,
+        diversificationDistrictLevel: 1,
+        educationDistrictLevel: 1,
+      },
+    },
+  })
+  city!: {
+    level: number;
+    districts: unknown;
+  };
+
+  @ApiProperty({ example: { latest: [] } })
+  history!: {
+    latest: Array<{
+      id: string;
+      type: string;
+      occurredAt: string;
+      title: string;
+      description: string;
+      amountCents?: number;
+      assetId?: string;
+      missionId?: string;
+      metadata?: Record<string, unknown>;
+    }>;
+  };
+}
+
+export class RunGameLoopTickResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({
+    example: [
+      {
+        id: "game-event-1",
+        type: "MARKET_PRICES_REFRESHED",
+        occurredAt: "2026-05-23T00:00:00.000Z",
+      },
+    ],
+  })
+  events!: Array<{
+    id: string;
+    type: string;
+    occurredAt: string;
+    metadata?: Record<string, unknown>;
+  }>;
+
+  @ApiProperty({ type: PlayerGameLoopStateResponseDto })
+  state!: PlayerGameLoopStateResponseDto;
+}
+
 export class OrderExecutionResponseDto {
   @ApiProperty({ example: "tx-1" })
   orderId!: string;

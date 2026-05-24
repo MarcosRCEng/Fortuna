@@ -19,6 +19,9 @@ export interface GameLoopCommand {
   portfolio?: GameplayPortfolioSnapshot;
   missionId?: string;
   advanceMarketCycle?: boolean;
+  marketPricesRefreshed?: {
+    updatedAssetCount: number;
+  };
   correlationId?: string;
 }
 

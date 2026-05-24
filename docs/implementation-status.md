@@ -206,3 +206,29 @@ pnpm dev:api
 
 Abra `http://localhost:3000/docs` para Swagger ou execute a colecao Bruno
 `api-tests/bruno/fortuna` usando o environment `Local`.
+
+## Sprint 17 - Game loop minimo do MVP
+
+Status: implementada no fluxo principal.
+
+Entregas:
+
+- `GameLoopService` reaproveitado como orquestrador central de gameplay em `packages/application/src/gameplay`.
+- Compra, venda e coleta de rendimento acionam o loop apos a operacao financeira valida.
+- Compra pode concluir missoes do catalogo MVP, incluindo primeira compra, FII, renda fixa e diversificacao.
+- Venda gera feedback educativo do Mentor Fortuna por regra, sem promessa de ganho ou incentivo especulativo.
+- Coleta de rendimento pode concluir missao e evoluir sinais de progresso/cidade.
+- Evento `MARKET_PRICES_REFRESHED` adicionado para refresh mockado de mercado.
+- Endpoint `GET /players/:playerId/game-loop/state` criado para estado consolidado.
+- Endpoint `POST /players/:playerId/game-loop/tick` criado para tick controlado do loop.
+- Historico consolidado combina transacoes financeiras e eventos de gameplay.
+- Swagger recebeu DTOs de estado consolidado e tick.
+- Documento `docs/game-loop.md` criado com fluxo, eventos, mentor, missoes, cidade e limitacoes.
+
+Validacao:
+
+- `pnpm --filter @fortuna/domain build`: OK.
+- `pnpm --filter @fortuna/application build`: OK.
+- `pnpm --filter @fortuna/api build`: OK.
+- `pnpm --filter @fortuna/application test`: OK.
+- `pnpm --filter @fortuna/api test`: OK.
