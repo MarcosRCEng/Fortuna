@@ -7,6 +7,9 @@ import type { AssetType } from "../value-objects/AssetType.js";
 import type {
   MentorEducationalConcept,
   MentorGameLoopMoment,
+  MentorMessageSeverity,
+  MentorMessageTrigger,
+  MentorMessageType,
   MentorTipSeverity,
   MentorTipType,
   MentorTriggerType,
@@ -80,4 +83,20 @@ export interface MentorTip {
   relatedAssetId?: string;
   createdAt: Date;
   metadata: Record<string, string | number | boolean>;
+}
+
+export interface MentorMessage {
+  id: string;
+  playerId: string;
+  type: MentorMessageType;
+  trigger: MentorMessageTrigger;
+  title: string;
+  message: string;
+  educationalConcept?: string;
+  severity: MentorMessageSeverity;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  createdAt: Date;
+  readAt?: Date;
+  metadata?: Record<string, string | number | boolean | null>;
 }

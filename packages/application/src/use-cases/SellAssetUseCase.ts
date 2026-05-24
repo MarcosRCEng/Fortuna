@@ -79,6 +79,7 @@ export class SellAssetUseCase {
 
     const price = await this.prices.getCurrentPrice(asset);
     const total = price.unitPrice.multiplyByQuantity(quantity);
+    const averagePrice = position.averagePriceCents;
 
     wallet.sell(asset, quantity);
     wallet.account.credit(total);
@@ -126,6 +127,7 @@ export class SellAssetUseCase {
         asset,
         quantity,
         unitPrice: price.unitPrice,
+        averagePrice,
         total,
         transactionId: transaction.id,
       },

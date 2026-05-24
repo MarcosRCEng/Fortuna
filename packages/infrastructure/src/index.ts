@@ -7,6 +7,7 @@ export * from "./persistence/repositories/PrismaCityStateRepository.js";
 export * from "./persistence/repositories/PrismaGameEventRepository.js";
 export * from "./persistence/repositories/PrismaIncomeEventRepository.js";
 export * from "./persistence/repositories/PrismaMarketPriceProvider.js";
+export * from "./persistence/repositories/PrismaMentorMessageRepository.js";
 export * from "./persistence/repositories/PrismaMentorTipHistoryRepository.js";
 export * from "./persistence/repositories/PrismaMissionRepository.js";
 export * from "./persistence/repositories/PrismaPlayerRepository.js";

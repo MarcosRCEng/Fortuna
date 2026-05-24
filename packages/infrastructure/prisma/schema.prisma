@@ -73,13 +73,6 @@ enum MissionStatus {
   REWARD_CLAIMED
 }
 
-enum MentorMessageType {
-  EDUCATIONAL
-  WARNING
-  CELEBRATION
-  MISSION_HINT
-}
-
 model Player {
   id                String             @id @db.VarChar(80)
   name              String             @db.VarChar(80)
@@ -295,16 +288,23 @@ model CityState {
 }
 
 model MentorMessage {
-  id        String            @id @db.VarChar(100)
-  playerId  String            @map("player_id") @db.VarChar(80)
-  type      MentorMessageType
-  title     String            @db.VarChar(140)
-  message   String
-  readAt    DateTime?         @map("read_at") @db.Timestamptz(6)
-  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  player    Player            @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  id                 String    @id @db.VarChar(100)
+  playerId           String    @map("player_id") @db.VarChar(80)
+  type               String    @db.VarChar(40)
+  trigger            String    @db.VarChar(80)
+  title              String    @db.VarChar(140)
+  message            String
+  educationalConcept String?   @map("educational_concept") @db.VarChar(80)
+  severity           String    @db.VarChar(40)
+  relatedEntityType  String?   @map("related_entity_type") @db.VarChar(60)
+  relatedEntityId    String?   @map("related_entity_id") @db.VarChar(100)
+  metadata           Json?
+  readAt             DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  player             Player    @relation(fields: [playerId], references: [id], onDelete: Restrict)
 
-  @@index([playerId])
+  @@index([playerId, createdAt])
+  @@index([playerId, trigger])
   @@map("mentor_messages")
 }
 

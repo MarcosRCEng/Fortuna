@@ -23,6 +23,34 @@ export enum MentorTipSeverity {
   WARNING = "WARNING",
 }
 
+export enum MentorMessageType {
+  ORIENTATION = "orientation",
+  EDUCATIONAL_ALERT = "educational_alert",
+  CONGRATULATIONS = "congratulations",
+  CONCEPTUAL_EXPLANATION = "conceptual_explanation",
+  MISSION_SUGGESTION = "mission_suggestion",
+  RISK_REFLECTION = "risk_reflection",
+}
+
+export enum MentorMessageTrigger {
+  CONCENTRATED_PURCHASE = "concentrated_purchase",
+  SALE_WITH_LOSS = "sale_with_loss",
+  SALE_WITH_GAIN = "sale_with_gain",
+  FIRST_PURCHASE = "first_purchase",
+  PORTFOLIO_WITHOUT_DIVERSIFICATION = "portfolio_without_diversification",
+  IDLE_CASH_EXCESS = "idle_cash_excess",
+  AVAILABLE_INCOME = "available_income",
+  MISSION_COMPLETED = "mission_completed",
+  RISKY_ASSET_VIEWED = "risky_asset_viewed",
+}
+
+export enum MentorMessageSeverity {
+  POSITIVE = "positive",
+  INFO = "info",
+  WARNING = "warning",
+  CRITICAL_EDUCATIONAL = "critical_educational",
+}
+
 export enum MentorEducationalConcept {
   RISK = "RISK",
   LIQUIDITY = "LIQUIDITY",

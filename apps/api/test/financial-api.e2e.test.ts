@@ -87,6 +87,14 @@ describe("Financial API E2E", () => {
     expect(buy.body).toMatchObject({ type: "BUY", quantity: "2" });
     expect(buy.body.totalCents).toBe(price.body.priceCents * 2);
 
+    const mentorAfterBuy = await readJson<{
+      items: Array<{ id: string; trigger: string; title: string; readAt: string | null }>;
+    }>(await fetch(`${baseUrl}/players/${created.body.id}/mentor/messages`));
+    expect(mentorAfterBuy.status).toBe(200);
+    expect(mentorAfterBuy.body.items.map((item) => item.trigger)).toContain(
+      "first_purchase",
+    );
+
     const wallet = await readJson<{ balanceCents: number; formatted: string }>(
       await fetch(`${baseUrl}/players/${created.body.id}/wallet`),
     );
@@ -141,6 +149,17 @@ describe("Financial API E2E", () => {
     expect(duplicateIncome.status).toBe(422);
     expect(duplicateIncome.body.error).toBe("INCOME_ALREADY_COLLECTED");
 
+    const refreshBeforeSell = await readJson<{
+      updatedAssets: Array<{ assetId: string; currentPriceCents: number }>;
+    }>(
+      await fetch(`${baseUrl}/market/refresh-mock-prices`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ asOf: "2026-05-22T12:00:00.000Z" }),
+      }),
+    );
+    expect(refreshBeforeSell.status).toBe(200);
+
     const sell = await readJson<{ type: string; quantity: string }>(
       await fetch(`${baseUrl}/players/${created.body.id}/orders/sell`, {
         method: "POST",
@@ -150,6 +169,29 @@ describe("Financial API E2E", () => {
     );
     expect(sell.status).toBe(200);
     expect(sell.body).toMatchObject({ type: "SELL", quantity: "1" });
+
+    const mentorLatest = await readJson<{
+      message: { id: string; trigger: string; severity: string; readAt: string | null } | null;
+    }>(await fetch(`${baseUrl}/players/${created.body.id}/mentor/latest`));
+    expect(mentorLatest.status).toBe(200);
+    expect(mentorLatest.body.message).not.toBeNull();
+    const mentorAfterSell = await readJson<{
+      items: Array<{ trigger: string }>;
+    }>(await fetch(`${baseUrl}/players/${created.body.id}/mentor/messages`));
+    expect(
+      mentorAfterSell.body.items.some((item) =>
+        ["sale_with_loss", "sale_with_gain"].includes(item.trigger),
+      ),
+    ).toBe(true);
+
+    const markRead = await readJson<{ ok: true }>(
+      await fetch(
+        `${baseUrl}/players/${created.body.id}/mentor/messages/${mentorAfterBuy.body.items[0]!.id}/read`,
+        { method: "POST" },
+      ),
+    );
+    expect(markRead.status).toBe(200);
+    expect(markRead.body.ok).toBe(true);
 
     const transactions = await readJson<{
       items: Array<{ type: string; totalCents: number }>;

@@ -19,7 +19,11 @@ import {
   viewAssetEducation,
 } from "../services/missionApi.js";
 import { buyAsset, sellAsset } from "../services/orderApi.js";
-import { createPlayer, getPlayerSummary } from "../services/playerApi.js";
+import {
+  createPlayer,
+  getPlayerSummary,
+  markMentorMessageAsRead,
+} from "../services/playerApi.js";
 import { getTransactions } from "../services/transactionApi.js";
 import {
   getPortfolio,
@@ -266,12 +270,33 @@ export function App() {
     }
   }
 
+  async function handleMarkMentorMessageAsRead() {
+    if (!playerId || !summary?.mentorMessage) {
+      return;
+    }
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      await markMentorMessageAsRead(playerId, summary.mentorMessage.id);
+      await loadData();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Nao foi possivel marcar a mensagem como lida.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const currentPage = !playerId ? (
     <DashboardPage
       collecting={submitting}
       onCreatePlayer={handleCreatePlayer}
       onGoToMarket={() => setActiveScreen("market")}
       onCollectIncome={handleCollectIncome}
+      onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
     />
   ) : activeScreen === "market" ? (
     <MarketPage
@@ -301,6 +326,7 @@ export function App() {
       onCreatePlayer={handleCreatePlayer}
       onGoToMarket={() => setActiveScreen("market")}
       onCollectIncome={handleCollectIncome}
+      onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
     />
   );
 

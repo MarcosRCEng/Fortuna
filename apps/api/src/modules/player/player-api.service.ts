@@ -19,9 +19,11 @@ import {
   GetExpectedYieldUseCase,
   GetMarketProviderStatusUseCase,
   GetPortfolioAllocationUseCase,
+  InMemoryMentorMessageRepository,
   RuleBasedMentorService,
   ListAvailableAssetsUseCase,
   LogEventHandler,
+  MentorMessageService,
   MentorFeedbackService,
   MissionEvaluator,
   MVP_MISSIONS,
@@ -38,6 +40,7 @@ import {
   type IncomeEventRepository,
   type MarketDataProvider,
   type MarketPriceProvider,
+  type MentorMessageRepository,
   type PlayerProfile,
   type PlayerProgress,
   type PlayerProgressRepository,
@@ -53,6 +56,7 @@ import {
   PrismaFinancialOperationsService,
   PrismaIncomeEventRepository,
   PrismaMarketPriceProvider,
+  PrismaMentorMessageRepository,
   PrismaPlayerRepository,
   PrismaTransactionRepository,
   PrismaWalletRepository,
@@ -67,8 +71,10 @@ import {
   GameEvent,
   IncomeEvent,
   MentorGameLoopMoment,
+  MentorMessage,
   MoneyCents,
   OperationRejectedError,
+  Quantity,
   RiskLevel,
   Transaction,
   TransactionType,
@@ -94,6 +100,9 @@ import {
   PortfolioResponseDto,
   RefreshMarketPricesResponseDto,
   MentorTipResponseDto,
+  MentorMessageListResponseDto,
+  MentorMessageResponseDto,
+  MentorLatestMessageResponseDto,
   PlayerResponseDto,
   RefreshMarketPricesRequestDto,
   TradeAssetRequestDto,
@@ -118,6 +127,7 @@ interface PersistentPlayerApiDependencies {
   prices: PrismaMarketPriceProvider;
   transactions: PrismaTransactionRepository;
   incomeEvents: PrismaIncomeEventRepository;
+  mentorMessages: PrismaMentorMessageRepository;
 }
 
 class InMemoryPlayerRepository implements PlayerRepository {
@@ -259,6 +269,7 @@ export class PlayerApiService {
       prices: new PrismaMarketPriceProvider(prisma),
       transactions: new PrismaTransactionRepository(prisma),
       incomeEvents: new PrismaIncomeEventRepository(prisma),
+      mentorMessages: new PrismaMentorMessageRepository(prisma),
     });
   }
 
@@ -305,6 +316,7 @@ export class PlayerApiService {
       new Date("2026-05-21T12:00:00.000Z"),
     ),
   ]);
+  private readonly mentorMessages = new InMemoryMentorMessageRepository();
 
   constructor(
     @Optional()
@@ -434,6 +446,10 @@ export class PlayerApiService {
     const city = new CityEvolutionService().describe(progress);
     const gameEvents = await this.gameEvents.listByPlayerId(playerId);
     const transactions = await this.getTransactionItems(playerId);
+    const mentorMessages = await this.mentorMessageRepository().findByPlayer(
+      playerId,
+      5,
+    );
     const completedRecently = progress.completedMissionIds
       .slice(-5)
       .map((missionId) => MVP_MISSIONS.find((mission) => mission.id === missionId))
@@ -480,17 +496,9 @@ export class PlayerApiService {
         })),
       },
       mentor: {
-        latestMessages: new MentorFeedbackService()
-          .fromEvents(gameEvents.slice(-20))
-          .slice(-5)
-          .map((message) => ({
-            id: message.code,
-            type: message.severity === "warning" ? "warning" : "education",
-            title: message.title,
-            message: message.message,
-            relatedEventType: message.relatedEventType,
-            createdAt: this.clock.now().toISOString(),
-          })),
+        latestMessages: mentorMessages.map((message) =>
+          this.toMentorMessageResponse(message),
+        ),
       },
       city: {
         level: city.cityLevel,
@@ -629,6 +637,7 @@ export class PlayerApiService {
       portfolio,
       correlationId: `asset-education-${++this.nextId}`,
     });
+    await this.evaluateMentorMessagesSafely(playerId, events);
 
     return {
       ...details,
@@ -650,6 +659,10 @@ export class PlayerApiService {
       },
       correlationId: `tick-${++this.nextId}`,
     });
+    await this.evaluateMentorMessagesSafely(playerId, [
+      ...result.events,
+      "GameLoopEvaluated",
+    ]);
 
     return {
       playerId,
@@ -1013,6 +1026,39 @@ export class PlayerApiService {
     }));
   }
 
+  async listMentorMessages(
+    playerId: string,
+    limit = 20,
+  ): Promise<MentorMessageListResponseDto> {
+    await this.getPlayer(playerId);
+    await this.evaluateMentorMessagesSafely(playerId, ["GameLoopEvaluated"]);
+    const safeLimit = Number.isSafeInteger(limit) && limit > 0 ? limit : 20;
+    const messages = await this.mentorMessageRepository().findByPlayer(
+      playerId,
+      safeLimit,
+    );
+    return { items: messages.map((message) => this.toMentorMessageResponse(message)) };
+  }
+
+  async getLatestMentorMessage(
+    playerId: string,
+  ): Promise<MentorLatestMessageResponseDto> {
+    await this.getPlayer(playerId);
+    await this.evaluateMentorMessagesSafely(playerId, ["GameLoopEvaluated"]);
+    const message = await this.createMentorMessageService().findLatest(playerId);
+    return {
+      message: message ? this.toMentorMessageResponse(message) : null,
+    };
+  }
+
+  async markMentorMessageAsRead(
+    playerId: string,
+    messageId: string,
+  ): Promise<void> {
+    await this.getPlayer(playerId);
+    await this.createMentorMessageService().markAsRead(playerId, messageId);
+  }
+
   async getTransactions(
     playerId: string,
     filter: { type?: string; assetId?: string; limit?: string; offset?: string } = {},
@@ -1308,6 +1354,26 @@ export class PlayerApiService {
     };
   }
 
+  private toMentorMessageResponse(
+    message: MentorMessage,
+  ): MentorMessageResponseDto {
+    return {
+      id: message.id,
+      playerId: message.playerId,
+      type: message.type,
+      trigger: message.trigger,
+      title: message.title,
+      message: message.message,
+      educationalConcept: message.educationalConcept,
+      severity: message.severity,
+      relatedEntityType: message.relatedEntityType,
+      relatedEntityId: message.relatedEntityId,
+      metadata: message.metadata,
+      createdAt: message.createdAt.toISOString(),
+      readAt: message.readAt?.toISOString() ?? null,
+    };
+  }
+
   private async runGameLoopForFinancialEvents(
     playerId: string,
     events: FinancialEvent[],
@@ -1319,6 +1385,107 @@ export class PlayerApiService {
       portfolio,
       correlationId: `game-loop-${++this.nextId}`,
     });
+    await this.evaluateMentorMessagesSafely(playerId, events);
+  }
+
+  private async evaluateMentorMessagesSafely(
+    playerId: string,
+    events: Array<FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated">,
+  ): Promise<void> {
+    try {
+      const context = await this.buildMentorContext(playerId, events);
+      const mentor = this.createMentorMessageService();
+      for (const event of events) {
+        await mentor.evaluateForEvent(event, context);
+      }
+      await mentor.evaluateForEvent("PortfolioUpdated", context);
+    } catch (error) {
+      this.logger.error("Mentor message generation failed", {
+        module: "mentor",
+        action: "mentor_message_generation_failed",
+        context: { playerId },
+        error,
+      });
+    }
+  }
+
+  private createMentorMessageService(): MentorMessageService {
+    return new MentorMessageService(
+      this.mentorMessageRepository(),
+      this.clock,
+      () => `mentor-message-${++this.nextId}`,
+      this.logger,
+    );
+  }
+
+  private mentorMessageRepository(): MentorMessageRepository {
+    return this.persistence?.mentorMessages ?? this.mentorMessages;
+  }
+
+  private async buildMentorContext(
+    playerId: string,
+    recentEvents: Array<
+      FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated"
+    >,
+  ) {
+    const wallet = await this.getWallet(playerId);
+    const allocation = await this.getPortfolioAllocation(playerId);
+    const progress =
+      (await this.playerProgress.findByPlayerId(playerId)) ??
+      createInitialPlayerProgress(playerId, this.clock.now());
+    const availableIncome = await (this.persistence
+      ? this.persistence.incomeEvents.listAvailableByPlayerId(playerId)
+      : this.incomeEvents.listAvailableByPlayerId(playerId));
+    const shownMessages = await this.mentorMessageRepository().findByPlayer(
+      playerId,
+      100,
+    );
+
+    return {
+      playerId,
+      currentCashInCents: MoneyCents.fromCents(wallet.availableBalanceCents),
+      totalEquityInCents: MoneyCents.fromCents(wallet.totalEquityCents),
+      portfolioPositions: wallet.positions.map((position) => ({
+        assetId: position.symbol,
+        symbol: position.symbol,
+        name: position.name,
+        assetType: this.assetTypeFromSymbol(position.symbol),
+        quantity: Quantity.fromUnits(position.quantity),
+        averagePrice: MoneyCents.fromCents(position.averagePriceCents),
+        marketValue: MoneyCents.fromCents(position.marketValueCents),
+      })),
+      assetAllocation: allocation.byAssetType.map((item) => ({
+        assetType: this.assetTypeFromString(item.assetType),
+        value: MoneyCents.fromCents(item.valueCents),
+        percentageBasisPoints: item.basisPoints,
+      })),
+      recentEvents: [
+        ...recentEvents.filter(
+          (event): event is FinancialEvent | GameEvent =>
+            typeof event === "object",
+        ),
+        ...availableIncome.map((incomeEvent) => ({
+          type: "YieldGenerated" as const,
+          playerId,
+          occurredAt: incomeEvent.occurredAt,
+          incomeEventId: incomeEvent.id,
+          asset: incomeEvent.asset,
+          total: incomeEvent.amount,
+          yieldType: "AVAILABLE",
+        })),
+      ],
+      completedMissions: progress.completedMissionIds,
+      activeMissions: MVP_MISSIONS.filter(
+        (mission) => !progress.completedMissionIds.includes(mission.id),
+      ).map((mission) => mission.id),
+      alreadyShownTips: shownMessages.map((message) => ({
+        ruleId: message.trigger,
+        shownAt: message.createdAt,
+        occurrences: 1,
+      })),
+      currentGameLoopMoment: MentorGameLoopMoment.PORTFOLIO,
+      emergencyReserveTargetCents: 20_000,
+    };
   }
 
   private async buildGameplayPortfolioSnapshot(
@@ -1382,6 +1549,14 @@ export class PlayerApiService {
       asset: transaction.asset,
       quantity: transaction.quantity,
       unitPrice: transaction.unitPrice,
+      ...(type === "AssetSold" &&
+      typeof transaction.metadata?.averagePriceCents === "number"
+        ? {
+            averagePrice: MoneyCents.fromCents(
+              transaction.metadata.averagePriceCents,
+            ),
+          }
+        : {}),
       total: transaction.total,
       transactionId: transaction.id,
     };
@@ -1435,6 +1610,23 @@ export class PlayerApiService {
         event.type === "MISSION_COMPLETED" &&
         event.metadata?.missionId === missionId,
     )?.occurredAt;
+  }
+
+  private assetTypeFromSymbol(symbol: string): AssetType {
+    if (symbol.includes("FII")) {
+      return AssetType.FII;
+    }
+    if (symbol.includes("TS") || symbol.includes("TES")) {
+      return AssetType.TREASURY;
+    }
+    return AssetType.STOCK;
+  }
+
+  private assetTypeFromString(assetType?: string): AssetType {
+    if (assetType && assetType in AssetType) {
+      return AssetType[assetType as keyof typeof AssetType];
+    }
+    return AssetType.CASH;
   }
 
   private historyTitle(type: string): string {

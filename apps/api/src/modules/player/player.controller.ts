@@ -22,6 +22,8 @@ import {
   CollectIncomeRequestDto,
   CollectIncomeResponseDto,
   CreatePlayerRequestDto,
+  MentorLatestMessageResponseDto,
+  MentorMessageListResponseDto,
   OrderExecutionResponseDto,
   PlayerGameLoopStateResponseDto,
   PlayerSummaryResponseDto,
@@ -67,6 +69,44 @@ export class PlayerController {
     @Param("playerId") playerId: string,
   ): Promise<PlayerSummaryResponseDto> {
     return this.api.getPlayerSummary(playerId);
+  }
+
+  @Get(":playerId/mentor/messages")
+  @ApiOperation({ summary: "Listar historico de mensagens do Mentor Fortuna." })
+  @ApiOkResponse({ type: MentorMessageListResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  listMentorMessages(
+    @Param("playerId") playerId: string,
+    @Query("limit") limit?: string,
+  ): Promise<MentorMessageListResponseDto> {
+    const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+    return this.api.listMentorMessages(playerId, parsedLimit);
+  }
+
+  @Get(":playerId/mentor/latest")
+  @ApiOperation({ summary: "Obter mensagem do Mentor para o dashboard." })
+  @ApiOkResponse({ type: MentorLatestMessageResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getLatestMentorMessage(
+    @Param("playerId") playerId: string,
+  ): Promise<MentorLatestMessageResponseDto> {
+    return this.api.getLatestMentorMessage(playerId);
+  }
+
+  @Post(":playerId/mentor/messages/:messageId/read")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Marcar mensagem do Mentor como lida." })
+  @ApiOkResponse({ schema: { example: { ok: true } } })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  async markMentorMessageAsRead(
+    @Param("playerId") playerId: string,
+    @Param("messageId") messageId: string,
+  ): Promise<{ ok: true }> {
+    await this.api.markMentorMessageAsRead(playerId, messageId);
+    return { ok: true };
   }
 
   @Get(":playerId/game-loop/state")

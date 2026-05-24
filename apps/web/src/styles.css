@@ -399,6 +399,40 @@ button:disabled {
   margin-top: 0;
 }
 
+.mentor-card {
+  display: grid;
+  gap: 10px;
+}
+
+.mentor-card-info {
+  border-color: #cbd9ed;
+}
+
+.mentor-card-positive {
+  border-color: #b9dcc8;
+}
+
+.mentor-card-warning,
+.mentor-card-critical_educational {
+  border-color: #f2c9ac;
+}
+
+.mentor-severity {
+  border: 1px solid #dfe6ef;
+  border-radius: 999px;
+  color: #344057;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.mentor-concept {
+  color: #244c3a;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .button-ghost {
   background: #ffffff;
   border-color: #cfd7e3;

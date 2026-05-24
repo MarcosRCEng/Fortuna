@@ -14,6 +14,7 @@ export function DashboardPage({
   onCreatePlayer,
   onGoToMarket,
   onCollectIncome,
+  onMarkMentorMessageAsRead,
 }: {
   summary?: PlayerSummary;
   portfolio?: Portfolio;
@@ -22,6 +23,7 @@ export function DashboardPage({
   onCreatePlayer(): void;
   onGoToMarket(): void;
   onCollectIncome(): void;
+  onMarkMentorMessageAsRead?(): void;
 }) {
   if (!summary) {
     return (
@@ -94,7 +96,11 @@ export function DashboardPage({
             riscos.
           </p>
         </section>
-        <MentorTipCard tip={summary.mentorTip} />
+        <MentorTipCard
+          tip={summary.mentorTip}
+          message={summary.mentorMessage}
+          onMarkAsRead={onMarkMentorMessageAsRead}
+        />
       </div>
       <section className="panel action-panel">
         <div>

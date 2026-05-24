@@ -819,3 +819,57 @@ export class MentorTipResponseDto {
   })
   metadata!: Record<string, string | number | boolean>;
 }
+
+export class MentorMessageResponseDto {
+  @ApiProperty({ example: "mentor-message-1" })
+  id!: string;
+
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ example: "educational_alert" })
+  type!: string;
+
+  @ApiProperty({ example: "concentrated_purchase" })
+  trigger!: string;
+
+  @ApiProperty({ example: "Atencao a concentracao" })
+  title!: string;
+
+  @ApiProperty({
+    example:
+      "Uma parte grande da sua carteira esta em um unico ativo. Isso pode aumentar a dependencia do desempenho dele.",
+  })
+  message!: string;
+
+  @ApiPropertyOptional({ example: "diversificacao" })
+  educationalConcept?: string;
+
+  @ApiProperty({ example: "warning" })
+  severity!: string;
+
+  @ApiPropertyOptional({ example: "asset" })
+  relatedEntityType?: string;
+
+  @ApiPropertyOptional({ example: "asset-fiisf001" })
+  relatedEntityId?: string;
+
+  @ApiPropertyOptional({ example: { maxAllocationBasisPoints: 7500 } })
+  metadata?: Record<string, string | number | boolean | null>;
+
+  @ApiProperty({ example: "2026-05-24T12:00:00.000Z" })
+  createdAt!: string;
+
+  @ApiProperty({ example: null, nullable: true })
+  readAt!: string | null;
+}
+
+export class MentorMessageListResponseDto {
+  @ApiProperty({ type: MentorMessageResponseDto, isArray: true })
+  items!: MentorMessageResponseDto[];
+}
+
+export class MentorLatestMessageResponseDto {
+  @ApiProperty({ type: MentorMessageResponseDto, nullable: true })
+  message!: MentorMessageResponseDto | null;
+}

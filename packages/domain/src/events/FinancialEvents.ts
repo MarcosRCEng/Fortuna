@@ -24,6 +24,7 @@ export interface AssetSold extends FinancialEventBase {
   asset: Asset;
   quantity: Quantity;
   unitPrice: MoneyCents;
+  averagePrice?: MoneyCents;
   total: MoneyCents;
   transactionId?: string;
 }

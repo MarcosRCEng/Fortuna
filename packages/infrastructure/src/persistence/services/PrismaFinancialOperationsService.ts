@@ -204,9 +204,12 @@ export class PrismaFinancialOperationsService {
           positionBeforeQuantity: positionBefore,
           positionAfterQuantity: positionAfter,
           occurredAt,
-          metadata: command.correlationId
-            ? { correlationId: command.correlationId }
-            : undefined,
+          metadata: {
+            averagePriceCents: centsToNumber(position.average_price_cents),
+            ...(command.correlationId
+              ? { correlationId: command.correlationId }
+              : {}),
+          },
         },
         include: { asset: true },
       });
