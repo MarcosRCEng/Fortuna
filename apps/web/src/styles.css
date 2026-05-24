@@ -14,6 +14,9 @@
 
 body {
   margin: 0;
+  background:
+    linear-gradient(135deg, rgba(232, 244, 238, 0.95), rgba(245, 247, 251, 0.9)),
+    #f5f7fb;
 }
 
 button,
@@ -28,6 +31,58 @@ button {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.app-frame {
+  min-height: 100vh;
+}
+
+.topbar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid #dfe6ef;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 18px 32px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbar-copy h1,
+.topbar-copy p {
+  margin: 0;
+}
+
+.topbar-copy h1 {
+  font-size: 1.25rem;
+}
+
+.tabs {
+  background: #ffffff;
+  border-bottom: 1px solid #dfe6ef;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 32px;
+}
+
+.tabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #344057;
+  font-weight: 800;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+.tabs button.active,
+.tabs button:hover {
+  background: #e7f1ec;
+  border-color: #c8ded3;
+  color: #244c3a;
 }
 
 .app-shell {
@@ -148,7 +203,7 @@ button:disabled {
 }
 
 .metric-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .dashboard-grid,
@@ -159,6 +214,13 @@ button:disabled {
 
 .card-grid {
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.action-panel {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
 }
 
 .panel,
@@ -381,6 +443,24 @@ button:disabled {
   gap: 8px;
 }
 
+.allocation-block {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.allocation-bar {
+  background: #e7edf5;
+  border-radius: 999px;
+  display: flex;
+  height: 16px;
+  overflow: hidden;
+}
+
+.allocation-bar span {
+  display: block;
+}
+
 .allocation-list div {
   align-items: center;
   display: grid;
@@ -567,6 +647,10 @@ input {
   gap: 8px;
 }
 
+.state .button {
+  justify-self: start;
+}
+
 .state-error {
   border-color: #f2c9ac;
 }
@@ -658,15 +742,23 @@ input {
 
 @media (max-width: 640px) {
   .content-shell,
-  .sidebar {
+  .sidebar,
+  .topbar,
+  .tabs {
     padding: 18px;
   }
 
   .page-header,
   .section-heading,
-  .price-row {
+  .price-row,
+  .action-panel,
+  .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbar {
+    display: flex;
   }
 
   .page-header h1 {

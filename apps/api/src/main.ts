@@ -6,6 +6,11 @@ import { ApiExceptionFilter } from "./infra/errors/api-exception.filter.js";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.enableCors({
+    origin:
+      process.env.WEB_ORIGIN?.split(",").map((origin) => origin.trim()) ??
+      "http://localhost:5173",
+  });
   app.useGlobalFilters(new ApiExceptionFilter());
 
   const config = new DocumentBuilder()
