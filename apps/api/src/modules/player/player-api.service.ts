@@ -54,9 +54,11 @@ import {
   MockMarketDataProvider,
   PinoLogger,
   PrismaFinancialOperationsService,
+  PrismaGameEventRepository,
   PrismaIncomeEventRepository,
   PrismaMarketPriceProvider,
   PrismaMentorMessageRepository,
+  PrismaPlayerProgressRepository,
   PrismaPlayerRepository,
   PrismaTransactionRepository,
   PrismaWalletRepository,
@@ -128,6 +130,8 @@ interface PersistentPlayerApiDependencies {
   transactions: PrismaTransactionRepository;
   incomeEvents: PrismaIncomeEventRepository;
   mentorMessages: PrismaMentorMessageRepository;
+  gameEvents: PrismaGameEventRepository;
+  playerProgress: PrismaPlayerProgressRepository;
 }
 
 class InMemoryPlayerRepository implements PlayerRepository {
@@ -270,6 +274,8 @@ export class PlayerApiService {
       transactions: new PrismaTransactionRepository(prisma),
       incomeEvents: new PrismaIncomeEventRepository(prisma),
       mentorMessages: new PrismaMentorMessageRepository(prisma),
+      gameEvents: new PrismaGameEventRepository(prisma),
+      playerProgress: new PrismaPlayerProgressRepository(prisma),
     });
   }
 
@@ -285,17 +291,6 @@ export class PlayerApiService {
   private readonly clock = { now: () => new Date() };
   private readonly gameEvents = new InMemoryGameEventRepository();
   private readonly playerProgress = new InMemoryPlayerProgressRepository();
-  private readonly gameLoop = new GameLoopService(
-    this.gameEvents,
-    this.playerProgress,
-    new GameEventService(this.clock, () => `game-event-${++this.nextId}`),
-    new ProgressionService(this.clock),
-    new UnlockService(),
-    new CityEvolutionService(),
-    new MentorFeedbackService(),
-    this.clock,
-    new MissionEvaluator(),
-  );
   private readonly dispatcher = this.createEventDispatcher();
   private readonly eventPublisher = new DomainEventPublisher(
     this.dispatcher,
@@ -441,10 +436,10 @@ export class PlayerApiService {
       0,
     );
     const progress =
-      (await this.playerProgress.findByPlayerId(playerId)) ??
+      (await this.playerProgressRepository().findByPlayerId(playerId)) ??
       createInitialPlayerProgress(playerId, this.clock.now());
     const city = new CityEvolutionService().describe(progress);
-    const gameEvents = await this.gameEvents.listByPlayerId(playerId);
+    const gameEvents = await this.gameEventRepository().listByPlayerId(playerId);
     const transactions = await this.getTransactionItems(playerId);
     const mentorMessages = await this.mentorMessageRepository().findByPlayer(
       playerId,
@@ -528,11 +523,23 @@ export class PlayerApiService {
     };
   }
 
+  async getCityState(playerId: string) {
+    const state = await this.getGameLoopState(playerId);
+    return {
+      playerId,
+      ...state.city,
+      totalPatrimonyCents: state.portfolio.totalPatrimonyCents,
+      collectableIncomeCents: state.income.collectableCents,
+      completedMissionsCount: state.missions.completedRecently.length,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   async initializePlayerMissions(playerId: string) {
     await this.getPlayer(playerId);
-    const existing = await this.playerProgress.findByPlayerId(playerId);
+    const existing = await this.playerProgressRepository().findByPlayerId(playerId);
     if (!existing) {
-      await this.playerProgress.save(
+      await this.playerProgressRepository().save(
         createInitialPlayerProgress(playerId, this.clock.now()),
       );
     }
@@ -544,9 +551,9 @@ export class PlayerApiService {
     await this.getPlayer(playerId);
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
     const progress =
-      (await this.playerProgress.findByPlayerId(playerId)) ??
+      (await this.playerProgressRepository().findByPlayerId(playerId)) ??
       createInitialPlayerProgress(playerId, this.clock.now());
-    const events = await this.gameEvents.listByPlayerId(playerId);
+    const events = await this.gameEventRepository().listByPlayerId(playerId);
     const evaluator = new MissionEvaluator();
 
     return {
@@ -631,7 +638,7 @@ export class PlayerApiService {
     }
 
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
-    await this.gameLoop.handle({
+    await this.gameLoopService().handle({
       playerId,
       gameplayEvents: events,
       portfolio,
@@ -651,7 +658,7 @@ export class PlayerApiService {
     await this.getPlayer(playerId);
     const refreshed = await this.refreshMockPrices();
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
-    const result = await this.gameLoop.handle({
+    const result = await this.gameLoopService().handle({
       playerId,
       portfolio,
       marketPricesRefreshed: {
@@ -1235,7 +1242,7 @@ export class PlayerApiService {
   ): Promise<RefreshMarketPricesResponseDto> {
     const assets = await this.refreshMarketPrices(request);
     const correlationId = `market-refresh-${++this.nextId}`;
-    await this.gameLoop.handle({
+    await this.gameLoopService().handle({
       playerId: "system",
       marketPricesRefreshed: { updatedAssetCount: assets.length },
       correlationId,
@@ -1379,7 +1386,7 @@ export class PlayerApiService {
     events: FinancialEvent[],
   ): Promise<void> {
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
-    await this.gameLoop.handle({
+    await this.gameLoopService().handle({
       playerId,
       financialEvents: events,
       portfolio,
@@ -1422,6 +1429,28 @@ export class PlayerApiService {
     return this.persistence?.mentorMessages ?? this.mentorMessages;
   }
 
+  private gameEventRepository(): GameEventRepository {
+    return this.persistence?.gameEvents ?? this.gameEvents;
+  }
+
+  private playerProgressRepository(): PlayerProgressRepository {
+    return this.persistence?.playerProgress ?? this.playerProgress;
+  }
+
+  private gameLoopService(): GameLoopService {
+    return new GameLoopService(
+      this.gameEventRepository(),
+      this.playerProgressRepository(),
+      new GameEventService(this.clock, () => `game-event-${++this.nextId}`),
+      new ProgressionService(this.clock),
+      new UnlockService(),
+      new CityEvolutionService(),
+      new MentorFeedbackService(),
+      this.clock,
+      new MissionEvaluator(),
+    );
+  }
+
   private async buildMentorContext(
     playerId: string,
     recentEvents: Array<
@@ -1431,7 +1460,7 @@ export class PlayerApiService {
     const wallet = await this.getWallet(playerId);
     const allocation = await this.getPortfolioAllocation(playerId);
     const progress =
-      (await this.playerProgress.findByPlayerId(playerId)) ??
+      (await this.playerProgressRepository().findByPlayerId(playerId)) ??
       createInitialPlayerProgress(playerId, this.clock.now());
     const availableIncome = await (this.persistence
       ? this.persistence.incomeEvents.listAvailableByPlayerId(playerId)
@@ -1587,9 +1616,7 @@ export class PlayerApiService {
       type: event.type,
       occurredAt: event.occurredAt.toISOString(),
       title: this.historyTitle(event.type),
-      description: event.metadata
-        ? JSON.stringify(event.metadata)
-        : "Evento de gameplay registrado.",
+      description: this.historyDescription(event),
       missionId:
         typeof event.metadata?.missionId === "string"
           ? event.metadata.missionId
@@ -1647,6 +1674,51 @@ export class PlayerApiService {
     };
 
     return titles[type] ?? type;
+  }
+
+  private historyDescription(event: GameEvent): string {
+    const metadata = event.metadata ?? {};
+    const assetSymbol =
+      typeof metadata.assetSymbol === "string" ? metadata.assetSymbol : undefined;
+    const amountCents =
+      typeof metadata.amountCents === "number" ? metadata.amountCents : undefined;
+    const missionCode =
+      typeof metadata.missionCode === "string" ? metadata.missionCode : undefined;
+    const level = typeof metadata.level === "number" ? metadata.level : undefined;
+    const positionCount =
+      typeof metadata.positionCount === "number" ? metadata.positionCount : undefined;
+
+    if (event.type === "MISSION_COMPLETED") {
+      return missionCode
+        ? `Missao educativa concluida: ${missionCode}.`
+        : "Missao educativa concluida.";
+    }
+    if (event.type === "PLAYER_LEVEL_UP" && level) {
+      return `Jogador avancou para o nivel ${level}.`;
+    }
+    if (event.type === "PORTFOLIO_UPDATED") {
+      return `Carteira recalculada com ${positionCount ?? 0} posicao(oes).`;
+    }
+    if (event.type === "ASSET_PURCHASED" && assetSymbol) {
+      return `Compra de ${assetSymbol} registrada no game loop.`;
+    }
+    if (event.type === "ASSET_SOLD" && assetSymbol) {
+      return `Venda de ${assetSymbol} registrada no game loop.`;
+    }
+    if (String(event.type) === "YIELD_AVAILABLE" && assetSymbol && amountCents) {
+      return `Rendimento simulado disponivel em ${assetSymbol}: ${formatFortuna(amountCents)}.`;
+    }
+    if (event.type === "FIRST_INCOME_RECEIVED" && assetSymbol) {
+      return `Primeiro rendimento coletado em ${assetSymbol}.`;
+    }
+    if (event.type === "EXCESSIVE_CONCENTRATION_DETECTED") {
+      return "Concentracao elevada detectada para reflexao educativa.";
+    }
+    if (event.type === "CONCENTRATION_ALERT_TRIGGERED") {
+      return "Alerta educativo de concentracao ativado.";
+    }
+
+    return "Evento educativo registrado na jornada do jogador.";
   }
 
   private async parseTradeRequest(

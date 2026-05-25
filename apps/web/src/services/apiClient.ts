@@ -28,9 +28,19 @@ const apiBaseUrl = normalizeBaseUrl(rawBaseUrl);
 function businessMessage(code?: string, fallback?: string): string {
   const messages: Record<string, string> = {
     INSUFFICIENT_FUNDS: "Saldo insuficiente para concluir esta compra.",
+    INSUFFICIENT_BALANCE: "Saldo insuficiente para realizar a compra.",
     INSUFFICIENT_POSITION:
       "Voce nao possui quantidade suficiente para vender este ativo.",
+    SELL_QUANTITY_EXCEEDS_POSITION:
+      "Quantidade maior que a posicao disponivel.",
+    POSITION_NOT_FOUND: "Voce ainda nao possui posicao neste ativo.",
+    INVALID_QUANTITY: "Informe uma quantidade inteira maior que zero.",
+    INVALID_ORDER_QUANTITY: "Informe uma quantidade inteira maior que zero.",
+    ASSET_NOT_FOUND: "Ativo nao encontrado.",
     NO_INCOME_AVAILABLE: "Nao ha rendimentos disponiveis para coleta agora.",
+    INCOME_NOT_AVAILABLE: "Nao ha rendimentos disponiveis para coleta agora.",
+    INCOME_ALREADY_COLLECTED: "Este rendimento ja foi coletado.",
+    MISSION_ALREADY_COMPLETED: "Esta missao ja foi concluida.",
     PLAYER_NOT_FOUND: "Jogador nao encontrado. Crie um novo jogador para continuar.",
   };
   return (code ? messages[code] : undefined) ?? fallback ?? "Nao foi possivel concluir a solicitacao.";

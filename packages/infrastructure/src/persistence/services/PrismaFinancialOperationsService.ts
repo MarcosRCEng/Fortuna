@@ -72,7 +72,25 @@ export class PrismaFinancialOperationsService {
         data: {
           id: `city-${command.id}`,
           playerId: command.id,
-          unlockedBuildings: [],
+          unlockedBuildings: {
+            version: 1,
+            playerProgress: {
+              playerId: command.id,
+              level: 1,
+              experiencePoints: 0,
+              completedMissionIds: [],
+              rewardedMissionIds: [],
+              grantedBadges: [],
+              unlockedDistricts: ["CENTRO_FINANCEIRO"],
+              unlockedAssetClasses: ["CASH"],
+              unlockedTools: ["WALLET_SUMMARY"],
+              unlockedReports: [],
+              seenEventTypes: [],
+              netWorthMilestonesReachedCents: [],
+              marketCyclesAdvanced: 0,
+              updatedAt: occurredAt.toISOString(),
+            },
+          },
         },
       });
 
@@ -205,7 +223,9 @@ export class PrismaFinancialOperationsService {
           positionAfterQuantity: positionAfter,
           occurredAt,
           metadata: {
-            averagePriceCents: centsToNumber(position.average_price_cents),
+            averagePriceCents: position
+              ? centsToNumber(position.average_price_cents)
+              : unitPriceCents,
             ...(command.correlationId
               ? { correlationId: command.correlationId }
               : {}),
@@ -220,6 +240,27 @@ export class PrismaFinancialOperationsService {
         totalCents,
         correlationId: command.correlationId,
       });
+
+      if (["FII", "FIXED_INCOME", "TREASURY"].includes(asset.assetType)) {
+        const incomeAmountCents = Math.max(1, Math.floor(totalCents * 0.005));
+        await tx.incomeEvent.create({
+          data: {
+            id: this.idGenerator(),
+            playerId: command.playerId,
+            assetId: asset.id,
+            positionId: `position-${command.playerId}-${asset.id}`,
+            incomeType: asset.assetType === "FII" ? "RENT" : "INTEREST",
+            amountCents: incomeAmountCents,
+            dueDate: occurredAt,
+            status: "AVAILABLE",
+          },
+        });
+        await this.appendGameEvent(tx, command.playerId, "YIELD_AVAILABLE", {
+          assetSymbol: asset.symbol,
+          amountCents: incomeAmountCents,
+          correlationId: command.correlationId,
+        });
+      }
 
       return toTransaction(transaction);
     });

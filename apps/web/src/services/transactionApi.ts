@@ -16,6 +16,19 @@ type TransactionsListResponse = {
   items: TransactionResponse[];
 };
 
+type GameLoopHistoryResponse = {
+  history: {
+    latest: Array<{
+      id: string;
+      type: string;
+      title: string;
+      description: string;
+      amountCents?: number;
+      occurredAt: string;
+    }>;
+  };
+};
+
 function describeTransaction(transaction: TransactionResponse): string {
   if (transaction.type === "BUY") {
     return "Compra registrada no historico financeiro.";
@@ -33,10 +46,13 @@ function describeTransaction(transaction: TransactionResponse): string {
 }
 
 export async function getTransactions(playerId: string): Promise<Transaction[]> {
-  const response = await apiClient<TransactionsListResponse>(
-    `/players/${playerId}/transactions`,
-  );
-  return response.items.map((transaction) => ({
+  const [response, gameLoopState] = await Promise.all([
+    apiClient<TransactionsListResponse>(`/players/${playerId}/transactions`),
+    apiClient<GameLoopHistoryResponse>(`/players/${playerId}/game-loop/state`).catch(
+      () => undefined,
+    ),
+  ]);
+  const financialTransactions = response.items.map((transaction) => ({
     id: transaction.id,
     type: transaction.type,
     assetSymbol: transaction.symbol,
@@ -47,4 +63,20 @@ export async function getTransactions(playerId: string): Promise<Transaction[]> 
     description: describeTransaction(transaction),
     createdAt: transaction.occurredAt,
   }));
+  const gameplayEvents =
+    gameLoopState?.history.latest
+      .filter((event) => !financialTransactions.some((item) => item.id === event.id))
+      .map((event) => ({
+        id: event.id,
+        type: event.type,
+        amountCents: event.amountCents ?? 0,
+        balanceAfterCents: 0,
+        description: `${event.title}: ${event.description}`,
+        createdAt: event.occurredAt,
+      })) ?? [];
+
+  return [...financialTransactions, ...gameplayEvents].sort(
+    (left, right) =>
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+  );
 }

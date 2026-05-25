@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { CityStateResponse } from "../../services/cityApi.js";
 import type { PlayerMission } from "../../services/missionApi.js";
 import type { PlayerSummary } from "../../types/player.js";
 import type { Transaction } from "../../types/transaction.js";
@@ -10,12 +11,14 @@ import type { DeriveCityInput } from "./city.types.js";
 
 export function CityPage({
   summary,
+  cityState,
   portfolio,
   allocation,
   transactions,
   missions,
 }: {
   summary?: PlayerSummary;
+  cityState?: CityStateResponse;
   portfolio?: Portfolio;
   allocation?: PortfolioAllocation;
   transactions: Transaction[];
@@ -59,7 +62,7 @@ export function CityPage({
       </header>
 
       <CitySummary
-        cityLevel={cityLevel}
+        cityLevel={cityState?.level ?? cityLevel}
         totalEquityCents={input.totalEquityCents}
         completedMissionsCount={input.completedMissionsCount}
         totalMissionsCount={input.totalMissionsCount}

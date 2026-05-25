@@ -113,13 +113,18 @@ cycle is exposed through:
   `POST /players/:playerId/orders/sell`
 - `GET /players/:playerId/transactions`
 - `POST /players/:playerId/income/collect`
+- `GET /players/:playerId/missions`
+- `GET /players/:playerId/mentor/messages`
+- `GET /players/:playerId/city`
+- `GET /players/:playerId/game-loop/state`
 - `POST /market/refresh-mock-prices`
 
 Money is returned as integer cent fields plus formatted display helpers, for
 example `{ "amountCents": 123456, "currency": "FORTUNA", "formatted":
 "F$ 1.234,56" }`. Bruno requests for the flow live in
 `api-tests/bruno/fortuna`, organized by Players, Assets, Wallet, Portfolio,
-Orders, Income, Transactions, and Market.
+Orders, Income, Transactions, Missions, Mentor, City, and Market. The playable
+MVP walkthrough is documented in `docs/mvp-playable-flow.md`.
 
 ## Current Status
 

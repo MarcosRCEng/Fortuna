@@ -123,6 +123,14 @@ export class PlayerController {
     return this.api.getGameLoopState(playerId);
   }
 
+  @Get(":playerId/city")
+  @ApiOperation({ summary: "Consultar estado atual da Cidade Fortuna." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  getCityState(@Param("playerId") playerId: string) {
+    return this.api.getCityState(playerId);
+  }
+
   @Post(":playerId/game-loop/tick")
   @HttpCode(200)
   @ApiOperation({

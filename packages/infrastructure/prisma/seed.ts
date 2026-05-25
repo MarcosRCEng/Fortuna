@@ -4,6 +4,124 @@ const prisma = new PrismaClient();
 const referenceDatetime = new Date("2026-05-22T12:00:00.000Z");
 
 async function main() {
+  const catalog = [
+    {
+      id: "asset-tsf001",
+      symbol: "TSF001",
+      name: "Tesouro Selic Fortuna",
+      assetType: "FIXED_INCOME",
+      description:
+        "Renda fixa inspirada em titulo publico de liquidez diaria.",
+      riskLevel: "LOW",
+      liquidityType: "DAILY",
+      educationalText:
+        "Renda fixa de liquidez diaria costuma ser usada para objetivos de curto prazo e reserva de emergencia.",
+      priceCents: 10_000,
+    },
+    {
+      id: "asset-cdblf001",
+      symbol: "CDBLF001",
+      name: "CDB Liquidez Fortuna",
+      assetType: "FIXED_INCOME",
+      description: "Renda fixa bancaria com liquidez diaria simulada.",
+      riskLevel: "MEDIUM",
+      liquidityType: "DAILY",
+      educationalText:
+        "Compare retorno, risco e liquidez antes de escolher um CDB.",
+      priceCents: 5_000,
+    },
+    {
+      id: "asset-fiisf001",
+      symbol: "FIISF001",
+      name: "FII Shopping Fortuna",
+      assetType: "FII",
+      description: "Fundo imobiliario ficticio focado em shoppings.",
+      riskLevel: "MEDIUM",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "FIIs podem distribuir rendimentos, mas tambem sofrem variacao de preco e risco de vacancia.",
+      priceCents: 10_000,
+    },
+    {
+      id: "asset-fiilf001",
+      symbol: "FIILF001",
+      name: "FII Logistica Fortuna",
+      assetType: "FII",
+      description: "Fundo imobiliario ficticio focado em galpoes logisticos.",
+      riskLevel: "MEDIUM",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "Setores diferentes de FIIs ajudam a estudar diversificacao.",
+      priceCents: 11_000,
+    },
+    {
+      id: "asset-aef001",
+      symbol: "AEF001",
+      name: "Acao Energia Fortuna",
+      assetType: "STOCK",
+      description: "Acao ficticia do setor de energia.",
+      riskLevel: "HIGH",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "Acoes podem oscilar bastante; tamanho de posicao importa.",
+      priceCents: 2_500,
+    },
+    {
+      id: "asset-atf001",
+      symbol: "ATF001",
+      name: "Acao Tecnologia Fortuna",
+      assetType: "STOCK",
+      description: "Acao ficticia de tecnologia.",
+      riskLevel: "HIGH",
+      liquidityType: "D_PLUS_1",
+      educationalText:
+        "Ativos de maior volatilidade pedem cuidado com concentracao.",
+      priceCents: 3_000,
+    },
+  ] as const;
+
+  for (const asset of catalog) {
+    await prisma.asset.upsert({
+      where: { symbol: asset.symbol },
+      update: {
+        id: asset.id,
+        name: asset.name,
+        assetType: asset.assetType,
+        description: asset.description,
+        riskLevel: asset.riskLevel,
+        liquidityType: asset.liquidityType,
+        educationalText: asset.educationalText,
+      },
+      create: {
+        id: asset.id,
+        symbol: asset.symbol,
+        name: asset.name,
+        assetType: asset.assetType,
+        description: asset.description,
+        riskLevel: asset.riskLevel,
+        liquidityType: asset.liquidityType,
+        educationalText: asset.educationalText,
+      },
+    });
+    await prisma.marketPrice.upsert({
+      where: {
+        assetId_referenceDatetime_source: {
+          assetId: asset.id,
+          referenceDatetime,
+          source: "fortuna-seed",
+        },
+      },
+      update: { priceCents: asset.priceCents },
+      create: {
+        id: `price-${asset.symbol.toLowerCase()}-20260522`,
+        assetId: asset.id,
+        priceCents: asset.priceCents,
+        referenceDatetime,
+        source: "fortuna-seed",
+      },
+    });
+  }
+
   await prisma.asset.upsert({
     where: { symbol: "FORT3" },
     update: {},

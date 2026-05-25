@@ -11,6 +11,7 @@ export * from "./persistence/repositories/PrismaMentorMessageRepository.js";
 export * from "./persistence/repositories/PrismaMentorTipHistoryRepository.js";
 export * from "./persistence/repositories/PrismaMissionRepository.js";
 export * from "./persistence/repositories/PrismaPlayerRepository.js";
+export * from "./persistence/repositories/PrismaPlayerProgressRepository.js";
 export * from "./persistence/repositories/PrismaTransactionRepository.js";
 export * from "./persistence/repositories/PrismaWalletRepository.js";
 export * from "./persistence/services/PrismaFinancialOperationsService.js";

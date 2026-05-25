@@ -17,6 +17,19 @@ type MentorLatestMessageResponse = {
   message: MentorMessage | null;
 };
 
+type GameLoopStateResponse = {
+  player: {
+    level: number;
+    progressPercent: number;
+  };
+  income: {
+    collectableCents: number;
+  };
+  mentor: {
+    latestMessages: MentorMessage[];
+  };
+};
+
 export function createPlayer(name: string): Promise<Player> {
   return apiClient<Player>("/players", {
     method: "POST",
@@ -38,6 +51,10 @@ export async function getPlayerSummary(
     apiClient<PlayerSummaryResponse>(`/players/${playerId}/summary`),
     apiClient<MentorLatestMessageResponse>(`/players/${playerId}/mentor/latest`),
   ]);
+  const gameLoopState = await apiClient<GameLoopStateResponse>(
+    `/players/${playerId}/game-loop/state`,
+  ).catch(() => undefined);
+  const latestGameLoopMessage = gameLoopState?.mentor.latestMessages[0] ?? null;
   return {
     playerId: response.playerId,
     availableCashCents: response.walletBalance.amountCents,
@@ -46,13 +63,18 @@ export async function getPlayerSummary(
     totalEquityCents: response.totalEquity.amountCents,
     totalIncomeCollectedCents: response.totalIncomeCollected.amountCents,
     totalTransactions: response.totalTransactions,
-    collectibleIncomeCents: null,
-    level: Math.max(1, Math.floor(response.totalTransactions / 3) + 1),
-    progressPercent: Math.min(100, (response.totalTransactions % 3) * 34),
+    collectibleIncomeCents: gameLoopState?.income.collectableCents ?? null,
+    level:
+      gameLoopState?.player.level ??
+      Math.max(1, Math.floor(response.totalTransactions / 3) + 1),
+    progressPercent:
+      gameLoopState?.player.progressPercent ??
+      Math.min(100, (response.totalTransactions % 3) * 34),
     mentorTip:
+      latestGameLoopMessage?.message ??
       mentor.message?.message ??
       "Diversificar ajuda a entender melhor risco e liquidez. Rentabilidade passada ou simulada nao garante resultados futuros.",
-    mentorMessage: mentor.message,
+    mentorMessage: latestGameLoopMessage ?? mentor.message,
   };
 }
 

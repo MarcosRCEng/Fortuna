@@ -11,6 +11,7 @@ import { MarketPage } from "../pages/MarketPage.js";
 import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
 import { getAssets } from "../services/assetApi.js";
+import { getCityState, type CityStateResponse } from "../services/cityApi.js";
 import { collectIncome } from "../services/incomeApi.js";
 import { refreshMockPrices } from "../services/marketApi.js";
 import {
@@ -71,6 +72,7 @@ export function App() {
   const [allocation, setAllocation] = useState<PortfolioAllocation>();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [missions, setMissions] = useState<PlayerMission[]>([]);
+  const [cityState, setCityState] = useState<CityStateResponse>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [refreshingMarket, setRefreshingMarket] = useState(false);
@@ -86,6 +88,7 @@ export function App() {
       setAllocation(undefined);
       setTransactions([]);
       setMissions([]);
+      setCityState(undefined);
       setAssets([]);
       return;
     }
@@ -101,6 +104,7 @@ export function App() {
         nextAllocation,
         nextTransactions,
         nextMissions,
+        nextCityState,
       ] = await Promise.all([
         getPlayerSummary(playerId),
         getAssets(),
@@ -109,6 +113,7 @@ export function App() {
         getPortfolioAllocation(playerId),
         getTransactions(playerId),
         getMissions(playerId).catch(() => initializeMissions(playerId)),
+        getCityState(playerId),
       ]);
       setSummary({
         ...nextSummary,
@@ -119,6 +124,7 @@ export function App() {
       setAllocation(nextAllocation);
       setTransactions(nextTransactions);
       setMissions(nextMissions.missions);
+      setCityState(nextCityState);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -184,6 +190,7 @@ export function App() {
     setAllocation(undefined);
     setTransactions([]);
     setMissions([]);
+    setCityState(undefined);
     setSuccess("Jogador local removido. Crie ou carregue outro jogador para continuar.");
   }
 
@@ -354,6 +361,7 @@ export function App() {
   ) : activeScreen === "city" ? (
     <CityPage
       summary={summary}
+      cityState={cityState}
       portfolio={portfolio}
       allocation={allocation}
       transactions={transactions}
