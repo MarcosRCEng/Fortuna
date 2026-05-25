@@ -4,6 +4,7 @@ import { Layout } from "../components/Layout.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { OrderModal, type OrderMode } from "../components/OrderModal.js";
 import type { ScreenKey } from "../components/NavigationTabs.js";
+import { CityPage } from "../features/city/CityPage.js";
 import { DashboardPage } from "../pages/DashboardPage.js";
 import { HistoryPage } from "../pages/HistoryPage.js";
 import { MarketPage } from "../pages/MarketPage.js";
@@ -37,6 +38,20 @@ import type { Portfolio, PortfolioAllocation, Position } from "../types/wallet.j
 
 const playerStorageKey = "fortuna.playerId";
 
+const screenPaths: Record<ScreenKey, string> = {
+  dashboard: "/",
+  market: "/market",
+  wallet: "/wallet",
+  missions: "/missions",
+  history: "/history",
+  city: "/city",
+};
+
+function screenFromPath(pathname: string): ScreenKey {
+  const match = Object.entries(screenPaths).find(([, path]) => path === pathname);
+  return match?.[0] as ScreenKey | undefined ?? "dashboard";
+}
+
 type OrderDraft = {
   mode: OrderMode;
   asset: Asset;
@@ -44,7 +59,9 @@ type OrderDraft = {
 };
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState<ScreenKey>("dashboard");
+  const [activeScreen, setActiveScreen] = useState<ScreenKey>(() =>
+    screenFromPath(window.location.pathname),
+  );
   const [playerId, setPlayerId] = useState(() =>
     localStorage.getItem(playerStorageKey),
   );
@@ -116,6 +133,23 @@ export function App() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    function handlePopState() {
+      setActiveScreen(screenFromPath(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const handleNavigate = useCallback((screen: ScreenKey) => {
+    setActiveScreen(screen);
+    const path = screenPaths[screen];
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, "", path);
+    }
+  }, []);
 
   const positionsByAssetId = useMemo(
     () => new Map((portfolio?.positions ?? []).map((position) => [position.assetId, position])),
@@ -258,7 +292,7 @@ export function App() {
         "Detalhes educativos registrados. Ativos de maior risco podem oscilar mais; entenda antes de comprar.",
       );
       await loadData();
-      setActiveScreen("missions");
+      handleNavigate("missions");
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -294,7 +328,7 @@ export function App() {
     <DashboardPage
       collecting={submitting}
       onCreatePlayer={handleCreatePlayer}
-      onGoToMarket={() => setActiveScreen("market")}
+      onGoToMarket={() => handleNavigate("market")}
       onCollectIncome={handleCollectIncome}
       onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
     />
@@ -317,6 +351,14 @@ export function App() {
     <HistoryPage transactions={transactions} />
   ) : activeScreen === "missions" ? (
     <MissionsPage missions={missions} />
+  ) : activeScreen === "city" ? (
+    <CityPage
+      summary={summary}
+      portfolio={portfolio}
+      allocation={allocation}
+      transactions={transactions}
+      missions={missions}
+    />
   ) : (
     <DashboardPage
       summary={summary}
@@ -324,7 +366,7 @@ export function App() {
       allocation={allocation}
       collecting={submitting}
       onCreatePlayer={handleCreatePlayer}
-      onGoToMarket={() => setActiveScreen("market")}
+      onGoToMarket={() => handleNavigate("market")}
       onCollectIncome={handleCollectIncome}
       onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
     />
@@ -333,7 +375,7 @@ export function App() {
   return (
     <Layout
       activeScreen={activeScreen}
-      onNavigate={setActiveScreen}
+      onNavigate={handleNavigate}
       onResetPlayer={handleResetPlayer}
     >
       {success ? (
