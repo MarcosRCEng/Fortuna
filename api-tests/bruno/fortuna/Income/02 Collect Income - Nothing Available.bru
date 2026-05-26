@@ -1,0 +1,14 @@
+meta {
+  name: 02 Collect Income - Nothing Available
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/players/{{playerId}}/income/collect
+  body: json
+}
+
+body:json {
+  {}
+}

@@ -7,6 +7,7 @@ import {
   ExpectedYield,
   LiquidityLevel,
   MarketDataProvider,
+  MarketDataProviderType,
   MarketDataSource,
   MarketProviderStatus,
   MarketRiskLevel,
@@ -314,6 +315,22 @@ export class MockMarketDataProvider
     return MOCK_ASSETS.map((asset) => this.toAsset(asset, this.currentAsOf));
   }
 
+  getProviderName(): string {
+    return "MockMarketDataProvider";
+  }
+
+  getProviderType(): MarketDataProviderType {
+    return MarketDataProviderType.MOCK;
+  }
+
+  async getAssetById(assetId: string): Promise<Asset | null> {
+    const normalized = assetId.trim().toUpperCase();
+    const asset = MOCK_ASSETS.find(
+      (item) => item.id === assetId || item.symbol === normalized,
+    );
+    return asset ? this.toAsset(asset, this.currentAsOf) : null;
+  }
+
   async getAsset(symbol: string): Promise<Asset | undefined> {
     const asset = this.findDefinition(symbol);
     return asset ? this.toAsset(asset, this.currentAsOf) : undefined;
@@ -373,15 +390,35 @@ export class MockMarketDataProvider
   }
 
   async getPriceHistory(
-    request: PriceHistoryRequest,
+    requestOrAssetId: PriceHistoryRequest | string,
+    options?: { from?: Date; to?: Date },
   ): Promise<AssetHistoryPoint[]> {
-    const asset = this.findDefinition(request.symbol);
+    const request =
+      typeof requestOrAssetId === "string"
+        ? {
+            symbol: requestOrAssetId,
+            from: options?.from ?? this.addDays(this.currentAsOf, -30),
+            to: options?.to ?? this.currentAsOf,
+          }
+        : requestOrAssetId;
+    const marketAsset =
+      typeof requestOrAssetId === "string"
+        ? await this.getAssetById(requestOrAssetId)
+        : undefined;
+    const asset = marketAsset
+      ? this.findDefinition(marketAsset.symbol)
+      : this.findDefinition(request.symbol);
     if (!asset) {
       return [];
     }
 
     const dates = this.daysBetween(request.from, request.to);
     return dates.map((date) => this.toHistoryPoint(asset, date));
+  }
+
+  async getYieldInfo(assetId: string): Promise<ExpectedYield | null> {
+    const asset = await this.getAssetById(assetId);
+    return asset ? asset.expectedYield : null;
   }
 
   async getExpectedYield(symbol: string): Promise<ExpectedYield | undefined> {
@@ -685,6 +722,8 @@ export function toDomainAsset(asset: Asset): DomainAsset {
     asset.name,
     toDomainAssetType(asset.assetClass),
     toDomainRiskLevel(asset.riskLevel),
+    true,
+    asset.liquidity,
   );
 }
 

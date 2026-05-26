@@ -12,5 +12,6 @@ export class Asset {
     public readonly type: AssetType,
     public readonly riskLevel: RiskLevel,
     public readonly isActive = true,
+    public readonly liquidity?: string,
   ) {}
 }

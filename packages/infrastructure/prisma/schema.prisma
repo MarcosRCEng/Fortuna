@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlayerStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum AssetType {
+  STOCK
+  FII
+  FIXED_INCOME
+  TREASURY
+  CASH
+  ETF
+  CRYPTO
+  OTHER
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum LiquidityType {
+  DAILY
+  D_PLUS_1
+  D_PLUS_30
+  MATURITY
+}
+
+enum TransactionType {
+  BUY
+  SELL
+  INCOME_COLLECTED
+  INITIAL_DEPOSIT
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum IncomeType {
+  DIVIDEND
+  INTEREST
+  RENT
+  YIELD
+}
+
+enum IncomeStatus {
+  AVAILABLE
+  COLLECTED
+  CANCELLED
+}
+
+enum MissionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  REWARD_CLAIMED
+}
+
+model Player {
+  id                String             @id @db.VarChar(80)
+  name              String             @db.VarChar(80)
+  nickname          String?            @db.VarChar(80)
+  status            PlayerStatus       @default(ACTIVE)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  wallets           Wallet[]
+  positions         Position[]
+  transactions      Transaction[]
+  incomeEvents      IncomeEvent[]
+  missionProgress   MissionProgress[]
+  mentorMessages    MentorMessage[]
+  playerMissions    PlayerMission[]
+  cityState         CityState?
+  mentorTipsHistory MentorTipHistory[]
+  gameEvents        GameEvent[]
+
+  @@map("players")
+}
+
+model Wallet {
+  id                    String        @id @db.VarChar(100)
+  playerId              String        @map("player_id") @db.VarChar(80)
+  availableBalanceCents Int           @default(0) @map("available_balance_cents")
+  metadata              Json?
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  player                Player        @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  positions             Position[]
+  transactions          Transaction[]
+
+  @@unique([playerId])
+  @@map("wallets")
+}
+
+model Asset {
+  id              String             @id @db.VarChar(80)
+  symbol          String             @unique @db.VarChar(20)
+  name            String             @db.VarChar(140)
+  assetType       AssetType          @map("asset_type")
+  description     String?
+  riskLevel       RiskLevel          @map("risk_level")
+  liquidityType   LiquidityType      @map("liquidity_type")
+  isActive        Boolean            @default(true) @map("is_active")
+  educationalText String?            @map("educational_text")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  positions       Position[]
+  transactions    Transaction[]
+  incomeEvents    IncomeEvent[]
+  marketPrices    MarketPrice[]
+  mentorTips      MentorTipHistory[]
+
+  @@index([assetType])
+  @@index([isActive])
+  @@map("assets")
+}
+
+model Position {
+  id                 String   @id @db.VarChar(100)
+  playerId           String   @map("player_id") @db.VarChar(80)
+  walletId           String   @map("wallet_id") @db.VarChar(100)
+  assetId            String   @map("asset_id") @db.VarChar(80)
+  quantity           Int
+  averagePriceCents  Int      @map("average_price_cents")
+  totalInvestedCents Int      @map("total_invested_cents")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  player             Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  wallet             Wallet   @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  asset              Asset    @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([playerId, assetId])
+  @@index([walletId])
+  @@index([assetId])
+  @@map("positions")
+}
+
+model Transaction {
+  id                     String            @id @db.VarChar(100)
+  playerId               String            @map("player_id") @db.VarChar(80)
+  walletId               String            @map("wallet_id") @db.VarChar(100)
+  assetId                String?           @map("asset_id") @db.VarChar(80)
+  transactionType        TransactionType   @map("transaction_type")
+  status                 TransactionStatus @default(CONFIRMED)
+  quantity               Int?
+  unitPriceCents         Int?              @map("unit_price_cents")
+  grossAmountCents       Int               @map("gross_amount_cents")
+  feesCents              Int               @default(0) @map("fees_cents")
+  netAmountCents         Int               @map("net_amount_cents")
+  balanceBeforeCents     Int               @map("balance_before_cents")
+  balanceAfterCents      Int               @map("balance_after_cents")
+  positionBeforeQuantity Int?              @map("position_before_quantity")
+  positionAfterQuantity  Int?              @map("position_after_quantity")
+  occurredAt             DateTime          @map("occurred_at") @db.Timestamptz(6)
+  createdAt              DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  metadata               Json?
+  player                 Player            @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  wallet                 Wallet            @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  asset                  Asset?            @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  incomeEvent            IncomeEvent?
+
+  @@index([playerId, occurredAt])
+  @@index([playerId])
+  @@index([assetId, occurredAt])
+  @@index([assetId])
+  @@index([createdAt])
+  @@index([transactionType])
+  @@map("transactions")
+}
+
+model IncomeEvent {
+  id            String       @id @db.VarChar(100)
+  playerId      String       @map("player_id") @db.VarChar(80)
+  assetId       String       @map("asset_id") @db.VarChar(80)
+  positionId    String?      @map("position_id") @db.VarChar(100)
+  incomeType    IncomeType   @map("income_type")
+  amountCents   Int          @map("amount_cents")
+  dueDate       DateTime     @map("due_date") @db.Date
+  collectedAt   DateTime?    @map("collected_at") @db.Timestamptz(6)
+  status        IncomeStatus @default(AVAILABLE)
+  transactionId String?      @unique @map("transaction_id") @db.VarChar(100)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  player        Player       @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  asset         Asset        @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@index([playerId, status, dueDate])
+  @@index([assetId, dueDate])
+  @@map("income_events")
+}
+
+model MarketPrice {
+  id                String   @id @db.VarChar(100)
+  assetId           String   @map("asset_id") @db.VarChar(80)
+  priceCents        Int      @map("price_cents")
+  referenceDatetime DateTime @map("reference_datetime") @db.Timestamptz(6)
+  source            String   @db.VarChar(80)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  asset             Asset    @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([assetId, referenceDatetime, source])
+  @@index([assetId, referenceDatetime])
+  @@map("market_prices")
+}
+
+model Mission {
+  id                     String          @id @db.VarChar(100)
+  code                   String          @unique @db.VarChar(80)
+  title                  String          @db.VarChar(140)
+  description            String
+  objective              String
+  completionCriteria     Json            @map("completion_criteria")
+  rewardType             String          @map("reward_type") @db.VarChar(40)
+  rewardAmountCents      Int             @default(0) @map("reward_amount_cents")
+  educationalExplanation String          @map("educational_explanation")
+  isActive               Boolean         @default(true) @map("is_active")
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  playerMissions         PlayerMission[]
+
+  @@index([isActive])
+  @@map("missions")
+}
+
+model PlayerMission {
+  id              String        @id @db.VarChar(100)
+  playerId        String        @map("player_id") @db.VarChar(80)
+  missionId       String        @map("mission_id") @db.VarChar(100)
+  status          MissionStatus @default(NOT_STARTED)
+  progressCurrent Int           @default(0) @map("progress_current")
+  progressTarget  Int           @default(1) @map("progress_target")
+  startedAt       DateTime?     @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime?     @map("completed_at") @db.Timestamptz(6)
+  rewardClaimedAt DateTime?     @map("reward_claimed_at") @db.Timestamptz(6)
+  player          Player        @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  mission         Mission       @relation(fields: [missionId], references: [id], onDelete: Restrict)
+
+  @@unique([playerId, missionId])
+  @@index([playerId, status])
+  @@map("player_missions")
+}
+
+model MissionProgress {
+  id          String        @id @db.VarChar(100)
+  playerId    String        @map("player_id") @db.VarChar(80)
+  missionId   String        @map("mission_id") @db.VarChar(100)
+  status      MissionStatus @default(NOT_STARTED)
+  progress    Int           @default(0)
+  completedAt DateTime?     @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  player      Player        @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@unique([playerId, missionId])
+  @@index([playerId])
+  @@map("mission_progress")
+}
+
+model CityState {
+  id                String   @id @db.VarChar(100)
+  playerId          String   @unique @map("player_id") @db.VarChar(80)
+  level             Int      @default(1)
+  experiencePoints  Int      @default(0) @map("experience_points")
+  unlockedBuildings Json     @map("unlocked_buildings")
+  cityScore         Int      @default(0) @map("city_score")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  player            Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@map("city_state")
+}
+
+model MentorMessage {
+  id                 String    @id @db.VarChar(100)
+  playerId           String    @map("player_id") @db.VarChar(80)
+  type               String    @db.VarChar(40)
+  trigger            String    @db.VarChar(80)
+  title              String    @db.VarChar(140)
+  message            String
+  educationalConcept String?   @map("educational_concept") @db.VarChar(80)
+  severity           String    @db.VarChar(40)
+  relatedEntityType  String?   @map("related_entity_type") @db.VarChar(60)
+  relatedEntityId    String?   @map("related_entity_id") @db.VarChar(100)
+  metadata           Json?
+  readAt             DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  player             Player    @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@index([playerId, createdAt])
+  @@index([playerId, trigger])
+  @@map("mentor_messages")
+}
+
+model MentorTipHistory {
+  id             String    @id @db.VarChar(100)
+  playerId       String    @map("player_id") @db.VarChar(80)
+  tipCode        String    @map("tip_code") @db.VarChar(100)
+  tipCategory    String    @map("tip_category") @db.VarChar(80)
+  relatedEventId String?   @map("related_event_id") @db.VarChar(100)
+  relatedAssetId String?   @map("related_asset_id") @db.VarChar(80)
+  message        String
+  shownAt        DateTime  @map("shown_at") @db.Timestamptz(6)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  player         Player    @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  relatedAsset   Asset?    @relation(fields: [relatedAssetId], references: [id], onDelete: Restrict)
+
+  @@index([playerId, tipCode, shownAt])
+  @@index([relatedEventId])
+  @@map("mentor_tips_history")
+}
+
+model GameEvent {
+  id           String   @id @db.VarChar(100)
+  playerId     String   @map("player_id") @db.VarChar(80)
+  eventType    String   @map("event_type") @db.VarChar(100)
+  eventPayload Json     @map("event_payload")
+  occurredAt   DateTime @map("occurred_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  player       Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@index([playerId, occurredAt])
+  @@index([eventType])
+  @@map("game_events")
+}

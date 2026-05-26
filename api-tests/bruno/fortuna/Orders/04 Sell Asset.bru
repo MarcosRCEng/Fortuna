@@ -1,0 +1,17 @@
+meta {
+  name: 04 Sell Asset
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/players/{{playerId}}/orders/sell
+  body: json
+}
+
+body:json {
+  {
+    "assetId": "{{assetId}}",
+    "quantity": "1"
+  }
+}

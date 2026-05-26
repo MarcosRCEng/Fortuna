@@ -31,6 +31,7 @@ export enum PriceStatus {
 
 export enum MarketDataSource {
   MOCK = "MOCK",
+  EXTERNAL = "EXTERNAL",
   BRAPI = "BRAPI",
   B3 = "B3",
   GOOGLE_FINANCE = "GOOGLE_FINANCE",
@@ -58,6 +59,13 @@ export enum MarketSessionStatus {
   CLOSED = "CLOSED",
   PROVIDER_FAILURE = "PROVIDER_FAILURE",
   SIMULATED = "SIMULATED",
+}
+
+export enum MarketDataProviderType {
+  MOCK = "MOCK",
+  EXTERNAL = "EXTERNAL",
+  CACHE = "CACHE",
+  FALLBACK = "FALLBACK",
 }
 
 export interface ExpectedYield {
@@ -99,6 +107,8 @@ export interface Asset {
   updatedAt: Date;
 }
 
+export type MarketAssetDTO = Asset;
+
 export interface AssetPrice {
   assetId: string;
   symbol: string;
@@ -111,6 +121,8 @@ export interface AssetPrice {
   updatedAt: Date;
 }
 
+export type MarketPriceDTO = AssetPrice;
+
 export interface AssetHistoryPoint {
   symbol: string;
   date: Date;
@@ -119,6 +131,20 @@ export interface AssetHistoryPoint {
   minPriceCents: number;
   maxPriceCents: number;
   volume?: number;
+}
+
+export type MarketYieldDTO = ExpectedYield;
+
+export interface PriceHistoryOptions {
+  from?: Date;
+  to?: Date;
+}
+
+export interface MarketRefreshResultDTO {
+  refreshedAt: Date;
+  updatedAssets: Asset[];
+  providerName: string;
+  providerType: MarketDataProviderType;
 }
 
 export interface MarketQuote {
@@ -148,11 +174,19 @@ export interface MarketProviderStatus {
 }
 
 export interface MarketDataProvider {
+  getProviderName(): string;
+  getProviderType(): MarketDataProviderType;
   listAssets(): Promise<Asset[]>;
+  getAssetById(assetId: string): Promise<Asset | null>;
   getAsset(symbol: string): Promise<Asset | undefined>;
   getCurrentPrice(symbol: string): Promise<AssetPrice | undefined>;
   getQuote(symbol: string): Promise<MarketQuote>;
   getPriceHistory(request: PriceHistoryRequest): Promise<AssetHistoryPoint[]>;
+  getPriceHistory(
+    assetId: string,
+    options?: PriceHistoryOptions,
+  ): Promise<AssetHistoryPoint[]>;
+  getYieldInfo(assetId: string): Promise<ExpectedYield | null>;
   getExpectedYield(symbol: string): Promise<ExpectedYield | undefined>;
   getEducationalInfo(symbol: string): Promise<EducationalAssetInfo | undefined>;
   refreshPrices(request?: RefreshMarketPricesRequest): Promise<Asset[]>;

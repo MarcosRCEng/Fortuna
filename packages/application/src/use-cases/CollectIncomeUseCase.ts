@@ -6,6 +6,7 @@ import {
   WalletNotFoundError,
 } from "@fortuna/domain";
 import type { Clock } from "../ports/Clock.js";
+import type { DomainEventPublisher } from "../events/DomainEventPublisher.js";
 import type { IncomeEventRepository } from "../ports/IncomeEventRepository.js";
 import type { LoggerPort } from "../ports/LoggerPort.js";
 import type { TransactionRepository } from "../ports/TransactionRepository.js";
@@ -26,6 +27,7 @@ export class CollectIncomeUseCase {
     private readonly clock: Clock,
     private readonly idGenerator: () => string,
     private readonly logger?: LoggerPort,
+    private readonly events?: DomainEventPublisher,
   ) {}
 
   async execute(
@@ -99,6 +101,23 @@ export class CollectIncomeUseCase {
       throw error;
     }
 
+    const events = [
+      {
+        type: "YieldCollected" as const,
+        playerId: command.playerId,
+        occurredAt,
+        incomeEventId: incomeEvent.id,
+        asset: incomeEvent.asset,
+        total: incomeEvent.amount,
+        transactionId: transaction.id,
+      },
+    ];
+
+    await this.events?.publishFinancialEvents(events, {
+      correlationId: command.correlationId,
+      causationId: transaction.id,
+    });
+
     this.logger?.info("Income collected successfully", {
       module: "income",
       action: "income_collected",
@@ -115,16 +134,7 @@ export class CollectIncomeUseCase {
 
     return {
       data: transaction,
-      events: [
-        {
-          type: "IncomeCollected",
-          playerId: command.playerId,
-          occurredAt,
-          incomeEventId: incomeEvent.id,
-          asset: incomeEvent.asset,
-          total: incomeEvent.amount,
-        },
-      ],
+      events,
     };
   }
 }
