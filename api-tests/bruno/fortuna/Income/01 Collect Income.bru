@@ -1,0 +1,16 @@
+meta {
+  name: 01 Collect Income
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/players/{{playerId}}/income/collect
+  body: json
+}
+
+body:json {
+  {
+    "assetId": "{{assetId}}"
+  }
+}

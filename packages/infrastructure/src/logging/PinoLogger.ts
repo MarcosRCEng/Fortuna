@@ -7,7 +7,10 @@ export class PinoLogger implements LoggerPort {
   constructor(level = process.env.LOG_LEVEL ?? "info") {
     this.logger = pino({
       level,
-      timestamp: pino.stdTimeFunctions.isoTime
+      timestamp: pino.stdTimeFunctions.isoTime,
+      formatters: {
+        level: (label) => ({ level: label }),
+      },
     });
   }
 

@@ -14,6 +14,19 @@ describe("Money", () => {
     expect(balance.subtract(Money.fromCents(100)).cents).toBe(200);
   });
 
+  it("multiplies by integer quantity and compares values", () => {
+    const unitPrice = Money.fromCents(125);
+    const total = unitPrice.multiplyByQuantity({ units: 4 });
+
+    expect(total.cents).toBe(500);
+    expect(total.compareTo(Money.fromCents(499))).toBeGreaterThan(0);
+    expect(total.isGreaterThanOrEqual(Money.fromCents(500))).toBe(true);
+  });
+
+  it("formats BRL only as an auxiliary representation", () => {
+    expect(Money.fromCents(1234).formatBRL()).toBe("R$ 12.34");
+  });
+
   it("rejects decimal, unsafe, and negative cents", () => {
     expect(() => Money.fromCents(1.5)).toThrow("safe integer");
     expect(() => Money.fromCents(Number.MAX_SAFE_INTEGER + 1)).toThrow(

@@ -4,10 +4,12 @@ export interface RefreshMockMarketPricesCommand {
   asOf?: Date;
 }
 
-export class RefreshMockMarketPricesUseCase {
+export class RefreshMarketPricesUseCase {
   constructor(private readonly marketData: MarketDataProvider) {}
 
   execute(command: RefreshMockMarketPricesCommand = {}): Promise<Asset[]> {
     return this.marketData.refreshPrices(command);
   }
 }
+
+export { RefreshMarketPricesUseCase as RefreshMockMarketPricesUseCase };

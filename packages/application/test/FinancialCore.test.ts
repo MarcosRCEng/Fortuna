@@ -350,7 +350,7 @@ describe("Financial core use cases", () => {
     expect(wallet.account.availableBalance.cents).toBe(1_250);
     expect(incomeEvent.isCollected).toBe(true);
     expect(transactions.transactions[0].type).toBe(TransactionType.INCOME);
-    expect(result.events[0].type).toBe("IncomeCollected");
+    expect(result.events[0].type).toBe("YieldCollected");
     expect(logger.find("info", "income_collected")).toBeDefined();
   });
 

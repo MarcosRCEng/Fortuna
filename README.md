@@ -16,8 +16,8 @@ All money is represented internally as integer cents. Floats are not a source of
 - pnpm workspaces
 - NestJS API
 - React + Vite + TypeScript web app
-- PostgreSQL planned
-- Prisma planned
+- PostgreSQL
+- Prisma
 - Vitest
 - Swagger/OpenAPI
 - Pino structured logs
@@ -40,6 +40,29 @@ All money is represented internally as integer cents. Floats are not a source of
 
 ```bash
 pnpm install
+```
+
+Copy `.env.example` to `.env` for local development and keep `DATABASE_URL`
+pointing to PostgreSQL. The default development URL is:
+
+```bash
+DATABASE_URL=postgresql://fortuna:fortuna_dev@localhost:5432/fortuna
+```
+
+## Run PostgreSQL And Prisma
+
+```bash
+docker compose up -d
+pnpm prisma:migrate
+pnpm prisma:generate
+corepack pnpm --filter @fortuna/infrastructure db:seed
+```
+
+The API uses in-memory adapters by default so unit tests remain fast and
+isolated. To run the API with PostgreSQL persistence, set:
+
+```bash
+FORTUNA_PERSISTENCE=prisma
 ```
 
 ## Run The API
@@ -67,11 +90,41 @@ pnpm test:integration
 pnpm test:coverage
 ```
 
+The Sprint 15 HTTP flow is covered by `apps/api/test/financial-api.e2e.test.ts`
+and runs with the API test suite.
+
 ## Build
 
 ```bash
 pnpm build
 ```
+
+## MVP Financial API
+
+Swagger is available at `http://localhost:3000/docs`. The minimum financial
+cycle is exposed through:
+
+- `POST /players`, `GET /players/:playerId`, `GET /players/:playerId/summary`
+- `GET /assets`, `GET /assets/:assetId`, `GET /assets/:assetId/history`,
+  `GET /assets/:assetId/price`, `GET /assets/:assetId/yield`
+- `GET /players/:playerId/wallet`, `GET /players/:playerId/portfolio`,
+  `GET /players/:playerId/portfolio/allocation`
+- `POST /players/:playerId/orders/buy`,
+  `POST /players/:playerId/orders/sell`
+- `GET /players/:playerId/transactions`
+- `POST /players/:playerId/income/collect`
+- `GET /players/:playerId/missions`
+- `GET /players/:playerId/mentor/messages`
+- `GET /players/:playerId/city`
+- `GET /players/:playerId/game-loop/state`
+- `POST /market/refresh-mock-prices`
+
+Money is returned as integer cent fields plus formatted display helpers, for
+example `{ "amountCents": 123456, "currency": "FORTUNA", "formatted":
+"F$ 1.234,56" }`. Bruno requests for the flow live in
+`api-tests/bruno/fortuna`, organized by Players, Assets, Wallet, Portfolio,
+Orders, Income, Transactions, Missions, Mentor, City, and Market. The playable
+MVP walkthrough is documented in `docs/mvp-playable-flow.md`.
 
 ## Current Status
 
