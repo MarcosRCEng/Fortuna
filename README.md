@@ -1,5 +1,7 @@
 # Fortuna
 
+Current milestone: `v0.2.0 - Playable MVP`.
+
 Fortuna is a gamified financial education and investing platform. The core experience will be Cidade Fortuna, a visual city that grows as the player builds wealth, diversifies investments, receives yields, and improves financial maturity.
 
 The project starts with mocked market data, but the architecture is prepared for future integrations with providers such as Brapi, B3 for Developers, MSN Money, Google Finance, or equivalent services.
@@ -128,7 +130,14 @@ MVP walkthrough is documented in `docs/mvp-playable-flow.md`.
 
 ## Current Status
 
-Bootstrap inicial: monorepo, domain foundation, application ports, infrastructure adapters, API health endpoint, web bootstrap screen, documentation, tests, and build scripts.
+`v0.2.0 - Playable MVP`: Fortuna now has the first complete playable loop for
+local/demo use. The milestone includes simulated financial operations,
+integer-cent accounting, mock market data, optional Prisma/PostgreSQL
+persistence, missions, Mentor Fortuna feedback, Cidade Fortuna progression,
+structured logs, seed/demo data, and release documentation.
+
+The previous main baseline is tracked by the suggested tag
+`v0.1.0-bootstrap`.
 
 ## Quality Documentation
 
@@ -136,3 +145,5 @@ Bootstrap inicial: monorepo, domain foundation, application ports, infrastructur
 - `docs/logging-strategy.md`
 - `docs/api-testing.md`
 - `docs/technical-readiness-checklist.md`
+- `docs/release-checklist.md`
+- `docs/releases/v0.2.0-mvp-playable.md`
