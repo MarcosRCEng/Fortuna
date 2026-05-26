@@ -3,12 +3,19 @@ import {
   AssetClass,
   AssetHistoryPoint,
   AssetPrice,
+  EDUCATIONAL_MARKET_DATA_DISCLAIMER,
   EducationalAssetInfo,
   ExpectedYield,
+  GetHistoricalPricesInput,
+  GetHistoricalPricesOutput,
+  GetQuotesInput,
+  GetQuotesOutput,
   LiquidityLevel,
+  MarketDataErrorCode,
   MarketDataProvider,
   MarketDataProviderType,
   MarketDataSource,
+  MarketDataTrace,
   MarketProviderStatus,
   MarketRiskLevel,
   MarketSessionStatus,
@@ -315,6 +322,80 @@ export class MockMarketDataProvider
     return MOCK_ASSETS.map((asset) => this.toAsset(asset, this.currentAsOf));
   }
 
+  async getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput> {
+    const trace = this.trace();
+    const quotes = (
+      await Promise.all(
+        input.symbols.map(async (symbol) => {
+          const price = (await this.getCurrentPrice(symbol)) as
+            | AssetPrice
+            | undefined;
+          if (!price) {
+            return undefined;
+          }
+          const asset = this.findDefinition(price.symbol);
+          return {
+            symbol: price.symbol,
+            name: asset?.name,
+            priceCents: price.priceCents,
+            previousPriceCents: price.previousPriceCents,
+            variationBps: price.variationBps,
+            currency: "BRL",
+            marketTimestamp: price.marketTimestamp,
+            updatedAt: price.updatedAt,
+            priceStatus: price.priceStatus,
+            dataSource: price.dataSource,
+            trace,
+          };
+        }),
+      )
+    ).filter((quote) => quote !== undefined);
+
+    return {
+      quotes,
+      errors: input.symbols
+        .filter(
+          (symbol) =>
+            !quotes.some((quote) => quote.symbol === symbol.trim().toUpperCase()),
+        )
+        .map((symbol) => ({
+          code: MarketDataErrorCode.ASSET_NOT_FOUND,
+          message: `Market asset ${symbol} is not available in mock data.`,
+          symbol,
+          providerName: this.getProviderName(),
+        })),
+      trace,
+    };
+  }
+
+  async getHistoricalPrices(
+    input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput> {
+    const trace = this.trace();
+    const prices = await this.getPriceHistory({
+      symbol: input.symbol,
+      from: input.from ?? this.addDays(this.currentAsOf, -30),
+      to: input.to ?? this.currentAsOf,
+    });
+
+    return {
+      symbol: input.symbol.trim().toUpperCase(),
+      prices,
+      errors:
+        prices.length === 0
+          ? [
+              {
+                code: MarketDataErrorCode.ASSET_NOT_FOUND,
+                message: `Market asset ${input.symbol} is not available in mock data.`,
+                symbol: input.symbol,
+                providerName: this.getProviderName(),
+              },
+            ]
+          : [],
+      trace,
+    };
+  }
+
   getProviderName(): string {
     return "MockMarketDataProvider";
   }
@@ -475,6 +556,18 @@ export class MockMarketDataProvider
 
   private findDefinition(symbol: string): MockAssetDefinition | undefined {
     return this.assetsBySymbol.get(AssetSymbol.create(symbol).value);
+  }
+
+  private trace(): MarketDataTrace {
+    return {
+      source: "mock",
+      providerName: this.getProviderName(),
+      isRealData: false,
+      isCached: false,
+      isFallback: false,
+      fetchedAt: this.clock(),
+      disclaimer: EDUCATIONAL_MARKET_DATA_DISCLAIMER,
+    };
   }
 
   private toAsset(asset: MockAssetDefinition, asOf: Date): Asset {

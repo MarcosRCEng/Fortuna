@@ -5,15 +5,24 @@ import {
   ExternalMarketDataProviderNotConfiguredError,
   FallbackMarketDataProvider,
 } from "./FutureMarketDataProviders.js";
+import { BrapiMarketDataProvider } from "./BrapiMarketDataProvider.js";
 import { MockMarketDataProvider } from "./MockMarketDataProvider.js";
 
-export type MarketDataProviderSelection = "mock" | "external" | "fallback";
+export type MarketDataProviderSelection =
+  | "mock"
+  | "external"
+  | "fallback"
+  | "brapi";
 
 export interface MarketDataProviderConfig {
   provider?: string;
   cacheEnabled?: boolean;
   cacheTtlSeconds?: number;
   externalEnabled?: boolean;
+  brapiBaseUrl?: string;
+  brapiToken?: string;
+  brapiTimeoutMs?: number;
+  brapiEnableUnauthenticatedTestQuotes?: boolean;
 }
 
 export function readMarketDataProviderConfig(
@@ -24,6 +33,11 @@ export function readMarketDataProviderConfig(
     cacheEnabled: env.MARKET_DATA_CACHE_ENABLED !== "false",
     cacheTtlSeconds: parseInteger(env.MARKET_DATA_CACHE_TTL_SECONDS, 60),
     externalEnabled: env.EXTERNAL_MARKET_DATA_ENABLED === "true",
+    brapiBaseUrl: env.BRAPI_BASE_URL ?? "https://brapi.dev/api",
+    brapiToken: env.BRAPI_TOKEN,
+    brapiTimeoutMs: parseInteger(env.BRAPI_TIMEOUT_MS, 5000),
+    brapiEnableUnauthenticatedTestQuotes:
+      env.BRAPI_ENABLE_UNAUTHENTICATED_TEST_QUOTES !== "false",
   };
 }
 
@@ -62,13 +76,35 @@ function createBaseProvider(
     return new ExternalMarketDataProvider();
   }
 
+  if (providerName === "brapi") {
+    logger?.info("Real market data provider selected", {
+      module: "market_data",
+      action: "MARKET_DATA_REAL_PROVIDER_SELECTED",
+      context: {
+        provider: "brapi",
+        hasToken: Boolean(config.brapiToken),
+        unauthenticatedTestQuotes:
+          config.brapiEnableUnauthenticatedTestQuotes !== false,
+      },
+    });
+    const brapi = new BrapiMarketDataProvider({
+      baseUrl: config.brapiBaseUrl,
+      token: config.brapiToken,
+      timeoutMs: config.brapiTimeoutMs,
+      enableUnauthenticatedTestQuotes:
+        config.brapiEnableUnauthenticatedTestQuotes,
+      logger,
+    });
+    return new FallbackMarketDataProvider(brapi, mock, logger);
+  }
+
   if (providerName === "fallback") {
     const external = new ExternalMarketDataProvider();
     return new FallbackMarketDataProvider(external, mock, logger);
   }
 
   throw new Error(
-    `Unsupported MARKET_DATA_PROVIDER "${providerName}". Expected mock, external or fallback.`,
+    `Unsupported MARKET_DATA_PROVIDER "${providerName}". Expected mock, brapi, external or fallback.`,
   );
 }
 

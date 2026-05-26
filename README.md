@@ -75,6 +75,26 @@ pnpm dev:api
 
 The API starts on `API_PORT`, defaulting to `3000`. Swagger is available at `/docs`.
 
+## Market Data Provider
+
+Mock market data remains the safe default:
+
+```bash
+MARKET_DATA_PROVIDER=mock
+```
+
+The MVP now has a plugable brapi.dev adapter for controlled real market data experiments:
+
+```bash
+MARKET_DATA_PROVIDER=brapi
+BRAPI_BASE_URL=https://brapi.dev/api
+BRAPI_TOKEN=
+BRAPI_TIMEOUT_MS=5000
+BRAPI_ENABLE_UNAUTHENTICATED_TEST_QUOTES=true
+```
+
+Use `BRAPI_TOKEN` locally or in secret-managed environments only. Controlled unauthenticated tests are limited to public test tickers such as `PETR4`, `MGLU3`, `VALE3` and `ITUB4`. Details are in `docs/integrations/brapi.md`.
+
 ## Run The Web App
 
 ```bash

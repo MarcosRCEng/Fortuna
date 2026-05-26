@@ -6,6 +6,10 @@ import {
   type AssetPrice,
   type EducationalAssetInfo,
   type ExpectedYield,
+  type GetHistoricalPricesInput,
+  type GetHistoricalPricesOutput,
+  type GetQuotesInput,
+  type GetQuotesOutput,
   type MarketDataProvider,
   MarketDataSource,
   MarketSessionStatus,
@@ -100,6 +104,16 @@ class FailingProvider implements MarketDataProvider {
 
   getProviderType(): MarketDataProviderType {
     return MarketDataProviderType.EXTERNAL;
+  }
+
+  getQuotes(_input: GetQuotesInput): Promise<GetQuotesOutput> {
+    return this.fail();
+  }
+
+  getHistoricalPrices(
+    _input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput> {
+    return this.fail();
   }
 
   listAssets(): Promise<Asset[]> {
