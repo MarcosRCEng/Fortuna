@@ -10,6 +10,8 @@
     "dev:api": "corepack pnpm --filter @fortuna/api dev",
     "dev:web": "corepack pnpm --filter @fortuna/web dev",
     "db:generate": "corepack pnpm --filter @fortuna/infrastructure db:generate",
+    "db:seed": "corepack pnpm --filter @fortuna/infrastructure db:seed",
+    "db:reset:demo": "corepack pnpm --filter @fortuna/infrastructure db:reset -- --force && corepack pnpm db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml,css}\"",
     "lint": "corepack pnpm -r lint",
     "postinstall": "corepack pnpm --filter @fortuna/infrastructure db:generate",
@@ -18,8 +20,10 @@
     "prisma:reset": "node scripts/prisma-command.mjs migrate reset --schema prisma/schema.prisma",
     "prisma:studio": "node scripts/prisma-command.mjs studio --schema prisma/schema.prisma",
     "test": "corepack pnpm -r test",
+    "typecheck": "corepack pnpm -r lint",
     "test:unit": "corepack pnpm --filter @fortuna/domain test && corepack pnpm --filter @fortuna/application test",
     "test:integration": "corepack pnpm --filter @fortuna/api test",
+    "test:e2e": "corepack pnpm --filter @fortuna/api test:e2e",
     "test:coverage": "corepack pnpm -r test --coverage"
   },
   "devDependencies": {

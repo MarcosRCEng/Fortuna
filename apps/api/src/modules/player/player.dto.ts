@@ -1,4 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from "class-validator";
+import { SanitizedString } from "../../common/validators/sanitized-string.decorator.js";
 
 export class MoneyResponseDto {
   @ApiProperty({ example: 123456 })
@@ -12,41 +22,37 @@ export class MoneyResponseDto {
 }
 
 export class ApiErrorDto {
-  @ApiProperty({ example: 400 })
-  statusCode!: number;
-
-  @ApiProperty({ example: "INSUFFICIENT_FUNDS" })
-  error!: string;
-
-  @ApiProperty({ example: "INSUFFICIENT_FUNDS" })
-  code!: string;
-
   @ApiProperty({
-    example: "Insufficient balance to complete the operation.",
+    example: {
+      code: "INSUFFICIENT_BALANCE",
+      message: "Saldo insuficiente para realizar a compra.",
+      details: { requiredCents: 100000, availableCents: 50000 },
+      correlationId: "8b0bd11c-2e3a-4c9a-a3a3-5f0b06c08e14",
+      timestamp: "2026-05-23T00:00:00.000Z",
+    },
   })
-  message!: string;
-
-  @ApiProperty({
-    required: false,
-    example: { requiredAmountCents: 100000, availableAmountCents: 50000 },
-  })
-  details?: Record<string, unknown>;
-
-  @ApiProperty({ example: "2026-05-23T00:00:00.000Z" })
-  timestamp!: string;
-
-  @ApiProperty({ example: "/api/v1/players/player-1/buy" })
-  path!: string;
+  error!: {
+    code: string;
+    message: string;
+    details?: unknown;
+    correlationId: string;
+    timestamp: string;
+  };
 }
 
 export class CreatePlayerRequestDto {
   @ApiPropertyOptional({ example: "player-123" })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_-]{1,80}$/)
   id?: string;
 
   @ApiProperty({ example: "Marcos" })
+  @SanitizedString({ max: 80 })
   name!: string;
 
   @ApiPropertyOptional({ example: "Investidor Iniciante" })
+  @SanitizedString({ max: 80, optional: true })
   nickname?: string;
 
   @ApiPropertyOptional({
@@ -54,6 +60,10 @@ export class CreatePlayerRequestDto {
     description:
       "Saldo inicial em centavos. 1 moeda Fortuna = R$ 0,01. Padrao: 20000.",
   })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   initialBalanceCents?: number;
 }
 
@@ -79,14 +89,22 @@ export class TradeAssetRequestDto {
     example: "asset-fiisf001",
     description: "ID do ativo. Simbolos legados tambem sao aceitos no MVP.",
   })
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_-]{1,80}$/)
   assetId!: string;
 
   @ApiPropertyOptional({ example: "FIISF001" })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_-]{1,80}$/)
   symbol?: string;
 
   @ApiProperty({
     example: "5",
     description: "Quantidade inteira positiva serializada como string.",
+  })
+  @Matches(/^[1-9]\d*$/, {
+    message: "quantity must be a positive integer.",
   })
   quantity!: string;
 }
@@ -440,9 +458,15 @@ export class TransactionsListResponseDto {
 
 export class CollectIncomeRequestDto {
   @ApiPropertyOptional({ example: "asset-fiisf001" })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_-]{1,100}$/)
   assetId?: string;
 
   @ApiPropertyOptional({ example: "income-001" })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_-]{1,100}$/)
   incomeEventId?: string;
 }
 
@@ -746,6 +770,8 @@ export class RefreshMarketPricesRequestDto {
     description:
       "Data simulada opcional. Quando omitida, o provider usa o clock configurado.",
   })
+  @IsOptional()
+  @IsDateString()
   asOf?: string;
 }
 

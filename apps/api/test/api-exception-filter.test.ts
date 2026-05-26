@@ -57,19 +57,19 @@ describe("ApiExceptionFilter", () => {
 
     expect(context.statusCode).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
     expect(context.body).toMatchObject({
-      statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-      error: "INSUFFICIENT_FUNDS",
-      code: "INSUFFICIENT_FUNDS",
-      message: "Saldo insuficiente para realizar a compra.",
-      details: {
-        requiredCents: 100_000,
-        availableCents: 50_000,
-        requiredAmountCents: 100_000,
-        availableAmountCents: 50_000,
+      error: {
+        code: "INSUFFICIENT_BALANCE",
+        message: "Saldo insuficiente para realizar a compra.",
+        details: {
+          requiredCents: 100_000,
+          availableCents: 50_000,
+          requiredAmountCents: 100_000,
+          availableAmountCents: 50_000,
+        },
+        correlationId: "unknown",
       },
-      path: "/api/v1/players/player-1/buy",
     });
-    expect((context.body as { timestamp: string }).timestamp).toEqual(
+    expect((context.body as { error: { timestamp: string } }).error.timestamp).toEqual(
       expect.any(String),
     );
   });
@@ -85,10 +85,11 @@ describe("ApiExceptionFilter", () => {
 
     expect(context.statusCode).toBe(HttpStatus.BAD_REQUEST);
     expect(context.body).toMatchObject({
-      statusCode: HttpStatus.BAD_REQUEST,
-      code: "VALIDATION_ERROR",
-      message: "name is required",
-      path: "/api/v1/players",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "name is required",
+        correlationId: "unknown",
+      },
     });
   });
 
@@ -100,10 +101,11 @@ describe("ApiExceptionFilter", () => {
 
     expect(context.statusCode).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(context.body).toMatchObject({
-      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-      code: "INTERNAL_SERVER_ERROR",
-      message: "Erro interno inesperado.",
-      path: "/api/v1/players",
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Erro interno inesperado.",
+        correlationId: "unknown",
+      },
     });
   });
 });

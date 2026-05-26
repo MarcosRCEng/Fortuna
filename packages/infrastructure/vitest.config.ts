@@ -15,5 +15,16 @@ export default defineConfig({
   test: {
     globals: true,
     include: ["test/**/*.test.ts"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.ts"],
+      exclude: ["src/index.ts", "prisma/**"],
+      thresholds: {
+        statements: 28,
+        branches: 70,
+        functions: 70,
+        lines: 28,
+      },
+    },
   },
 });

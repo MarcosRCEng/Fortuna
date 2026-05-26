@@ -121,6 +121,7 @@ import {
   toMoneyResponse,
 } from "./money-response.js";
 import type { PrismaService } from "../../infra/database/prisma.service.js";
+import { RequestContextService } from "../../common/logging/request-context.service.js";
 
 interface PersistentPlayerApiDependencies {
   operations: PrismaFinancialOperationsService;
@@ -688,13 +689,15 @@ export class PlayerApiService {
     request: TradeAssetRequestDto,
   ): Promise<OrderExecutionResponseDto> {
     const trade = await this.parseTradeRequest(request);
+    const correlationId = this.currentCorrelationId();
     if (this.persistence) {
       const transaction = await this.persistence.operations.buy({
         playerId,
         symbol: trade.symbol,
         quantity: trade.quantity,
-        correlationId: `api-${this.nextId}`,
+        correlationId,
       });
+      this.logFinancialOperation("buy", playerId, transaction.id, correlationId);
       await this.runGameLoopForFinancialEvents(playerId, [
         this.transactionToFinancialEvent(transaction, "AssetBought"),
       ]);
@@ -715,7 +718,7 @@ export class PlayerApiService {
       playerId,
       symbol: trade.symbol,
       quantity: trade.quantity,
-      correlationId: `api-${this.nextId}`,
+      correlationId,
     });
     await this.runGameLoopForFinancialEvents(playerId, result.events);
 
@@ -727,13 +730,15 @@ export class PlayerApiService {
     request: TradeAssetRequestDto,
   ): Promise<OrderExecutionResponseDto> {
     const trade = await this.parseTradeRequest(request);
+    const correlationId = this.currentCorrelationId();
     if (this.persistence) {
       const transaction = await this.persistence.operations.sell({
         playerId,
         symbol: trade.symbol,
         quantity: trade.quantity,
-        correlationId: `api-${this.nextId}`,
+        correlationId,
       });
+      this.logFinancialOperation("sell", playerId, transaction.id, correlationId);
       await this.runGameLoopForFinancialEvents(playerId, [
         this.transactionToFinancialEvent(transaction, "AssetSold"),
       ]);
@@ -754,7 +759,7 @@ export class PlayerApiService {
       playerId,
       symbol: trade.symbol,
       quantity: trade.quantity,
-      correlationId: `api-${this.nextId}`,
+      correlationId,
     });
     await this.runGameLoopForFinancialEvents(playerId, result.events);
 
@@ -765,6 +770,7 @@ export class PlayerApiService {
     playerId: string,
     request: CollectIncomeRequestDto = {},
   ): Promise<CollectIncomeResponseDto> {
+    const correlationId = this.currentCorrelationId();
     const incomeEventId = await this.resolveIncomeEventId(
       playerId,
       request.incomeEventId,
@@ -774,8 +780,14 @@ export class PlayerApiService {
       const transaction = await this.persistence.operations.collectIncome({
         playerId,
         incomeEventId,
-        correlationId: `api-${this.nextId}`,
+        correlationId,
       });
+      this.logFinancialOperation(
+        "income_collect",
+        playerId,
+        transaction.id,
+        correlationId,
+      );
       await this.runGameLoopForFinancialEvents(playerId, [
         this.transactionToFinancialEvent(transaction, "IncomeCollected"),
       ]);
@@ -794,7 +806,7 @@ export class PlayerApiService {
     const result = await useCase.execute({
       playerId,
       incomeEventId,
-      correlationId: `api-${this.nextId}`,
+      correlationId,
     });
     await this.runGameLoopForFinancialEvents(playerId, result.events);
 
@@ -1390,9 +1402,30 @@ export class PlayerApiService {
       playerId,
       financialEvents: events,
       portfolio,
-      correlationId: `game-loop-${++this.nextId}`,
+      correlationId: this.currentCorrelationId(),
     });
     await this.evaluateMentorMessagesSafely(playerId, events);
+  }
+
+  private currentCorrelationId(): string {
+    return RequestContextService.getCorrelationId() ?? `api-${++this.nextId}`;
+  }
+
+  private logFinancialOperation(
+    operation: string,
+    playerId: string,
+    transactionId: string,
+    correlationId: string,
+  ): void {
+    this.logger.info("Financial operation completed", {
+      module: "financial",
+      action: operation,
+      correlationId,
+      context: {
+        playerId,
+        transactionId,
+      },
+    });
   }
 
   private async evaluateMentorMessagesSafely(

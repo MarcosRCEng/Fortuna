@@ -2,10 +2,10 @@ import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppModule } from "../src/app.module.js";
-import { ApiExceptionFilter } from "../src/infra/errors/api-exception.filter.js";
 
 interface HttpResponse<T> {
   status: number;
+  headers: Headers;
   body: T;
 }
 
@@ -13,7 +13,18 @@ async function readJson<T>(response: Response): Promise<HttpResponse<T>> {
   const text = await response.text();
   return {
     status: response.status,
+    headers: response.headers,
     body: JSON.parse(text) as T,
+  };
+}
+
+interface ErrorBody {
+  error: {
+    code: string;
+    message: string;
+    details?: Record<string, unknown>;
+    correlationId: string;
+    timestamp: string;
   };
 }
 
@@ -27,7 +38,6 @@ describe("Financial API E2E", () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalFilters(new ApiExceptionFilter());
     await app.listen(0);
     const address = app.getHttpServer().address();
     const port =
@@ -51,6 +61,7 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(created.status).toBe(201);
+    expect(created.headers.get("x-correlation-id")).toEqual(expect.any(String));
     expect(created.body.wallet).toMatchObject({
       amountCents: 200_000,
       currency: "FORTUNA",
@@ -137,7 +148,7 @@ describe("Financial API E2E", () => {
     expect(income.body.collectedIncomeCents).toBeGreaterThan(0);
     expect(income.body.events[0]).toMatchObject({ symbol: "FIISF001" });
 
-    const duplicateIncome = await readJson<{ error: string }>(
+    const duplicateIncome = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/players/${created.body.id}/income/collect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -147,7 +158,8 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(duplicateIncome.status).toBe(422);
-    expect(duplicateIncome.body.error).toBe("INCOME_ALREADY_COLLECTED");
+    expect(duplicateIncome.body.error.code).toBe("INCOME_ALREADY_COLLECTED");
+    expect(duplicateIncome.body.error.correlationId).toEqual(expect.any(String));
 
     const refreshBeforeSell = await readJson<{
       updatedAssets: Array<{ assetId: string; currentPriceCents: number }>;
@@ -225,17 +237,17 @@ describe("Financial API E2E", () => {
   });
 
   it("returns predictable financial errors", async () => {
-    const missingPlayer = await readJson<{ error: string }>(
+    const missingPlayer = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/players/missing-player`),
     );
     expect(missingPlayer.status).toBe(404);
-    expect(missingPlayer.body.error).toBe("PLAYER_NOT_FOUND");
+    expect(missingPlayer.body.error.code).toBe("PLAYER_NOT_FOUND");
 
-    const missingAsset = await readJson<{ error: string }>(
+    const missingAsset = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/assets/missing-asset`),
     );
     expect(missingAsset.status).toBe(404);
-    expect(missingAsset.body.error).toBe("ASSET_NOT_FOUND");
+    expect(missingAsset.body.error.code).toBe("ASSET_NOT_FOUND");
 
     const created = await readJson<{ id: string }>(
       await fetch(`${baseUrl}/players`, {
@@ -249,7 +261,7 @@ describe("Financial API E2E", () => {
     );
     const asset = assets.body.find((item) => item.symbol === "FIISF001")!;
 
-    const invalidQuantity = await readJson<{ error: string }>(
+    const invalidQuantity = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/players/${created.body.id}/orders/buy`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -257,11 +269,13 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(invalidQuantity.status).toBe(400);
-    expect(invalidQuantity.body.error).toBe("VALIDATION_ERROR");
+    expect(invalidQuantity.body.error.code).toBe("VALIDATION_ERROR");
 
     const insufficientFunds = await readJson<{
-      error: string;
-      details: { requiredCents: number; availableCents: number };
+      error: {
+        code: string;
+        details: { requiredCents: number; availableCents: number };
+      };
     }>(
       await fetch(`${baseUrl}/players/${created.body.id}/orders/buy`, {
         method: "POST",
@@ -270,10 +284,10 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(insufficientFunds.status).toBe(422);
-    expect(insufficientFunds.body.error).toBe("INSUFFICIENT_FUNDS");
-    expect(insufficientFunds.body.details.availableCents).toBe(100);
+    expect(insufficientFunds.body.error.code).toBe("INSUFFICIENT_BALANCE");
+    expect(insufficientFunds.body.error.details.availableCents).toBe(100);
 
-    const insufficientPosition = await readJson<{ error: string }>(
+    const insufficientPosition = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/players/${created.body.id}/orders/sell`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -281,9 +295,9 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(insufficientPosition.status).toBe(422);
-    expect(insufficientPosition.body.error).toBe("INSUFFICIENT_POSITION");
+    expect(insufficientPosition.body.error.code).toBe("INSUFFICIENT_POSITION");
 
-    const noIncome = await readJson<{ error: string }>(
+    const noIncome = await readJson<ErrorBody>(
       await fetch(`${baseUrl}/players/${created.body.id}/income/collect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -291,6 +305,6 @@ describe("Financial API E2E", () => {
       }),
     );
     expect(noIncome.status).toBe(422);
-    expect(noIncome.body.error).toBe("NO_INCOME_AVAILABLE");
+    expect(noIncome.body.error.code).toBe("NO_INCOME_AVAILABLE");
   });
 });

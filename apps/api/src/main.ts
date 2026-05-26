@@ -2,7 +2,6 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import "reflect-metadata";
 import { AppModule } from "./app.module.js";
-import { ApiExceptionFilter } from "./infra/errors/api-exception.filter.js";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -11,7 +10,6 @@ async function bootstrap(): Promise<void> {
       process.env.WEB_ORIGIN?.split(",").map((origin) => origin.trim()) ??
       "http://localhost:5173",
   });
-  app.useGlobalFilters(new ApiExceptionFilter());
 
   const config = new DocumentBuilder()
     .setTitle("Fortuna API")

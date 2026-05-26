@@ -1,14 +1,19 @@
 import { PrismaClient } from "@prisma/client";
 
+process.env.DATABASE_URL ??=
+  "postgresql://fortuna:fortuna_dev@localhost:5432/fortuna";
+
 const prisma = new PrismaClient();
 const referenceDatetime = new Date("2026-05-22T12:00:00.000Z");
 
 async function main() {
+  const demoPlayerId = "player-demo";
+  const demoWalletId = "wallet-player-demo";
   const catalog = [
     {
       id: "asset-tsf001",
       symbol: "TSF001",
-      name: "Tesouro Selic Fortuna",
+      name: "Tesouro Liquidez Fortuna",
       assetType: "FIXED_INCOME",
       description:
         "Renda fixa inspirada em titulo publico de liquidez diaria.",
@@ -21,7 +26,7 @@ async function main() {
     {
       id: "asset-cdblf001",
       symbol: "CDBLF001",
-      name: "CDB Liquidez Fortuna",
+      name: "Banco Reserva FIC",
       assetType: "FIXED_INCOME",
       description: "Renda fixa bancaria com liquidez diaria simulada.",
       riskLevel: "MEDIUM",
@@ -33,7 +38,7 @@ async function main() {
     {
       id: "asset-fiisf001",
       symbol: "FIISF001",
-      name: "FII Shopping Fortuna",
+      name: "FII Praca Central",
       assetType: "FII",
       description: "Fundo imobiliario ficticio focado em shoppings.",
       riskLevel: "MEDIUM",
@@ -57,7 +62,7 @@ async function main() {
     {
       id: "asset-aef001",
       symbol: "AEF001",
-      name: "Acao Energia Fortuna",
+      name: "Acao Energia Solar",
       assetType: "STOCK",
       description: "Acao ficticia do setor de energia.",
       riskLevel: "HIGH",
@@ -264,6 +269,94 @@ async function main() {
       create: mission,
     });
   }
+
+  await prisma.player.upsert({
+    where: { id: demoPlayerId },
+    update: {
+      name: "Jogador Demo",
+      nickname: "Investidor Iniciante",
+      status: "ACTIVE",
+    },
+    create: {
+      id: demoPlayerId,
+      name: "Jogador Demo",
+      nickname: "Investidor Iniciante",
+      status: "ACTIVE",
+    },
+  });
+
+  await prisma.wallet.upsert({
+    where: { playerId: demoPlayerId },
+    update: {
+      availableBalanceCents: 200_000,
+      metadata: { seed: "demo", rule: "1 moeda Fortuna = R$ 0,01" },
+    },
+    create: {
+      id: demoWalletId,
+      playerId: demoPlayerId,
+      availableBalanceCents: 200_000,
+      metadata: { seed: "demo", rule: "1 moeda Fortuna = R$ 0,01" },
+    },
+  });
+
+  await prisma.incomeEvent.upsert({
+    where: { id: "income-demo-fiisf001" },
+    update: {
+      status: "AVAILABLE",
+      collectedAt: null,
+      transactionId: null,
+      amountCents: 250,
+      dueDate: new Date("2026-05-22T00:00:00.000Z"),
+    },
+    create: {
+      id: "income-demo-fiisf001",
+      playerId: demoPlayerId,
+      assetId: "asset-fiisf001",
+      incomeType: "RENT",
+      amountCents: 250,
+      dueDate: new Date("2026-05-22T00:00:00.000Z"),
+      status: "AVAILABLE",
+    },
+  });
+
+  await prisma.cityState.upsert({
+    where: { playerId: demoPlayerId },
+    update: {
+      level: 1,
+      experiencePoints: 0,
+      unlockedBuildings: ["central_plaza"],
+      cityScore: 0,
+    },
+    create: {
+      id: "city-player-demo",
+      playerId: demoPlayerId,
+      level: 1,
+      experiencePoints: 0,
+      unlockedBuildings: ["central_plaza"],
+      cityScore: 0,
+    },
+  });
+
+  await prisma.mentorMessage.upsert({
+    where: { id: "mentor-message-demo-welcome" },
+    update: {
+      message:
+        "Bem-vindo ao ambiente demo. Use os ativos simulados para aprender sem promessa de ganho real.",
+      readAt: null,
+    },
+    create: {
+      id: "mentor-message-demo-welcome",
+      playerId: demoPlayerId,
+      type: "educational_tip",
+      trigger: "demo_seed",
+      title: "Comece com calma",
+      message:
+        "Bem-vindo ao ambiente demo. Use os ativos simulados para aprender sem promessa de ganho real.",
+      educationalConcept: "simulacao",
+      severity: "info",
+      metadata: { seed: "demo" },
+    },
+  });
 }
 
 main()

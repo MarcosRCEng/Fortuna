@@ -5,21 +5,33 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Injectable,
+  Optional,
 } from "@nestjs/common";
 import { OperationRejectedError } from "@fortuna/domain";
+import { RequestContextService } from "../../common/logging/request-context.service.js";
+import { StructuredLoggerService } from "../../common/logging/logger.service.js";
 
 interface ApiErrorResponse {
-  statusCode: number;
-  error: string;
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
-  timestamp: string;
-  path: string;
+  error: {
+    code: string;
+    message: string;
+    details?: unknown;
+    correlationId: string;
+    timestamp: string;
+  };
 }
 
 @Catch()
+@Injectable()
 export class ApiExceptionFilter implements ExceptionFilter {
+  constructor(
+    @Optional()
+    private readonly requestContext?: RequestContextService,
+    @Optional()
+    private readonly logger?: StructuredLoggerService,
+  ) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const request = host.switchToHttp().getRequest<{ url?: string }>();
     const response = host.switchToHttp().getResponse<{
@@ -29,6 +41,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (exception instanceof OperationRejectedError) {
       const statusCode = this.statusForBusinessError(exception.code);
       const mapped = this.mapBusinessError(exception);
+      this.logError(exception, mapped.code, request.url);
       response.status(statusCode).json(
         this.toResponseBody(statusCode, mapped.code, mapped.message, {
           path: request.url,
@@ -39,6 +52,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof BadRequestException) {
+      this.logError(exception, "VALIDATION_ERROR", request.url);
       response
         .status(HttpStatus.BAD_REQUEST)
         .json(
@@ -46,7 +60,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
             HttpStatus.BAD_REQUEST,
             "VALIDATION_ERROR",
             this.messageFromHttpException(exception),
-            { path: request.url },
+            { path: request.url, details: this.detailsFromHttpException(exception) },
           ),
         );
       return;
@@ -54,6 +68,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const statusCode = exception.getStatus();
+      this.logError(exception, "HTTP_ERROR", request.url);
       response
         .status(statusCode)
         .json(
@@ -67,6 +82,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    this.logError(exception, "INTERNAL_SERVER_ERROR", request.url);
     response
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
       .json(
@@ -121,9 +137,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     return {
       code:
-        exception.code === "INSUFFICIENT_BALANCE"
-          ? "INSUFFICIENT_FUNDS"
-          : exception.code === "INVALID_QUANTITY"
+        exception.code === "INVALID_QUANTITY"
             ? "INVALID_ORDER_QUANTITY"
             : exception.code,
       message: messages[exception.code] ?? exception.message,
@@ -148,20 +162,39 @@ export class ApiExceptionFilter implements ExceptionFilter {
     return exception.message;
   }
 
+  private detailsFromHttpException(exception: HttpException): unknown {
+    const body = exception.getResponse();
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "message" in body &&
+      Array.isArray(body.message)
+    ) {
+      return { messages: body.message };
+    }
+
+    return undefined;
+  }
+
   private toResponseBody(
     statusCode: number,
     code: string,
     message: string,
-    options: { path?: string; details?: Record<string, unknown> } = {},
+    options: { path?: string; details?: unknown } = {},
   ): ApiErrorResponse {
+    void statusCode;
+    void options.path;
     return {
-      statusCode,
-      error: code,
-      code,
-      message,
-      ...(options.details ? { details: options.details } : {}),
-      timestamp: new Date().toISOString(),
-      path: options.path ?? "",
+      error: {
+        code,
+        message,
+        ...(options.details ? { details: options.details } : {}),
+        correlationId:
+          this.requestContext?.getCorrelationId() ??
+          RequestContextService.getCorrelationId() ??
+          "unknown",
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 
@@ -196,5 +229,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
 
     return undefined;
+  }
+
+  private logError(exception: unknown, code: string, path?: string): void {
+    const logger =
+      this.logger ??
+      (process.env.NODE_ENV !== "production"
+        ? new StructuredLoggerService(this.requestContext)
+        : undefined);
+    logger?.error({
+      context: "api-error",
+      message: "HTTP exception mapped",
+      operation: path,
+      eventType: code,
+      error: exception,
+    });
   }
 }
