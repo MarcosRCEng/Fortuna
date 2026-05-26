@@ -1,13 +1,18 @@
 import {
   BadRequestException,
+  NotFoundException,
   Inject,
   Injectable,
   Optional,
 } from "@nestjs/common";
 import {
+  AuditEventType,
+  AuditSeverity,
+  AuditTrailService,
   BuyAssetUseCase,
   CityEvolutionService,
   CollectIncomeUseCase,
+  ConsentType,
   CreatePlayerUseCase,
   DomainEventPublisher,
   EventDispatcher,
@@ -19,7 +24,9 @@ import {
   GetExpectedYieldUseCase,
   GetMarketProviderStatusUseCase,
   GetPortfolioAllocationUseCase,
+  InMemoryAuditEventRepository,
   InMemoryMentorMessageRepository,
+  InMemoryUserConsentRepository,
   RuleBasedMentorService,
   ListAvailableAssetsUseCase,
   LogEventHandler,
@@ -49,9 +56,10 @@ import {
   type TransactionRepository,
   type WalletRepository,
   createInitialPlayerProgress,
+  UserConsentService,
 } from "@fortuna/application";
 import {
-  MockMarketDataProvider,
+  createMarketDataProvider,
   PinoLogger,
   PrismaFinancialOperationsService,
   PrismaGameEventRepository,
@@ -281,7 +289,8 @@ export class PlayerApiService {
   }
 
   private readonly marketData: MarketDataProvider & MarketPriceProvider =
-    new MockMarketDataProvider();
+    createMarketDataProvider(undefined, new PinoLogger()) as MarketDataProvider &
+      MarketPriceProvider;
   private readonly assets = new InMemoryAssetRepository(this.marketData);
   private readonly wallets = new InMemoryWalletRepository();
   private readonly players = new InMemoryPlayerRepository();
@@ -313,6 +322,16 @@ export class PlayerApiService {
     ),
   ]);
   private readonly mentorMessages = new InMemoryMentorMessageRepository();
+  private readonly audit = new AuditTrailService(
+    new InMemoryAuditEventRepository(),
+    () => `audit-${++this.nextId}`,
+  );
+  private readonly consents = new UserConsentService(
+    new InMemoryUserConsentRepository(),
+    this.audit,
+    this.clock,
+    () => `consent-${++this.nextId}`,
+  );
 
   constructor(
     @Optional()
@@ -350,6 +369,16 @@ export class PlayerApiService {
         nickname: request.nickname,
         initialBalanceCents,
       });
+      await this.audit.record({
+        playerId,
+        eventType: AuditEventType.PLAYER_CREATED,
+        entityType: "Player",
+        entityId: playerId,
+        correlationId: this.currentCorrelationId(),
+        source: "player-api",
+        payload: { initialBalanceCents },
+        createdAt,
+      });
 
       return {
         id: playerId,
@@ -367,6 +396,16 @@ export class PlayerApiService {
       () => `player-${++this.nextId}`,
     );
     const result = await useCase.execute(request);
+    await this.audit.record({
+      playerId: result.player.id,
+      eventType: AuditEventType.PLAYER_CREATED,
+      entityType: "Player",
+      entityId: result.player.id,
+      correlationId: this.currentCorrelationId(),
+      source: "player-api",
+      payload: { initialBalanceCents: result.initialBalance.cents },
+      createdAt: result.player.createdAt,
+    });
 
     return {
       id: result.player.id,
@@ -690,39 +729,54 @@ export class PlayerApiService {
   ): Promise<OrderExecutionResponseDto> {
     const trade = await this.parseTradeRequest(request);
     const correlationId = this.currentCorrelationId();
-    if (this.persistence) {
-      const transaction = await this.persistence.operations.buy({
+    try {
+      if (this.persistence) {
+        const transaction = await this.persistence.operations.buy({
+          playerId,
+          symbol: trade.symbol,
+          quantity: trade.quantity,
+          correlationId,
+        });
+        this.logFinancialOperation("buy", playerId, transaction.id, correlationId);
+        await this.recordTransactionAudit(
+          AuditEventType.SIMULATED_ASSET_BOUGHT,
+          transaction,
+          correlationId,
+        );
+        await this.runGameLoopForFinancialEvents(playerId, [
+          this.transactionToFinancialEvent(transaction, "AssetBought"),
+        ]);
+        return this.toOrderResponse(transaction);
+      }
+
+      const useCase = new BuyAssetUseCase(
+        this.assets,
+        this.wallets,
+        this.prices,
+        this.transactions,
+        { now: () => new Date() },
+        () => `tx-${++this.nextId}`,
+        this.logger,
+        this.eventPublisher,
+      );
+      const result = await useCase.execute({
         playerId,
         symbol: trade.symbol,
         quantity: trade.quantity,
         correlationId,
       });
-      this.logFinancialOperation("buy", playerId, transaction.id, correlationId);
-      await this.runGameLoopForFinancialEvents(playerId, [
-        this.transactionToFinancialEvent(transaction, "AssetBought"),
-      ]);
-      return this.toOrderResponse(transaction);
+      await this.recordTransactionAudit(
+        AuditEventType.SIMULATED_ASSET_BOUGHT,
+        result.data,
+        correlationId,
+      );
+      await this.runGameLoopForFinancialEvents(playerId, result.events);
+
+      return this.toOrderResponse(result.data);
+    } catch (error) {
+      await this.recordFinancialError(playerId, "buy", correlationId, error);
+      throw error;
     }
-
-    const useCase = new BuyAssetUseCase(
-      this.assets,
-      this.wallets,
-      this.prices,
-      this.transactions,
-      { now: () => new Date() },
-      () => `tx-${++this.nextId}`,
-      this.logger,
-      this.eventPublisher,
-    );
-    const result = await useCase.execute({
-      playerId,
-      symbol: trade.symbol,
-      quantity: trade.quantity,
-      correlationId,
-    });
-    await this.runGameLoopForFinancialEvents(playerId, result.events);
-
-    return this.toOrderResponse(result.data);
   }
 
   async sellAsset(
@@ -731,39 +785,54 @@ export class PlayerApiService {
   ): Promise<OrderExecutionResponseDto> {
     const trade = await this.parseTradeRequest(request);
     const correlationId = this.currentCorrelationId();
-    if (this.persistence) {
-      const transaction = await this.persistence.operations.sell({
+    try {
+      if (this.persistence) {
+        const transaction = await this.persistence.operations.sell({
+          playerId,
+          symbol: trade.symbol,
+          quantity: trade.quantity,
+          correlationId,
+        });
+        this.logFinancialOperation("sell", playerId, transaction.id, correlationId);
+        await this.recordTransactionAudit(
+          AuditEventType.SIMULATED_ASSET_SOLD,
+          transaction,
+          correlationId,
+        );
+        await this.runGameLoopForFinancialEvents(playerId, [
+          this.transactionToFinancialEvent(transaction, "AssetSold"),
+        ]);
+        return this.toOrderResponse(transaction);
+      }
+
+      const useCase = new SellAssetUseCase(
+        this.assets,
+        this.wallets,
+        this.prices,
+        this.transactions,
+        { now: () => new Date() },
+        () => `tx-${++this.nextId}`,
+        this.logger,
+        this.eventPublisher,
+      );
+      const result = await useCase.execute({
         playerId,
         symbol: trade.symbol,
         quantity: trade.quantity,
         correlationId,
       });
-      this.logFinancialOperation("sell", playerId, transaction.id, correlationId);
-      await this.runGameLoopForFinancialEvents(playerId, [
-        this.transactionToFinancialEvent(transaction, "AssetSold"),
-      ]);
-      return this.toOrderResponse(transaction);
+      await this.recordTransactionAudit(
+        AuditEventType.SIMULATED_ASSET_SOLD,
+        result.data,
+        correlationId,
+      );
+      await this.runGameLoopForFinancialEvents(playerId, result.events);
+
+      return this.toOrderResponse(result.data);
+    } catch (error) {
+      await this.recordFinancialError(playerId, "sell", correlationId, error);
+      throw error;
     }
-
-    const useCase = new SellAssetUseCase(
-      this.assets,
-      this.wallets,
-      this.prices,
-      this.transactions,
-      { now: () => new Date() },
-      () => `tx-${++this.nextId}`,
-      this.logger,
-      this.eventPublisher,
-    );
-    const result = await useCase.execute({
-      playerId,
-      symbol: trade.symbol,
-      quantity: trade.quantity,
-      correlationId,
-    });
-    await this.runGameLoopForFinancialEvents(playerId, result.events);
-
-    return this.toOrderResponse(result.data);
   }
 
   async collectIncome(
@@ -776,41 +845,61 @@ export class PlayerApiService {
       request.incomeEventId,
       request.assetId,
     );
-    if (this.persistence) {
-      const transaction = await this.persistence.operations.collectIncome({
+    try {
+      if (this.persistence) {
+        const transaction = await this.persistence.operations.collectIncome({
+          playerId,
+          incomeEventId,
+          correlationId,
+        });
+        this.logFinancialOperation(
+          "income_collect",
+          playerId,
+          transaction.id,
+          correlationId,
+        );
+        await this.recordTransactionAudit(
+          AuditEventType.SIMULATED_INCOME_COLLECTED,
+          transaction,
+          correlationId,
+        );
+        await this.runGameLoopForFinancialEvents(playerId, [
+          this.transactionToFinancialEvent(transaction, "IncomeCollected"),
+        ]);
+        return this.toCollectIncomeResponse(transaction);
+      }
+
+      const useCase = new CollectIncomeUseCase(
+        this.wallets,
+        this.incomeEvents,
+        this.transactions,
+        { now: () => new Date() },
+        () => `tx-${++this.nextId}`,
+        this.logger,
+        this.eventPublisher,
+      );
+      const result = await useCase.execute({
         playerId,
         incomeEventId,
         correlationId,
       });
-      this.logFinancialOperation(
-        "income_collect",
-        playerId,
-        transaction.id,
+      await this.recordTransactionAudit(
+        AuditEventType.SIMULATED_INCOME_COLLECTED,
+        result.data,
         correlationId,
       );
-      await this.runGameLoopForFinancialEvents(playerId, [
-        this.transactionToFinancialEvent(transaction, "IncomeCollected"),
-      ]);
-      return this.toCollectIncomeResponse(transaction);
+      await this.runGameLoopForFinancialEvents(playerId, result.events);
+
+      return this.toCollectIncomeResponse(result.data);
+    } catch (error) {
+      await this.recordFinancialError(
+        playerId,
+        "collect_income",
+        correlationId,
+        error,
+      );
+      throw error;
     }
-
-    const useCase = new CollectIncomeUseCase(
-      this.wallets,
-      this.incomeEvents,
-      this.transactions,
-      { now: () => new Date() },
-      () => `tx-${++this.nextId}`,
-      this.logger,
-      this.eventPublisher,
-    );
-    const result = await useCase.execute({
-      playerId,
-      incomeEventId,
-      correlationId,
-    });
-    await this.runGameLoopForFinancialEvents(playerId, result.events);
-
-    return this.toCollectIncomeResponse(result.data);
   }
 
   async collectIncomeById(
@@ -825,6 +914,81 @@ export class PlayerApiService {
       totalCents: result.collectedIncomeCents,
       balanceAfterCents: result.walletBalanceAfterCents,
       occurredAt: result.createdAt,
+    };
+  }
+
+  async listConsents(playerId: string) {
+    await this.getPlayer(playerId);
+    const consents = await this.consents.listByPlayerId(playerId);
+    return {
+      playerId,
+      consents: consents.map((consent) => ({
+        id: consent.id,
+        type: consent.type,
+        status: consent.status,
+        version: consent.version,
+        acceptedAt: consent.acceptedAt?.toISOString() ?? null,
+        revokedAt: consent.revokedAt?.toISOString() ?? null,
+        updatedAt: consent.updatedAt.toISOString(),
+      })),
+      expectedEducationalConsents: Object.values(ConsentType),
+    };
+  }
+
+  async acceptConsent(playerId: string, type: string) {
+    await this.getPlayer(playerId);
+    const consentType = this.parseConsentType(type);
+    const consent = await this.consents.accept({
+      playerId,
+      type: consentType,
+      correlationId: this.currentCorrelationId(),
+    });
+    return {
+      id: consent.id,
+      playerId: consent.playerId,
+      type: consent.type,
+      status: consent.status,
+      version: consent.version,
+      acceptedAt: consent.acceptedAt?.toISOString() ?? null,
+      revokedAt: consent.revokedAt?.toISOString() ?? null,
+    };
+  }
+
+  async revokeConsent(playerId: string, type: string) {
+    await this.getPlayer(playerId);
+    const consentType = this.parseConsentType(type);
+    const consent = await this.consents.revoke({
+      playerId,
+      type: consentType,
+      correlationId: this.currentCorrelationId(),
+    });
+    return {
+      id: consent.id,
+      playerId: consent.playerId,
+      type: consent.type,
+      status: consent.status,
+      version: consent.version,
+      acceptedAt: consent.acceptedAt?.toISOString() ?? null,
+      revokedAt: consent.revokedAt?.toISOString() ?? null,
+    };
+  }
+
+  async listAuditEvents(playerId: string) {
+    await this.getPlayer(playerId);
+    const events = await this.audit.listByPlayerId(playerId);
+    return {
+      playerId,
+      events: events.map((event) => ({
+        id: event.id,
+        eventType: event.eventType ?? event.type,
+        entityType: event.entityType,
+        entityId: event.entityId,
+        correlationId: event.correlationId,
+        source: event.source,
+        severity: event.severity ?? "INFO",
+        payload: event.payload ?? event.metadata,
+        createdAt: (event.createdAt ?? event.occurredAt).toISOString(),
+      })),
     };
   }
 
@@ -1254,6 +1418,19 @@ export class PlayerApiService {
   ): Promise<RefreshMarketPricesResponseDto> {
     const assets = await this.refreshMarketPrices(request);
     const correlationId = `market-refresh-${++this.nextId}`;
+    await this.audit.record({
+      eventType: AuditEventType.MOCK_MARKET_PRICE_REFRESHED,
+      entityType: "MarketDataProvider",
+      entityId: this.marketData.getProviderName(),
+      correlationId,
+      source: "market-api",
+      payload: {
+        providerName: this.marketData.getProviderName(),
+        providerType: this.marketData.getProviderType(),
+        updatedAssetCount: assets.length,
+        assetSymbols: assets.map((asset) => asset.symbol),
+      },
+    });
     await this.gameLoopService().handle({
       playerId: "system",
       marketPricesRefreshed: { updatedAssetCount: assets.length },
@@ -1398,12 +1575,13 @@ export class PlayerApiService {
     events: FinancialEvent[],
   ): Promise<void> {
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
-    await this.gameLoopService().handle({
+    const result = await this.gameLoopService().handle({
       playerId,
       financialEvents: events,
       portfolio,
       correlationId: this.currentCorrelationId(),
     });
+    await this.recordGameplayAuditEvents(playerId, result.events);
     await this.evaluateMentorMessagesSafely(playerId, events);
   }
 
@@ -1426,6 +1604,87 @@ export class PlayerApiService {
         transactionId,
       },
     });
+  }
+
+  private async recordTransactionAudit(
+    eventType: AuditEventType,
+    transaction: Transaction,
+    correlationId: string,
+  ): Promise<void> {
+    await this.audit.record({
+      playerId: transaction.playerId,
+      eventType,
+      entityType: "Transaction",
+      entityId: transaction.id,
+      correlationId,
+      source: "player-api",
+      payload: {
+        transactionType: transaction.type,
+        assetId: transaction.asset?.id,
+        assetSymbol: transaction.asset?.symbol.value,
+        quantity: transaction.quantity?.units,
+        unitPriceCents: transaction.unitPrice?.cents,
+        totalCents: transaction.total.cents,
+        balanceAfterCents: transaction.balanceAfter.cents,
+      },
+      createdAt: transaction.occurredAt,
+    });
+  }
+
+  private async recordFinancialError(
+    playerId: string,
+    operation: string,
+    correlationId: string,
+    error: unknown,
+  ): Promise<void> {
+    await this.audit.record({
+      playerId,
+      eventType: AuditEventType.FINANCIAL_BUSINESS_ERROR,
+      entityType: "FinancialOperation",
+      entityId: `${operation}-${correlationId}`,
+      correlationId,
+      source: "player-api",
+      severity: AuditSeverity.WARNING,
+      payload: {
+        operation,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        errorCode:
+          error instanceof OperationRejectedError ? error.code : undefined,
+      },
+    });
+  }
+
+  private async recordGameplayAuditEvents(
+    playerId: string,
+    events: GameEvent[],
+  ): Promise<void> {
+    for (const event of events) {
+      if (event.type === "MISSION_COMPLETED") {
+        await this.audit.record({
+          playerId,
+          eventType: AuditEventType.MISSION_COMPLETED,
+          entityType: "Mission",
+          entityId: String(event.metadata?.missionId ?? event.id),
+          correlationId: this.currentCorrelationId(),
+          source: "game-loop",
+          payload: event.metadata,
+          createdAt: event.occurredAt,
+        });
+      }
+
+      if (event.type === "PLAYER_LEVEL_UP") {
+        await this.audit.record({
+          playerId,
+          eventType: AuditEventType.CITY_UPDATED,
+          entityType: "CityState",
+          entityId: playerId,
+          correlationId: this.currentCorrelationId(),
+          source: "game-loop",
+          payload: event.metadata,
+          createdAt: event.occurredAt,
+        });
+      }
+    }
   }
 
   private async evaluateMentorMessagesSafely(
@@ -1822,6 +2081,15 @@ export class PlayerApiService {
     }
 
     return parsed;
+  }
+
+  private parseConsentType(value: string): ConsentType {
+    this.assertString(value, "type");
+    const normalized = value.trim().toUpperCase();
+    if (normalized in ConsentType) {
+      return ConsentType[normalized as keyof typeof ConsentType];
+    }
+    throw new NotFoundException(`Consent type ${value} is not supported.`);
   }
 
   private parseNonNegativeInteger(value: unknown, fieldName: string): number {

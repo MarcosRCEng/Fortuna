@@ -1,4 +1,5 @@
 import { AssetCard } from "../components/AssetCard.js";
+import { EducationalDisclaimer } from "../components/EducationalDisclaimer.js";
 import { EmptyState } from "../components/EmptyState.js";
 import type { Asset } from "../types/asset.js";
 
@@ -35,6 +36,7 @@ export function MarketPage({
           Atualizar mercado
         </button>
       </header>
+      <EducationalDisclaimer />
       <p className="educational-note">
         Atualizar mercado simula variacoes de preco para fins educacionais.
       </p>

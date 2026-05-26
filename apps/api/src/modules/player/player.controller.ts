@@ -71,6 +71,48 @@ export class PlayerController {
     return this.api.getPlayerSummary(playerId);
   }
 
+  @Get(":playerId/consents")
+  @ApiOperation({ summary: "Listar consentimentos educativos do jogador." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  listConsents(@Param("playerId") playerId: string) {
+    return this.api.listConsents(playerId);
+  }
+
+  @Post(":playerId/consents/:type/accept")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Aceitar consentimento educativo ou futuro." })
+  @ApiOkResponse({ type: Object })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  acceptConsent(
+    @Param("playerId") playerId: string,
+    @Param("type") type: string,
+  ) {
+    return this.api.acceptConsent(playerId, type);
+  }
+
+  @Post(":playerId/consents/:type/revoke")
+  @HttpCode(200)
+  @ApiOperation({ summary: "Revogar consentimento educativo ou futuro." })
+  @ApiOkResponse({ type: Object })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  revokeConsent(
+    @Param("playerId") playerId: string,
+    @Param("type") type: string,
+  ) {
+    return this.api.revokeConsent(playerId, type);
+  }
+
+  @Get(":playerId/audit-events")
+  @ApiOperation({ summary: "Listar eventos de auditoria simulada do jogador." })
+  @ApiOkResponse({ type: Object })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  listAuditEvents(@Param("playerId") playerId: string) {
+    return this.api.listAuditEvents(playerId);
+  }
+
   @Get(":playerId/mentor/messages")
   @ApiOperation({ summary: "Listar historico de mensagens do Mentor Fortuna." })
   @ApiOkResponse({ type: MentorMessageListResponseDto })

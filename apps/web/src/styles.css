@@ -912,6 +912,29 @@ input {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.educational-disclaimer {
+  align-items: flex-start;
+  background: #f4f7f5;
+  border: 1px solid #cbd8ce;
+  border-radius: 8px;
+  color: #26372d;
+  display: grid;
+  gap: 6px;
+  line-height: 1.45;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+}
+
+.educational-disclaimer strong {
+  color: #183426;
+}
+
+.educational-disclaimer.compact {
+  font-size: 0.9rem;
+  margin: 12px 0;
+  padding: 12px;
+}
+
 .sticky-panel {
   position: sticky;
   top: 24px;

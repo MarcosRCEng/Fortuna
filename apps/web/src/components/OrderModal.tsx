@@ -1,5 +1,6 @@
 import type { Asset } from "../types/asset.js";
 import type { Position } from "../types/wallet.js";
+import { EducationalDisclaimer } from "./EducationalDisclaimer.js";
 import {
   calculateOrderTotalCents,
   formatMoneyFromCents,
@@ -83,6 +84,7 @@ export function OrderModal({
             ? "Comprar um ativo compromete parte do saldo disponivel. Avalie sua estrategia simulada."
             : "Vender altera sua composicao de carteira e pode reduzir sua exposicao a determinado ativo."}
         </p>
+        <EducationalDisclaimer compact />
         {validationMessage ? (
           <div className="state state-blocked" role="alert">
             <strong>Operacao bloqueada</strong>

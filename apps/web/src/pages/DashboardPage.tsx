@@ -1,5 +1,6 @@
 import { AllocationBar } from "../components/AllocationBar.js";
 import { EmptyState } from "../components/EmptyState.js";
+import { EducationalDisclaimer } from "../components/EducationalDisclaimer.js";
 import { MentorTipCard } from "../components/MentorTipCard.js";
 import { MetricCard } from "../components/MetricCard.js";
 import type { PlayerSummary } from "../types/player.js";
@@ -27,15 +28,18 @@ export function DashboardPage({
 }) {
   if (!summary) {
     return (
-      <EmptyState
-        title="Comece sua jornada Fortuna"
-        description="Crie um jogador para acompanhar saldo, carteira, rendimentos simulados e historico financeiro."
-        action={
-          <button type="button" className="button button-primary" onClick={onCreatePlayer}>
-            Criar jogador
-          </button>
-        }
-      />
+      <>
+        <EducationalDisclaimer />
+        <EmptyState
+          title="Comece sua jornada Fortuna"
+          description="Crie um jogador para acompanhar saldo, carteira, rendimentos simulados e historico financeiro."
+          action={
+            <button type="button" className="button button-primary" onClick={onCreatePlayer}>
+              Criar jogador
+            </button>
+          }
+        />
+      </>
     );
   }
 
@@ -56,6 +60,7 @@ export function DashboardPage({
           Acessar mercado
         </button>
       </header>
+      <EducationalDisclaimer />
       <section className="metric-grid">
         <MetricCard
           title="Saldo disponivel"

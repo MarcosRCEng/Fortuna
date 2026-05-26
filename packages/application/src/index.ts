@@ -1,4 +1,6 @@
 export * from "./config/FutureIntegrationFlags.js";
+export * from "./audit/AuditTrailService.js";
+export * from "./consent/UserConsent.js";
 export * from "./ports/AssetRepository.js";
 export * from "./ports/Clock.js";
 export * from "./ports/FutureIntegrationPorts.js";
