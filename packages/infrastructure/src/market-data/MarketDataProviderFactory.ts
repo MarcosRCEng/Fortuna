@@ -23,7 +23,9 @@ export function readMarketDataProviderConfig(
 }
 
 export function createMarketDataProvider(
-  config: MarketDataProviderConfig | MarketDataConfigLoadResult = readMarketDataConfig(),
+  config:
+    | MarketDataProviderConfig
+    | MarketDataConfigLoadResult = readMarketDataConfig(),
   logger?: LoggerPort,
 ): MarketDataProvider {
   const loadResult = isConfigLoadResult(config)
@@ -36,6 +38,17 @@ export function createMarketDataProvider(
       };
   const providerName = loadResult.config.provider;
   const mock = new MockMarketDataProvider({ logger });
+
+  for (const warning of loadResult.warnings) {
+    logger?.warn("Market data configuration warning", {
+      module: "market_data",
+      action: "market_data_config_warning",
+      context: {
+        provider: loadResult.requestedProvider,
+        warning,
+      },
+    });
+  }
 
   if (loadResult.errors.length > 0) {
     logger?.warn("Invalid BRAPI config, falling back to mock", {
@@ -100,12 +113,14 @@ function createBaseProvider(
       token: config.brapi.apiToken,
       timeoutMs: config.brapi.timeoutMs,
       maxSymbolsPerRequest: config.brapi.maxSymbolsPerRequest,
+      allowedSymbols: config.brapi.allowedSymbols,
       enableUnauthenticatedTestQuotes: false,
       logger,
     });
     const cached = new CachedMarketDataProvider(brapi, {
       ttlSeconds: config.brapi.cacheTtlSeconds,
       enabled: true,
+      logger,
     });
     return new FallbackMarketDataProvider(cached, mock, logger);
   }

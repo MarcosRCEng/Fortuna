@@ -8,7 +8,10 @@ import {
 
 describe("Market data configuration", () => {
   it("uses mock provider when no env is defined", () => {
-    const provider = createMarketDataProvider(readMarketDataConfig({}), logger());
+    const provider = createMarketDataProvider(
+      readMarketDataConfig({}),
+      logger(),
+    );
 
     expect(provider.getProviderType()).toBe(MarketDataProviderType.MOCK);
   });
@@ -113,6 +116,43 @@ describe("Market data configuration", () => {
     expect(JSON.stringify(logs.info.mock.calls)).not.toContain(token);
     expect(JSON.stringify(logs.warn.mock.calls)).not.toContain(token);
     expect(JSON.stringify(logs.error.mock.calls)).not.toContain(token);
+  });
+
+  it("enforces the 15 minute minimum cache TTL with an explicit warning", () => {
+    const result = readMarketDataConfig({
+      BRAPI_CACHE_TTL_SECONDS: "60",
+    });
+
+    expect(result.config.brapi.cacheTtlSeconds).toBe(900);
+    expect(result.warnings).toContain(
+      "BRAPI_CACHE_TTL_SECONDS is below 900; using the 900 second minimum.",
+    );
+  });
+
+  it("normalizes and deduplicates the real market symbol allowlist", () => {
+    const result = readMarketDataConfig({
+      MARKET_DATA_ALLOWED_SYMBOLS: " petr4, VALE3,petr4 ",
+    });
+
+    expect(result.config.brapi.allowedSymbols).toEqual(["PETR4", "VALE3"]);
+  });
+
+  it("allows an empty allowlist so real queries can be blocked by policy", () => {
+    const result = readMarketDataConfig({
+      MARKET_DATA_ALLOWED_SYMBOLS: "",
+    });
+
+    expect(result.config.brapi.allowedSymbols).toEqual([]);
+  });
+
+  it("rejects invalid allowlist symbols during validation", () => {
+    const result = readMarketDataConfig({
+      MARKET_DATA_ALLOWED_SYMBOLS: "PETR4, bad-symbol ",
+    });
+
+    expect(result.errors).toContain(
+      "MARKET_DATA_ALLOWED_SYMBOLS contains invalid symbols.",
+    );
   });
 
   it("rejects invalid URLs during validation", () => {

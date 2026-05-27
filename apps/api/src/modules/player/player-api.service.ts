@@ -70,6 +70,7 @@ import {
   PrismaPlayerRepository,
   PrismaTransactionRepository,
   PrismaWalletRepository,
+  readMarketDataProviderConfig,
   toDomainAsset,
 } from "@fortuna/infrastructure";
 import {
@@ -103,6 +104,7 @@ import {
   CreatePlayerRequestDto,
   ExpectedYieldResponseDto,
   MarketQuoteResponseDto,
+  MarketRefreshResponseDto,
   MarketProviderStatusResponseDto,
   OrderExecutionResponseDto,
   PlayerSummaryResponseDto,
@@ -289,8 +291,10 @@ export class PlayerApiService {
   }
 
   private readonly marketData: MarketDataProvider & MarketPriceProvider =
-    createMarketDataProvider(undefined, new PinoLogger()) as MarketDataProvider &
-      MarketPriceProvider;
+    createMarketDataProvider(
+      undefined,
+      new PinoLogger(),
+    ) as MarketDataProvider & MarketPriceProvider;
   private readonly assets = new InMemoryAssetRepository(this.marketData);
   private readonly wallets = new InMemoryWalletRepository();
   private readonly players = new InMemoryPlayerRepository();
@@ -479,7 +483,8 @@ export class PlayerApiService {
       (await this.playerProgressRepository().findByPlayerId(playerId)) ??
       createInitialPlayerProgress(playerId, this.clock.now());
     const city = new CityEvolutionService().describe(progress);
-    const gameEvents = await this.gameEventRepository().listByPlayerId(playerId);
+    const gameEvents =
+      await this.gameEventRepository().listByPlayerId(playerId);
     const transactions = await this.getTransactionItems(playerId);
     const mentorMessages = await this.mentorMessageRepository().findByPlayer(
       playerId,
@@ -487,7 +492,9 @@ export class PlayerApiService {
     );
     const completedRecently = progress.completedMissionIds
       .slice(-5)
-      .map((missionId) => MVP_MISSIONS.find((mission) => mission.id === missionId))
+      .map((missionId) =>
+        MVP_MISSIONS.find((mission) => mission.id === missionId),
+      )
       .filter((mission): mission is (typeof MVP_MISSIONS)[number] =>
         Boolean(mission),
       );
@@ -551,7 +558,10 @@ export class PlayerApiService {
           )
             ? 2
             : 1,
-          educationDistrictLevel: Math.max(1, progress.completedMissionIds.length),
+          educationDistrictLevel: Math.max(
+            1,
+            progress.completedMissionIds.length,
+          ),
           unlockedDistricts: city.unlockedDistricts,
           unlockedBuildings: city.unlockedBuildings,
           visualSignals: city.visualSignals,
@@ -577,7 +587,8 @@ export class PlayerApiService {
 
   async initializePlayerMissions(playerId: string) {
     await this.getPlayer(playerId);
-    const existing = await this.playerProgressRepository().findByPlayerId(playerId);
+    const existing =
+      await this.playerProgressRepository().findByPlayerId(playerId);
     if (!existing) {
       await this.playerProgressRepository().save(
         createInitialPlayerProgress(playerId, this.clock.now()),
@@ -613,7 +624,8 @@ export class PlayerApiService {
           objective: evaluated.objective,
           educationalExplanation: evaluated.educationalExplanation,
           type: evaluated.type,
-          status: evaluated.status === "REWARDED" ? "CLAIMED" : evaluated.status,
+          status:
+            evaluated.status === "REWARDED" ? "CLAIMED" : evaluated.status,
           currentValue: evaluated.progress.current,
           targetValue: evaluated.progress.target,
           progressCurrent: evaluated.progress.current,
@@ -649,7 +661,10 @@ export class PlayerApiService {
     const details = await this.getAssetDetails(asset.id);
     const domainAsset = toDomainAsset(asset);
     const events: GameEvent[] = [
-      new GameEventService(this.clock, () => `game-event-${++this.nextId}`).create(
+      new GameEventService(
+        this.clock,
+        () => `game-event-${++this.nextId}`,
+      ).create(
         playerId,
         "ASSET_DETAILS_VIEWED",
         {
@@ -664,7 +679,10 @@ export class PlayerApiService {
 
     if (domainAsset.riskLevel === RiskLevel.HIGH) {
       events.push(
-        new GameEventService(this.clock, () => `game-event-${++this.nextId}`).create(
+        new GameEventService(
+          this.clock,
+          () => `game-event-${++this.nextId}`,
+        ).create(
           playerId,
           "RISK_EDUCATION_VIEWED",
           {
@@ -692,9 +710,7 @@ export class PlayerApiService {
     };
   }
 
-  async runGameLoopTick(
-    playerId: string,
-  ): Promise<RunGameLoopTickResponseDto> {
+  async runGameLoopTick(playerId: string): Promise<RunGameLoopTickResponseDto> {
     await this.getPlayer(playerId);
     const refreshed = await this.refreshMockPrices();
     const portfolio = await this.buildGameplayPortfolioSnapshot(playerId);
@@ -737,7 +753,12 @@ export class PlayerApiService {
           quantity: trade.quantity,
           correlationId,
         });
-        this.logFinancialOperation("buy", playerId, transaction.id, correlationId);
+        this.logFinancialOperation(
+          "buy",
+          playerId,
+          transaction.id,
+          correlationId,
+        );
         await this.recordTransactionAudit(
           AuditEventType.SIMULATED_ASSET_BOUGHT,
           transaction,
@@ -793,7 +814,12 @@ export class PlayerApiService {
           quantity: trade.quantity,
           correlationId,
         });
-        this.logFinancialOperation("sell", playerId, transaction.id, correlationId);
+        this.logFinancialOperation(
+          "sell",
+          playerId,
+          transaction.id,
+          correlationId,
+        );
         await this.recordTransactionAudit(
           AuditEventType.SIMULATED_ASSET_SOLD,
           transaction,
@@ -1061,9 +1087,9 @@ export class PlayerApiService {
       throw new WalletNotFoundError(playerId);
     }
 
-    const marketPrices = await (this.persistence?.prices ?? this.prices).getCurrentPrices(
-      wallet.positions.map((position) => position.asset),
-    );
+    const marketPrices = await (
+      this.persistence?.prices ?? this.prices
+    ).getCurrentPrices(wallet.positions.map((position) => position.asset));
     const positions = wallet.positions.map((position) => {
       const price = marketPrices.find((item) =>
         item.asset.symbol.equals(position.asset.symbol),
@@ -1220,7 +1246,9 @@ export class PlayerApiService {
       playerId,
       safeLimit,
     );
-    return { items: messages.map((message) => this.toMentorMessageResponse(message)) };
+    return {
+      items: messages.map((message) => this.toMentorMessageResponse(message)),
+    };
   }
 
   async getLatestMentorMessage(
@@ -1228,7 +1256,8 @@ export class PlayerApiService {
   ): Promise<MentorLatestMessageResponseDto> {
     await this.getPlayer(playerId);
     await this.evaluateMentorMessagesSafely(playerId, ["GameLoopEvaluated"]);
-    const message = await this.createMentorMessageService().findLatest(playerId);
+    const message =
+      await this.createMentorMessageService().findLatest(playerId);
     return {
       message: message ? this.toMentorMessageResponse(message) : null,
     };
@@ -1244,7 +1273,12 @@ export class PlayerApiService {
 
   async getTransactions(
     playerId: string,
-    filter: { type?: string; assetId?: string; limit?: string; offset?: string } = {},
+    filter: {
+      type?: string;
+      assetId?: string;
+      limit?: string;
+      offset?: string;
+    } = {},
   ): Promise<TransactionsListResponseDto> {
     let items = await this.getTransactionItems(playerId);
     if (filter.type) {
@@ -1252,10 +1286,16 @@ export class PlayerApiService {
     }
     if (filter.assetId) {
       const asset = await this.resolveMarketAsset(filter.assetId);
-      items = items.filter((transaction) => transaction.symbol === asset.symbol);
+      items = items.filter(
+        (transaction) => transaction.symbol === asset.symbol,
+      );
     }
-    const offset = filter.offset ? this.parseNonNegativeInteger(filter.offset, "offset") : 0;
-    const limit = filter.limit ? this.parsePositiveInteger(filter.limit, "limit") : items.length;
+    const offset = filter.offset
+      ? this.parseNonNegativeInteger(filter.offset, "offset")
+      : 0;
+    const limit = filter.limit
+      ? this.parsePositiveInteger(filter.limit, "limit")
+      : items.length;
     const paginated = items.slice(offset, offset + limit);
     return {
       playerId,
@@ -1402,6 +1442,35 @@ export class PlayerApiService {
 
   async refreshMarketPrices(
     request: RefreshMarketPricesRequestDto = {},
+  ): Promise<MarketRefreshResponseDto> {
+    const config = readMarketDataProviderConfig();
+    const symbols = this.resolveRefreshSymbols(request.symbols, config);
+    const output = await this.marketData.getQuotes({
+      symbols,
+      requireToken: true,
+    });
+    if (output.quotes.length === 0 && output.errors.length > 0) {
+      throw new BadRequestException(
+        output.errors[0]?.message ?? "Market refresh could not be completed.",
+      );
+    }
+
+    const refreshedAt = output.trace.fetchedAt;
+    return {
+      provider: this.responseProviderName(output.trace.source),
+      source: output.trace.source,
+      symbols: output.quotes.map((quote) => quote.symbol),
+      refreshedAt: refreshedAt.toISOString(),
+      cacheTtlSeconds: config.brapi.cacheTtlSeconds,
+      fallbackUsed: output.trace.isFallback,
+      message: output.trace.isFallback
+        ? "Dados reais indisponiveis no momento. Exibindo dados simulados para fins educativos."
+        : output.trace.disclaimer,
+    };
+  }
+
+  private async refreshMarketAssetResponses(
+    request: RefreshMarketPricesRequestDto = {},
   ): Promise<AssetResponseDto[]> {
     const asOf = request.asOf
       ? this.parseDate(request.asOf, "asOf")
@@ -1416,7 +1485,7 @@ export class PlayerApiService {
   async refreshMockPrices(
     request: RefreshMarketPricesRequestDto = {},
   ): Promise<RefreshMarketPricesResponseDto> {
-    const assets = await this.refreshMarketPrices(request);
+    const assets = await this.refreshMarketAssetResponses(request);
     const correlationId = `market-refresh-${++this.nextId}`;
     await this.audit.record({
       eventType: AuditEventType.MOCK_MARKET_PRICE_REFRESHED,
@@ -1475,6 +1544,49 @@ export class PlayerApiService {
       provider: price.dataSource,
       priceStatus: price.priceStatus,
     };
+  }
+
+  private resolveRefreshSymbols(
+    requestedSymbols: string[] | undefined,
+    config: ReturnType<typeof readMarketDataProviderConfig>,
+  ): string[] {
+    const symbols = [
+      ...new Set(
+        (requestedSymbols?.length
+          ? requestedSymbols
+          : config.brapi.allowedSymbols.slice(
+              0,
+              config.brapi.maxSymbolsPerRequest,
+            )
+        )
+          .map((symbol) => symbol.trim().toUpperCase())
+          .filter((symbol) => symbol.length > 0),
+      ),
+    ];
+
+    if (symbols.length === 0) {
+      throw new BadRequestException(
+        "At least one market symbol must be configured or requested.",
+      );
+    }
+
+    if (symbols.length > config.brapi.maxSymbolsPerRequest) {
+      throw new BadRequestException(
+        `Market refresh accepts at most ${config.brapi.maxSymbolsPerRequest} symbol(s) per request in the MVP.`,
+      );
+    }
+
+    return symbols;
+  }
+
+  private responseProviderName(source: string): string {
+    if (source === "mock" || source === "fallback") {
+      return "mock";
+    }
+    if (source === "cache") {
+      return "brapi";
+    }
+    return source;
   }
 
   private toAssetResponse(asset: MarketAsset): AssetResponseDto {
@@ -1689,7 +1801,9 @@ export class PlayerApiService {
 
   private async evaluateMentorMessagesSafely(
     playerId: string,
-    events: Array<FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated">,
+    events: Array<
+      FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated"
+    >,
   ): Promise<void> {
     try {
       const context = await this.buildMentorContext(playerId, events);
@@ -1923,7 +2037,10 @@ export class PlayerApiService {
     );
   }
 
-  private completedAt(events: GameEvent[], missionId: string): Date | undefined {
+  private completedAt(
+    events: GameEvent[],
+    missionId: string,
+  ): Date | undefined {
     return events.find(
       (event) =>
         event.type === "MISSION_COMPLETED" &&
@@ -1971,14 +2088,23 @@ export class PlayerApiService {
   private historyDescription(event: GameEvent): string {
     const metadata = event.metadata ?? {};
     const assetSymbol =
-      typeof metadata.assetSymbol === "string" ? metadata.assetSymbol : undefined;
+      typeof metadata.assetSymbol === "string"
+        ? metadata.assetSymbol
+        : undefined;
     const amountCents =
-      typeof metadata.amountCents === "number" ? metadata.amountCents : undefined;
+      typeof metadata.amountCents === "number"
+        ? metadata.amountCents
+        : undefined;
     const missionCode =
-      typeof metadata.missionCode === "string" ? metadata.missionCode : undefined;
-    const level = typeof metadata.level === "number" ? metadata.level : undefined;
+      typeof metadata.missionCode === "string"
+        ? metadata.missionCode
+        : undefined;
+    const level =
+      typeof metadata.level === "number" ? metadata.level : undefined;
     const positionCount =
-      typeof metadata.positionCount === "number" ? metadata.positionCount : undefined;
+      typeof metadata.positionCount === "number"
+        ? metadata.positionCount
+        : undefined;
 
     if (event.type === "MISSION_COMPLETED") {
       return missionCode
@@ -1997,7 +2123,11 @@ export class PlayerApiService {
     if (event.type === "ASSET_SOLD" && assetSymbol) {
       return `Venda de ${assetSymbol} registrada no game loop.`;
     }
-    if (String(event.type) === "YIELD_AVAILABLE" && assetSymbol && amountCents) {
+    if (
+      String(event.type) === "YIELD_AVAILABLE" &&
+      assetSymbol &&
+      amountCents
+    ) {
       return `Rendimento simulado disponivel em ${assetSymbol}: ${formatFortuna(amountCents)}.`;
     }
     if (event.type === "FIRST_INCOME_RECEIVED" && assetSymbol) {

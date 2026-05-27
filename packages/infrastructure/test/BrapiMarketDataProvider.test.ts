@@ -72,7 +72,9 @@ describe("BrapiMarketDataProvider", () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
     const provider = new BrapiMarketDataProvider({ fetch: fetchMock });
 
-    await expect(provider.getQuotes({ symbols: ["PETR4"] })).resolves.toMatchObject({
+    await expect(
+      provider.getQuotes({ symbols: ["PETR4"] }),
+    ).resolves.toMatchObject({
       errors: [],
     });
 
@@ -108,6 +110,92 @@ describe("BrapiMarketDataProvider", () => {
     expect(output.quotes[0]).not.toHaveProperty("regularMarketPrice");
   });
 
+  it("applies allowlist normalization and does not call brapi for blocked tickers", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
+    const provider = new BrapiMarketDataProvider({
+      token: "token",
+      allowedSymbols: ["PETR4"],
+      fetch: fetchMock,
+    });
+
+    await expect(
+      provider.getQuotes({ symbols: ["petr4"] }),
+    ).resolves.toMatchObject({
+      errors: [],
+    });
+
+    const blocked = await provider.getQuotes({ symbols: ["VALE3"] });
+    expect(blocked.errors[0]).toMatchObject({
+      code: MarketDataErrorCode.SYMBOL_NOT_ALLOWED,
+      symbol: "VALE3",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks real queries when the allowlist is empty", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
+    const provider = new BrapiMarketDataProvider({
+      token: "token",
+      allowedSymbols: [],
+      fetch: fetchMock,
+    });
+
+    const output = await provider.getQuotes({ symbols: ["PETR4"] });
+
+    expect(output.errors[0]?.code).toBe(MarketDataErrorCode.SYMBOL_NOT_ALLOWED);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("deduplicates symbols before enforcing the request limit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
+    const provider = new BrapiMarketDataProvider({
+      token: "token",
+      maxSymbolsPerRequest: 1,
+      allowedSymbols: ["PETR4"],
+      fetch: fetchMock,
+    });
+
+    await provider.getQuotes({ symbols: ["petr4", " PETR4 "] });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/quote/PETR4");
+  });
+
+  it("rejects excessive symbol requests before calling brapi", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
+    const provider = new BrapiMarketDataProvider({
+      token: "token",
+      maxSymbolsPerRequest: 1,
+      allowedSymbols: ["PETR4", "VALE3"],
+      fetch: fetchMock,
+    });
+
+    const output = await provider.getQuotes({ symbols: ["PETR4", "VALE3"] });
+
+    expect(output.errors[0]?.code).toBe(MarketDataErrorCode.TOO_MANY_SYMBOLS);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lists allowed real assets in controlled batches respecting the max request size", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okResponse(payloadForSymbol("PETR4")))
+      .mockResolvedValueOnce(okResponse(payloadForSymbol("VALE3")));
+    const provider = new BrapiMarketDataProvider({
+      token: "token",
+      maxSymbolsPerRequest: 1,
+      allowedSymbols: ["PETR4", "VALE3"],
+      fetch: fetchMock,
+    });
+
+    const assets = await provider.listAssets();
+
+    expect(assets.map((asset) => asset.symbol)).toEqual(["PETR4", "VALE3"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/quote/PETR4");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("/quote/VALE3");
+  });
+
   it("maps historical OHLCV data to integer cent prices", async () => {
     const provider = new BrapiMarketDataProvider({
       fetch: vi.fn().mockResolvedValue(okResponse(brapiPayload)),
@@ -139,7 +227,20 @@ describe("BrapiMarketDataProvider", () => {
       MarketDataErrorCode.HTTP_ERROR,
     );
     await expectError(
-      { ok: false, status: 429, statusText: "Too Many Requests", json: vi.fn() },
+      { ok: false, status: 401, statusText: "Unauthorized", json: vi.fn() },
+      MarketDataErrorCode.HTTP_ERROR,
+    );
+    await expectError(
+      { ok: false, status: 403, statusText: "Forbidden", json: vi.fn() },
+      MarketDataErrorCode.HTTP_ERROR,
+    );
+    await expectError(
+      {
+        ok: false,
+        status: 429,
+        statusText: "Too Many Requests",
+        json: vi.fn(),
+      },
       MarketDataErrorCode.RATE_LIMITED,
     );
 
@@ -158,7 +259,12 @@ describe("BrapiMarketDataProvider", () => {
   });
 
   it("selects brapi by environment and wraps it with fallback/cache metadata", async () => {
-    const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+    };
     const provider = createMarketDataProvider(
       readMarketDataConfig({
         MARKET_DATA_PROVIDER: "brapi",
@@ -197,5 +303,17 @@ function okResponse(payload: unknown) {
     status: 200,
     statusText: "OK",
     json: vi.fn().mockResolvedValue(payload),
+  };
+}
+
+function payloadForSymbol(symbol: string) {
+  return {
+    results: [
+      {
+        ...brapiPayload.results[0],
+        symbol,
+        shortName: symbol,
+      },
+    ],
   };
 }

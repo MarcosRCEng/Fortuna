@@ -310,7 +310,14 @@ export class PlayerSummaryResponseDto {
 }
 
 export class PlayerGameLoopStateResponseDto {
-  @ApiProperty({ example: { id: "player-123", name: "Marcos", level: 2, progressPercent: 40 } })
+  @ApiProperty({
+    example: {
+      id: "player-123",
+      name: "Marcos",
+      level: 2,
+      progressPercent: 40,
+    },
+  })
   player!: {
     id: string;
     name: string;
@@ -318,7 +325,12 @@ export class PlayerGameLoopStateResponseDto {
     progressPercent: number;
   };
 
-  @ApiProperty({ example: { availableBalanceCents: 15000, availableBalanceFormatted: "F$ 150,00" } })
+  @ApiProperty({
+    example: {
+      availableBalanceCents: 15000,
+      availableBalanceFormatted: "F$ 150,00",
+    },
+  })
   wallet!: {
     availableBalanceCents: number;
     availableBalanceFormatted: string;
@@ -340,7 +352,9 @@ export class PlayerGameLoopStateResponseDto {
     }>;
   };
 
-  @ApiProperty({ example: { collectableCents: 250, collectableFormatted: "F$ 2,50" } })
+  @ApiProperty({
+    example: { collectableCents: 250, collectableFormatted: "F$ 2,50" },
+  })
   income!: {
     collectableCents: number;
     collectableFormatted: string;
@@ -703,7 +717,9 @@ export class AssetHistoryResponseDto {
   symbol!: string;
 
   @ApiProperty({
-    example: [{ date: "2026-05-23", priceCents: 10000, formatted: "F$ 100,00" }],
+    example: [
+      { date: "2026-05-23", priceCents: 10000, formatted: "F$ 100,00" },
+    ],
   })
   history!: Array<{ date: string; priceCents: number; formatted: string }>;
 }
@@ -773,6 +789,41 @@ export class RefreshMarketPricesRequestDto {
   @IsOptional()
   @IsDateString()
   asOf?: string;
+
+  @ApiPropertyOptional({
+    example: ["PETR4"],
+    description:
+      "Tickers explicitos para refresh controlado. O MVP rejeita excesso conforme BRAPI_MAX_SYMBOLS_PER_REQUEST.",
+  })
+  @IsOptional()
+  symbols?: string[];
+}
+
+export class MarketRefreshResponseDto {
+  @ApiProperty({ example: "brapi" })
+  provider!: string;
+
+  @ApiProperty({ example: "cache" })
+  source!: string;
+
+  @ApiProperty({ example: ["PETR4"] })
+  symbols!: string[];
+
+  @ApiProperty({ example: "2026-05-27T00:00:00.000Z" })
+  refreshedAt!: string;
+
+  @ApiProperty({ example: 900 })
+  cacheTtlSeconds!: number;
+
+  @ApiProperty({ example: false })
+  fallbackUsed!: boolean;
+
+  @ApiProperty({
+    example:
+      "Dados reais indisponiveis no momento. Exibindo dados simulados para fins educativos.",
+    required: false,
+  })
+  message?: string;
 }
 
 export class RefreshedAssetResponseDto {
