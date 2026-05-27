@@ -4,6 +4,12 @@ build
 coverage
 .env
 .env.local
+.env.development
+.env.production
+.env.*.local
+!.env.example
+!.env.local.example
+!.env.development.example
 .DS_Store
 *.log
 .vscode/*

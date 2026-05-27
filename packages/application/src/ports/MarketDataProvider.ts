@@ -68,6 +68,81 @@ export enum MarketDataProviderType {
   FALLBACK = "FALLBACK",
 }
 
+export type MarketDataTraceSource = "brapi" | "mock" | "cache" | "fallback";
+
+export enum MarketDataErrorCode {
+  HTTP_ERROR = "HTTP_ERROR",
+  TIMEOUT = "TIMEOUT",
+  EMPTY_RESPONSE = "EMPTY_RESPONSE",
+  ASSET_NOT_FOUND = "ASSET_NOT_FOUND",
+  RATE_LIMITED = "RATE_LIMITED",
+  MISSING_TOKEN = "MISSING_TOKEN",
+  PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE",
+  INVALID_RESPONSE = "INVALID_RESPONSE",
+}
+
+export interface MarketDataError {
+  code: MarketDataErrorCode;
+  message: string;
+  symbol?: string;
+  statusCode?: number;
+  providerName: string;
+}
+
+export interface MarketDataTrace {
+  source: MarketDataTraceSource;
+  providerName: string;
+  isRealData: boolean;
+  isCached: boolean;
+  isFallback: boolean;
+  fetchedAt: Date;
+  disclaimer: string;
+}
+
+export interface MarketQuoteDTO {
+  symbol: string;
+  name?: string;
+  priceCents: number;
+  previousPriceCents?: number;
+  variationBps: number;
+  currency: string;
+  marketTimestamp: Date;
+  updatedAt: Date;
+  priceStatus: PriceStatus;
+  dataSource: MarketDataSource;
+  trace: MarketDataTrace;
+}
+
+export interface GetQuotesInput {
+  symbols: string[];
+  requireToken?: boolean;
+}
+
+export interface GetQuotesOutput {
+  quotes: MarketQuoteDTO[];
+  errors: MarketDataError[];
+  trace: MarketDataTrace;
+}
+
+export interface GetHistoricalPricesInput {
+  symbol: string;
+  from?: Date;
+  to?: Date;
+  range?: string;
+  interval?: string;
+  requireToken?: boolean;
+}
+
+export interface GetHistoricalPricesOutput {
+  symbol: string;
+  prices: AssetHistoryPoint[];
+  errors: MarketDataError[];
+  trace: MarketDataTrace;
+}
+
+export const EDUCATIONAL_MARKET_DATA_DISCLAIMER =
+  "Uso educativo. Dados podem ter atraso, nao sao recomendacao de compra ou venda, a carteira continua simulada e nao ha investimento real.";
+
 export interface ExpectedYield {
   symbol: string;
   yieldType: YieldType;
@@ -176,6 +251,10 @@ export interface MarketProviderStatus {
 export interface MarketDataProvider {
   getProviderName(): string;
   getProviderType(): MarketDataProviderType;
+  getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput>;
+  getHistoricalPrices(
+    input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput>;
   listAssets(): Promise<Asset[]>;
   getAssetById(assetId: string): Promise<Asset | null>;
   getAsset(symbol: string): Promise<Asset | undefined>;

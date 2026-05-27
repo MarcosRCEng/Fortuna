@@ -25,7 +25,9 @@ import {
 import { AssetType, MoneyCents, type GameEvent } from "@fortuna/domain";
 import {
   AssetClass,
+  EDUCATIONAL_MARKET_DATA_DISCLAIMER,
   LiquidityLevel,
+  MarketDataProviderType,
   MarketDataSource,
   MarketRiskLevel,
   MarketSessionStatus,
@@ -89,8 +91,75 @@ class StubMarketDataProvider implements MarketDataProvider {
     updatedAt: now,
   };
 
+  getProviderName(): string {
+    return "StubMarketDataProvider";
+  }
+
+  getProviderType(): MarketDataProviderType {
+    return MarketDataProviderType.MOCK;
+  }
+
+  async getQuotes() {
+    return {
+      quotes: [
+        {
+          symbol: this.asset.symbol,
+          name: this.asset.name,
+          priceCents: this.asset.currentPriceCents,
+          previousPriceCents: this.asset.previousPriceCents,
+          variationBps: this.asset.variationBps,
+          currency: "BRL",
+          marketTimestamp: now,
+          updatedAt: now,
+          priceStatus: this.asset.priceStatus,
+          dataSource: this.asset.dataSource,
+          trace: {
+            source: "mock" as const,
+            providerName: this.getProviderName(),
+            isRealData: false,
+            isCached: false,
+            isFallback: false,
+            fetchedAt: now,
+            disclaimer: EDUCATIONAL_MARKET_DATA_DISCLAIMER,
+          },
+        },
+      ],
+      errors: [],
+      trace: {
+        source: "mock" as const,
+        providerName: this.getProviderName(),
+        isRealData: false,
+        isCached: false,
+        isFallback: false,
+        fetchedAt: now,
+        disclaimer: EDUCATIONAL_MARKET_DATA_DISCLAIMER,
+      },
+    };
+  }
+
+  async getHistoricalPrices() {
+    return {
+      symbol: this.asset.symbol,
+      prices: [],
+      errors: [],
+      trace: {
+        source: "mock" as const,
+        providerName: this.getProviderName(),
+        isRealData: false,
+        isCached: false,
+        isFallback: false,
+        fetchedAt: now,
+        disclaimer: EDUCATIONAL_MARKET_DATA_DISCLAIMER,
+      },
+    };
+  }
+
   async listAssets(): Promise<Asset[]> {
     return [this.asset];
+  }
+
+  async getAssetById(): Promise<Asset | null> {
+    return this.asset;
   }
 
   async getAsset(): Promise<Asset | undefined> {
@@ -126,6 +195,10 @@ class StubMarketDataProvider implements MarketDataProvider {
   }
 
   async getExpectedYield() {
+    return this.asset.expectedYield;
+  }
+
+  async getYieldInfo() {
     return this.asset.expectedYield;
   }
 

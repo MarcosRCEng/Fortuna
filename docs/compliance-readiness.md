@@ -8,16 +8,18 @@
 - Sem recomendacao financeira.
 
 ## Limites do MVP
-- Dados de mercado mockados/simulados.
+- Dados de mercado mockados/simulados por padrao.
+- Dados reais da brapi podem ser usados apenas em modo controlado, sinalizados internamente como dados reais e sem recomendacao financeira.
 - Sem conexao com corretoras.
 - Sem leitura de carteira real.
 - Sem Open Finance.
-- Sem integracao real com B3, Brapi, MSN Money, Google Finance ou provedores similares.
+- Sem integracao transacional com B3, MSN Money, Google Finance ou provedores similares.
 - Sem promessa de rentabilidade.
 
 ## Preparacao arquitetural
 - `MarketDataProvider` formaliza a porta de dados de mercado.
 - `MockMarketDataProvider` segue como provider padrao do MVP.
+- `BrapiMarketDataProvider` existe como adapter externo plugavel em infraestrutura, com token por ambiente, timeout, feature flag explicita, tratamento de erros, cache/fallback e DTO interno.
 - `ExternalMarketDataProvider` existe apenas como placeholder seguro e desabilitado.
 - `CachedMarketDataProvider` encapsula outro provider com TTL em memoria.
 - `FallbackMarketDataProvider` tenta provider primario e cai para secundario em falhas de provider.
@@ -26,19 +28,19 @@
 
 ## Configuracao de provider
 - `MARKET_DATA_PROVIDER=mock` e o padrao.
-- `MARKET_DATA_PROVIDER=external` exige `EXTERNAL_MARKET_DATA_ENABLED=true`; sem isso retorna erro claro.
-- `MARKET_DATA_PROVIDER=fallback` prepara o fluxo externo para mock, sem chamada real.
-- `MARKET_DATA_CACHE_ENABLED=true` habilita cache em memoria.
-- `MARKET_DATA_CACHE_TTL_SECONDS=60` controla o TTL do cache.
+- `MARKET_DATA_PROVIDER=brapi` so tenta brapi quando `MARKET_DATA_ALLOW_REAL_DATA=true`, `BRAPI_API_TOKEN` existe e a configuracao e valida.
+- `BRAPI_CACHE_TTL_SECONDS=900` controla o TTL do cache da brapi.
+- `BRAPI_API_TOKEN` deve ser configurado por ambiente e nunca versionado.
+- Configuracao invalida, token ausente ou dados reais desativados resultam em fallback para mock.
 
 ## Consentimento
 - Consentimentos previstos: uso educativo, termos de simulacao, dados reais de mercado futuros, conexao de carteira futura, ciencia de ausencia de recomendacao financeira e ciencia de ausencia de investimento real.
-- O MVP ainda nao coleta dados reais, credenciais, tokens, carteira real ou dados bancarios.
+- O MVP ainda nao coleta carteira real ou dados bancarios. Token de provider e segredo operacional, nao dado do jogador.
 - A revogacao futura deve bloquear qualquer integracao real associada ao escopo revogado.
 - Antes de integrar dados reais, consentimento deve ter termos revisados, versao, escopo, data, revogacao e trilha de auditoria persistente.
 
 ## Auditoria
-- Eventos registrados incluem criacao de jogador, compra simulada, venda simulada, coleta de rendimento, refresh de preco mockado, erros financeiros relevantes e aceite/revogacao de consentimento.
+- Eventos registrados incluem criacao de jogador, compra simulada, venda simulada, coleta de rendimento, refresh de preco mockado, selecao de provider real, consulta de cotacao, fallback, falha de provider, erros financeiros relevantes e aceite/revogacao de consentimento.
 - O `correlationId` dos logs estruturados e reaproveitado quando disponivel.
 - Payloads sao sanitizados para remover tokens, segredos, headers, cookies, senhas e credenciais.
 - Valores financeiros sao registrados em centavos inteiros.
@@ -57,3 +59,4 @@
 - Rate limit.
 - Monitoramento de provider externo.
 - Estrategia de incidentes.
+- UI explicita para atraso/stale data quando dados reais forem exibidos ao jogador.

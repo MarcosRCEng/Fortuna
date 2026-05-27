@@ -2,12 +2,19 @@ import {
   type Asset,
   type AssetHistoryPoint,
   type AssetPrice,
+  EDUCATIONAL_MARKET_DATA_DISCLAIMER,
   type EducationalAssetInfo,
   type ExpectedYield,
+  type GetHistoricalPricesInput,
+  type GetHistoricalPricesOutput,
+  type GetQuotesInput,
+  type GetQuotesOutput,
   type LoggerPort,
   type MarketDataProvider,
+  MarketDataErrorCode,
   MarketDataProviderType,
   MarketDataSource,
+  type MarketDataTrace,
   type MarketProviderStatus,
   MarketSessionStatus,
   type MarketQuote,
@@ -45,6 +52,16 @@ export class ExternalMarketDataProvider implements MarketDataProvider {
 
   getProviderType(): MarketDataProviderType {
     return MarketDataProviderType.EXTERNAL;
+  }
+
+  getQuotes(_input: GetQuotesInput): Promise<GetQuotesOutput> {
+    return this.notConfigured();
+  }
+
+  getHistoricalPrices(
+    _input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput> {
+    return this.notConfigured();
   }
 
   listAssets(): Promise<Asset[]> {
@@ -137,6 +154,41 @@ export class CachedMarketDataProvider implements MarketDataProvider {
     return MarketDataProviderType.CACHE;
   }
 
+  async getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput> {
+    const result = await this.memoWithHit(`quotes:${input.symbols.join(",")}`, () =>
+      this.inner.getQuotes(input),
+    );
+    const output = result.value;
+    if (!result.fromCache) {
+      return output;
+    }
+    return {
+      ...output,
+      quotes: output.quotes.map((quote) => ({
+        ...quote,
+        trace: this.cacheTrace(quote.trace),
+      })),
+      trace: this.cacheTrace(output.trace),
+    };
+  }
+
+  async getHistoricalPrices(
+    input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput> {
+    const result = await this.memoWithHit(
+      `historical-prices:${input.symbol}:${input.from?.toISOString() ?? ""}:${input.to?.toISOString() ?? ""}:${input.range ?? ""}:${input.interval ?? ""}`,
+      () => this.inner.getHistoricalPrices(input),
+    );
+    const output = result.value;
+    if (!result.fromCache) {
+      return output;
+    }
+    return {
+      ...output,
+      trace: this.cacheTrace(output.trace),
+    };
+  }
+
   listAssets(): Promise<Asset[]> {
     return this.memo("listAssets", () => this.inner.listAssets());
   }
@@ -218,17 +270,34 @@ export class CachedMarketDataProvider implements MarketDataProvider {
   }
 
   private async memo<T>(key: string, loader: () => Promise<T>): Promise<T> {
+    return (await this.memoWithHit(key, loader)).value;
+  }
+
+  private async memoWithHit<T>(
+    key: string,
+    loader: () => Promise<T>,
+  ): Promise<{ value: T; fromCache: boolean }> {
     if (!this.enabled || this.ttlMs === 0) {
-      return loader();
+      return { value: await loader(), fromCache: false };
     }
     const now = this.clock().getTime();
     const hit = this.cache.get(key);
     if (hit && hit.expiresAt > now) {
-      return hit.value as T;
+      return { value: hit.value as T, fromCache: true };
     }
     const value = await loader();
     this.cache.set(key, { expiresAt: now + this.ttlMs, value });
-    return value;
+    return { value, fromCache: false };
+  }
+
+  private cacheTrace(trace: MarketDataTrace): MarketDataTrace {
+    return {
+      ...trace,
+      source: "cache",
+      providerName: this.getProviderName(),
+      isCached: true,
+      fetchedAt: this.clock(),
+    };
   }
 }
 
@@ -245,6 +314,29 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
 
   getProviderType(): MarketDataProviderType {
     return MarketDataProviderType.FALLBACK;
+  }
+
+  getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput> {
+    return this.withFallback(
+      "getQuotes",
+      () => this.primary.getQuotes(input),
+      async () => this.markQuotesAsFallback(await this.secondary.getQuotes(input)),
+      { symbols: input.symbols },
+    );
+  }
+
+  getHistoricalPrices(
+    input: GetHistoricalPricesInput,
+  ): Promise<GetHistoricalPricesOutput> {
+    return this.withFallback(
+      "getHistoricalPrices",
+      () => this.primary.getHistoricalPrices(input),
+      async () =>
+        this.markHistoryAsFallback(
+          await this.secondary.getHistoricalPrices(input),
+        ),
+      { symbol: input.symbol },
+    );
   }
 
   listAssets(): Promise<Asset[]> {
@@ -396,6 +488,7 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
         module: "market_data",
         action: "market_provider_fallback_used",
         context: {
+          auditEventType: "MARKET_DATA_FALLBACK_USED",
           action,
           primaryProvider: this.primary.getProviderName(),
           secondaryProvider: this.secondary.getProviderName(),
@@ -407,9 +500,54 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
       return secondaryCall();
     }
   }
+
+  private markQuotesAsFallback(output: GetQuotesOutput): GetQuotesOutput {
+    const trace = this.fallbackTrace(output.trace);
+    return {
+      ...output,
+      trace,
+      quotes: output.quotes.map((quote) => ({ ...quote, trace })),
+      errors: [
+        ...output.errors,
+        {
+          code: MarketDataErrorCode.PROVIDER_UNAVAILABLE,
+          message: "Primary market data provider failed; fallback data was used.",
+          providerName: this.getProviderName(),
+        },
+      ],
+    };
+  }
+
+  private markHistoryAsFallback(
+    output: GetHistoricalPricesOutput,
+  ): GetHistoricalPricesOutput {
+    return {
+      ...output,
+      trace: this.fallbackTrace(output.trace),
+      errors: [
+        ...output.errors,
+        {
+          code: MarketDataErrorCode.PROVIDER_UNAVAILABLE,
+          message: "Primary market data provider failed; fallback data was used.",
+          providerName: this.getProviderName(),
+        },
+      ],
+    };
+  }
+
+  private fallbackTrace(trace: MarketDataTrace): MarketDataTrace {
+    return {
+      ...trace,
+      source: "fallback",
+      providerName: this.getProviderName(),
+      isRealData: false,
+      isFallback: true,
+      fetchedAt: new Date(),
+      disclaimer: EDUCATIONAL_MARKET_DATA_DISCLAIMER,
+    };
+  }
 }
 
-export class BrapiMarketDataProvider extends ExternalMarketDataProvider {}
 export class B3MarketDataProvider extends ExternalMarketDataProvider {}
 export class GoogleFinanceMarketDataProvider extends ExternalMarketDataProvider {}
 export class MsnMoneyMarketDataProvider extends ExternalMarketDataProvider {}
