@@ -6,6 +6,7 @@ export interface BrapiConfig {
   timeoutMs: number;
   cacheTtlSeconds: number;
   maxSymbolsPerRequest: number;
+  allowedSymbols: string[];
 }
 
 export interface MarketDataConfig {
@@ -29,10 +30,13 @@ const DEFAULT_MARKET_DATA_CONFIG: MarketDataConfig = {
     timeoutMs: 5000,
     cacheTtlSeconds: 900,
     maxSymbolsPerRequest: 1,
+    allowedSymbols: ["PETR4", "VALE3", "ITUB4", "MGLU3"],
   },
 };
 
 const ALLOWED_PROVIDERS: MarketDataProviderType[] = ["mock", "brapi"];
+const MIN_CACHE_TTL_SECONDS = 900;
+const SYMBOL_PATTERN = /^[A-Z0-9]{4,12}$/;
 
 export function readMarketDataConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -56,19 +60,34 @@ export function readMarketDataConfig(
     "BRAPI_TIMEOUT_MS",
     errors,
   );
-  const cacheTtlSeconds = parsePositiveInteger(
+  const parsedCacheTtlSeconds = parsePositiveInteger(
     env.BRAPI_CACHE_TTL_SECONDS,
     DEFAULT_MARKET_DATA_CONFIG.brapi.cacheTtlSeconds,
     "BRAPI_CACHE_TTL_SECONDS",
     errors,
   );
+  const cacheTtlSeconds =
+    parsedCacheTtlSeconds < MIN_CACHE_TTL_SECONDS
+      ? MIN_CACHE_TTL_SECONDS
+      : parsedCacheTtlSeconds;
   const maxSymbolsPerRequest = parsePositiveInteger(
     env.BRAPI_MAX_SYMBOLS_PER_REQUEST,
     DEFAULT_MARKET_DATA_CONFIG.brapi.maxSymbolsPerRequest,
     "BRAPI_MAX_SYMBOLS_PER_REQUEST",
     errors,
   );
+  const allowedSymbols = parseAllowedSymbols(
+    env.MARKET_DATA_ALLOWED_SYMBOLS,
+    DEFAULT_MARKET_DATA_CONFIG.brapi.allowedSymbols,
+    errors,
+  );
   const apiToken = env.BRAPI_API_TOKEN?.trim() || undefined;
+
+  if (parsedCacheTtlSeconds < MIN_CACHE_TTL_SECONDS) {
+    warnings.push(
+      "BRAPI_CACHE_TTL_SECONDS is below 900; using the 900 second minimum.",
+    );
+  }
 
   if (provider === "brapi" && !allowRealData) {
     warnings.push("Real market data is disabled.");
@@ -88,6 +107,7 @@ export function readMarketDataConfig(
         timeoutMs,
         cacheTtlSeconds,
         maxSymbolsPerRequest,
+        allowedSymbols,
       },
     },
     requestedProvider,
@@ -120,11 +140,22 @@ export function validateMarketDataConfig(config: MarketDataConfig): string[] {
     "BRAPI_MAX_SYMBOLS_PER_REQUEST",
     errors,
   );
+  if (config.brapi.cacheTtlSeconds < MIN_CACHE_TTL_SECONDS) {
+    errors.push("BRAPI_CACHE_TTL_SECONDS must be at least 900 seconds.");
+  }
+  if (
+    config.brapi.allowedSymbols.some((symbol) => !SYMBOL_PATTERN.test(symbol))
+  ) {
+    errors.push("MARKET_DATA_ALLOWED_SYMBOLS contains invalid symbols.");
+  }
 
   return errors;
 }
 
-function parseProvider(value: string, errors: string[]): MarketDataProviderType {
+function parseProvider(
+  value: string,
+  errors: string[],
+): MarketDataProviderType {
   if (ALLOWED_PROVIDERS.includes(value as MarketDataProviderType)) {
     return value as MarketDataProviderType;
   }
@@ -192,4 +223,25 @@ function validatePositiveInteger(
   if (!Number.isSafeInteger(value) || value <= 0) {
     errors.push(`${name} must be a positive integer.`);
   }
+}
+
+function parseAllowedSymbols(
+  value: string | undefined,
+  fallback: string[],
+  errors: string[],
+): string[] {
+  const rawSymbols = value === undefined ? fallback : value.split(",");
+  const symbols = [
+    ...new Set(
+      rawSymbols
+        .map((symbol) => symbol.trim().toUpperCase())
+        .filter((symbol) => symbol.length > 0),
+    ),
+  ];
+
+  if (symbols.some((symbol) => !SYMBOL_PATTERN.test(symbol))) {
+    errors.push("MARKET_DATA_ALLOWED_SYMBOLS contains invalid symbols.");
+  }
+
+  return symbols;
 }

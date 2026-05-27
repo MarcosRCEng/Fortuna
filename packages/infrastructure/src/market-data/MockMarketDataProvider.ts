@@ -298,6 +298,51 @@ const MOCK_ASSETS: MockAssetDefinition[] = [
   },
 ];
 
+const FALLBACK_REAL_SYMBOLS = new Map<string, MockAssetDefinition>(
+  [
+    ["PETR4", "Petrobras PN"],
+    ["VALE3", "Vale ON"],
+    ["ITUB4", "Itau Unibanco PN"],
+    ["MGLU3", "Magazine Luiza ON"],
+  ].map(([symbol, name], index) => [
+    symbol,
+    {
+      id: `fallback-${symbol.toLowerCase()}`,
+      symbol,
+      name,
+      assetClass: AssetClass.STOCK,
+      basePriceCents: 2_000 + index * 750,
+      riskLevel: MarketRiskLevel.HIGH,
+      liquidity: LiquidityLevel.HIGH,
+      expectedYield: {
+        symbol,
+        yieldType: YieldType.NONE,
+        periodicity: YieldPeriodicity.NONE,
+        amountPerUnitCents: 0,
+        rateBps: 0,
+        description: "Proventos reais nao sao aplicados no MVP.",
+      },
+      educationalInfo: {
+        symbol,
+        shortDescription: "Cotacao simulada usada como fallback educativo.",
+        longDescription:
+          "Dados reais indisponiveis no momento. Exibindo dados simulados para fins educativos.",
+        riskExplanation:
+          "Ativos de renda variavel podem oscilar; este valor e simulado.",
+        liquidityExplanation:
+          "Liquidez real depende do mercado; no MVP a carteira permanece simulada.",
+        beginnerTip:
+          "Use a cotacao apenas para observar conceitos, nunca como recomendacao.",
+        mentorHint:
+          "Quando dados reais falham, o jogo continua com simulacao educativa.",
+      },
+      yieldRules: "Sem aplicacao automatica de proventos reais no MVP.",
+      volatilityBps: 280,
+      positiveBiasBps: 0,
+    },
+  ]),
+);
+
 export class MockMarketDataProvider
   implements MarketDataProvider, MarketPriceProvider
 {
@@ -356,7 +401,9 @@ export class MockMarketDataProvider
       errors: input.symbols
         .filter(
           (symbol) =>
-            !quotes.some((quote) => quote.symbol === symbol.trim().toUpperCase()),
+            !quotes.some(
+              (quote) => quote.symbol === symbol.trim().toUpperCase(),
+            ),
         )
         .map((symbol) => ({
           code: MarketDataErrorCode.ASSET_NOT_FOUND,
@@ -555,7 +602,11 @@ export class MockMarketDataProvider
   }
 
   private findDefinition(symbol: string): MockAssetDefinition | undefined {
-    return this.assetsBySymbol.get(AssetSymbol.create(symbol).value);
+    const normalized = AssetSymbol.create(symbol).value;
+    return (
+      this.assetsBySymbol.get(normalized) ??
+      FALLBACK_REAL_SYMBOLS.get(normalized)
+    );
   }
 
   private trace(): MarketDataTrace {

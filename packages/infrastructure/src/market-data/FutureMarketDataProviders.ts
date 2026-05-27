@@ -129,13 +129,18 @@ export interface CachedMarketDataProviderOptions {
   ttlSeconds?: number;
   enabled?: boolean;
   clock?: () => Date;
+  logger?: LoggerPort;
 }
 
 export class CachedMarketDataProvider implements MarketDataProvider {
   private readonly ttlMs: number;
   private readonly enabled: boolean;
   private readonly clock: () => Date;
-  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
+  private readonly logger?: LoggerPort;
+  private readonly cache = new Map<
+    string,
+    { expiresAt: number; value: unknown }
+  >();
 
   constructor(
     private readonly inner: MarketDataProvider,
@@ -144,6 +149,7 @@ export class CachedMarketDataProvider implements MarketDataProvider {
     this.ttlMs = Math.max(0, options.ttlSeconds ?? 60) * 1000;
     this.enabled = options.enabled ?? true;
     this.clock = options.clock ?? (() => new Date());
+    this.logger = options.logger;
   }
 
   getProviderName(): string {
@@ -155,8 +161,9 @@ export class CachedMarketDataProvider implements MarketDataProvider {
   }
 
   async getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput> {
-    const result = await this.memoWithHit(`quotes:${input.symbols.join(",")}`, () =>
-      this.inner.getQuotes(input),
+    const result = await this.memoWithHit(
+      `quotes:${this.normalizeSymbols(input.symbols).join(",")}`,
+      () => this.inner.getQuotes(input),
     );
     const output = result.value;
     if (!result.fromCache) {
@@ -194,11 +201,15 @@ export class CachedMarketDataProvider implements MarketDataProvider {
   }
 
   getAssetById(assetId: string): Promise<Asset | null> {
-    return this.memo(`asset:${assetId}`, () => this.inner.getAssetById(assetId));
+    return this.memo(`asset:${assetId}`, () =>
+      this.inner.getAssetById(assetId),
+    );
   }
 
   getAsset(symbol: string): Promise<Asset | undefined> {
-    return this.memo(`asset-symbol:${symbol}`, () => this.inner.getAsset(symbol));
+    return this.memo(`asset-symbol:${symbol}`, () =>
+      this.inner.getAsset(symbol),
+    );
   }
 
   getCurrentPrice(symbol: string): Promise<AssetPrice | undefined>;
@@ -247,22 +258,27 @@ export class CachedMarketDataProvider implements MarketDataProvider {
   }
 
   getYieldInfo(assetId: string): Promise<ExpectedYield | null> {
-    return this.memo(`yield-id:${assetId}`, () => this.inner.getYieldInfo(assetId));
+    return this.memo(`yield-id:${assetId}`, () =>
+      this.inner.getYieldInfo(assetId),
+    );
   }
 
   getExpectedYield(symbol: string): Promise<ExpectedYield | undefined> {
-    return this.memo(`yield:${symbol}`, () => this.inner.getExpectedYield(symbol));
+    return this.memo(`yield:${symbol}`, () =>
+      this.inner.getExpectedYield(symbol),
+    );
   }
 
-  getEducationalInfo(symbol: string): Promise<EducationalAssetInfo | undefined> {
+  getEducationalInfo(
+    symbol: string,
+  ): Promise<EducationalAssetInfo | undefined> {
     return this.memo(`education:${symbol}`, () =>
       this.inner.getEducationalInfo(symbol),
     );
   }
 
   async refreshPrices(request?: RefreshMarketPricesRequest): Promise<Asset[]> {
-    this.cache.clear();
-    return this.inner.refreshPrices(request);
+    return this.memo("refreshPrices", () => this.inner.refreshPrices(request));
   }
 
   getProviderStatus(): Promise<MarketProviderStatus> {
@@ -283,8 +299,28 @@ export class CachedMarketDataProvider implements MarketDataProvider {
     const now = this.clock().getTime();
     const hit = this.cache.get(key);
     if (hit && hit.expiresAt > now) {
+      this.logger?.info("Market data cache hit", {
+        module: "market_data",
+        action: "market_data_cache_hit",
+        correlationId: "pending-request-context",
+        context: {
+          provider: this.inner.getProviderName(),
+          key,
+          cacheTtlSeconds: this.ttlMs / 1000,
+        },
+      });
       return { value: hit.value as T, fromCache: true };
     }
+    this.logger?.info("Market data cache miss", {
+      module: "market_data",
+      action: "market_data_cache_miss",
+      correlationId: "pending-request-context",
+      context: {
+        provider: this.inner.getProviderName(),
+        key,
+        cacheTtlSeconds: this.ttlMs / 1000,
+      },
+    });
     const value = await loader();
     this.cache.set(key, { expiresAt: now + this.ttlMs, value });
     return { value, fromCache: false };
@@ -298,6 +334,16 @@ export class CachedMarketDataProvider implements MarketDataProvider {
       isCached: true,
       fetchedAt: this.clock(),
     };
+  }
+
+  private normalizeSymbols(symbols: string[]): string[] {
+    return [
+      ...new Set(
+        symbols
+          .map((symbol) => symbol.trim().toUpperCase())
+          .filter((symbol) => symbol.length > 0),
+      ),
+    ];
   }
 }
 
@@ -319,8 +365,10 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
   getQuotes(input: GetQuotesInput): Promise<GetQuotesOutput> {
     return this.withFallback(
       "getQuotes",
-      () => this.primary.getQuotes(input),
-      async () => this.markQuotesAsFallback(await this.secondary.getQuotes(input)),
+      async () =>
+        this.ensureQuotesAvailable(await this.primary.getQuotes(input)),
+      async () =>
+        this.markQuotesAsFallback(await this.secondary.getQuotes(input)),
       { symbols: input.symbols },
     );
   }
@@ -330,7 +378,10 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
   ): Promise<GetHistoricalPricesOutput> {
     return this.withFallback(
       "getHistoricalPrices",
-      () => this.primary.getHistoricalPrices(input),
+      async () =>
+        this.ensureHistoryAvailable(
+          await this.primary.getHistoricalPrices(input),
+        ),
       async () =>
         this.markHistoryAsFallback(
           await this.secondary.getHistoricalPrices(input),
@@ -340,8 +391,10 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
   }
 
   listAssets(): Promise<Asset[]> {
-    return this.withFallback("listAssets", () => this.primary.listAssets(), () =>
-      this.secondary.listAssets(),
+    return this.withFallback(
+      "listAssets",
+      () => this.primary.listAssets(),
+      () => this.secondary.listAssets(),
     );
   }
 
@@ -375,13 +428,17 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
     return this.withFallback(
       "getCurrentPrice",
       () =>
-        (this.primary as unknown as { getCurrentPrice(input: unknown): Promise<unknown> }).getCurrentPrice(
-          symbolOrAsset,
-        ),
+        (
+          this.primary as unknown as {
+            getCurrentPrice(input: unknown): Promise<unknown>;
+          }
+        ).getCurrentPrice(symbolOrAsset),
       () =>
-        (this.secondary as unknown as { getCurrentPrice(input: unknown): Promise<unknown> }).getCurrentPrice(
-          symbolOrAsset,
-        ),
+        (
+          this.secondary as unknown as {
+            getCurrentPrice(input: unknown): Promise<unknown>;
+          }
+        ).getCurrentPrice(symbolOrAsset),
       context,
     ) as Promise<AssetPrice | MarketPrice | undefined>;
   }
@@ -390,13 +447,17 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
     return this.withFallback(
       "getCurrentPrices",
       () =>
-        (this.primary as unknown as { getCurrentPrices(input: DomainAsset[]): Promise<MarketPrice[]> }).getCurrentPrices(
-          assets,
-        ),
+        (
+          this.primary as unknown as {
+            getCurrentPrices(input: DomainAsset[]): Promise<MarketPrice[]>;
+          }
+        ).getCurrentPrices(assets),
       () =>
-        (this.secondary as unknown as { getCurrentPrices(input: DomainAsset[]): Promise<MarketPrice[]> }).getCurrentPrices(
-          assets,
-        ),
+        (
+          this.secondary as unknown as {
+            getCurrentPrices(input: DomainAsset[]): Promise<MarketPrice[]>;
+          }
+        ).getCurrentPrices(assets),
       { assetCount: assets.length },
     );
   }
@@ -450,7 +511,9 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
     );
   }
 
-  getEducationalInfo(symbol: string): Promise<EducationalAssetInfo | undefined> {
+  getEducationalInfo(
+    symbol: string,
+  ): Promise<EducationalAssetInfo | undefined> {
     return this.withFallback(
       "getEducationalInfo",
       () => this.primary.getEducationalInfo(symbol),
@@ -494,11 +557,66 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
           secondaryProvider: this.secondary.getProviderName(),
           reason:
             error instanceof Error ? error.name : "UnknownProviderFailure",
+          message: error instanceof Error ? error.message : undefined,
           ...context,
         },
       });
       return secondaryCall();
     }
+  }
+
+  private ensureQuotesAvailable(output: GetQuotesOutput): GetQuotesOutput {
+    if (output.quotes.length > 0 || output.errors.length === 0) {
+      return output;
+    }
+    if (!this.shouldFallback(output.errors)) {
+      return output;
+    }
+    throw new MarketDataProviderUnavailableError(
+      this.primaryFailureMessage(output.errors),
+      output.trace.providerName,
+      output.errors,
+    );
+  }
+
+  private ensureHistoryAvailable(
+    output: GetHistoricalPricesOutput,
+  ): GetHistoricalPricesOutput {
+    if (output.prices.length > 0 || output.errors.length === 0) {
+      return output;
+    }
+    if (!this.shouldFallback(output.errors)) {
+      return output;
+    }
+    throw new MarketDataProviderUnavailableError(
+      this.primaryFailureMessage(output.errors),
+      output.trace.providerName,
+      output.errors,
+    );
+  }
+
+  private primaryFailureMessage(
+    errors: Array<{ code: MarketDataErrorCode; statusCode?: number }>,
+  ): string {
+    const [first] = errors;
+    const status = first?.statusCode ? ` HTTP ${first.statusCode}` : "";
+    return `Primary market data provider failed with ${first?.code ?? "UNKNOWN"}${status}.`;
+  }
+
+  private shouldFallback(
+    errors: Array<{ code: MarketDataErrorCode; statusCode?: number }>,
+  ): boolean {
+    return errors.some((error) =>
+      [
+        MarketDataErrorCode.EMPTY_RESPONSE,
+        MarketDataErrorCode.HTTP_ERROR,
+        MarketDataErrorCode.TIMEOUT,
+        MarketDataErrorCode.RATE_LIMITED,
+        MarketDataErrorCode.MISSING_TOKEN,
+        MarketDataErrorCode.PROVIDER_UNAVAILABLE,
+        MarketDataErrorCode.INVALID_RESPONSE,
+      ].includes(error.code),
+    );
   }
 
   private markQuotesAsFallback(output: GetQuotesOutput): GetQuotesOutput {
@@ -511,7 +629,8 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
         ...output.errors,
         {
           code: MarketDataErrorCode.PROVIDER_UNAVAILABLE,
-          message: "Primary market data provider failed; fallback data was used.",
+          message:
+            "Primary market data provider failed; fallback data was used.",
           providerName: this.getProviderName(),
         },
       ],
@@ -528,7 +647,8 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
         ...output.errors,
         {
           code: MarketDataErrorCode.PROVIDER_UNAVAILABLE,
-          message: "Primary market data provider failed; fallback data was used.",
+          message:
+            "Primary market data provider failed; fallback data was used.",
           providerName: this.getProviderName(),
         },
       ],

@@ -23,6 +23,7 @@ import {
   ExpectedYieldResponseDto,
   MarketProviderStatusResponseDto,
   MarketQuoteResponseDto,
+  MarketRefreshResponseDto,
   RefreshMarketPricesResponseDto,
   RefreshMarketPricesRequestDto,
 } from "../player/player.dto.js";
@@ -91,15 +92,15 @@ export class MarketController {
   @Post("refresh")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Recalcular precos mockados com data simulada.",
+    summary: "Atualizar mercado de forma manual e controlada.",
     description:
-      "Atualiza a data de referencia do provider mockado mantendo precos em centavos inteiros.",
+      "Refresh explicito do MVP. Respeita feature flag, allowlist, cache e fallback; nao implementa polling automatico.",
   })
-  @ApiOkResponse({ type: AssetResponseDto, isArray: true })
+  @ApiOkResponse({ type: MarketRefreshResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorDto })
   refreshPrices(
     @Body() request: RefreshMarketPricesRequestDto,
-  ): Promise<AssetResponseDto[]> {
+  ): Promise<MarketRefreshResponseDto> {
     return this.api.refreshMarketPrices(request);
   }
 

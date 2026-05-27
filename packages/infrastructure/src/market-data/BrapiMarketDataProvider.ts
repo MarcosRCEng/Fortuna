@@ -74,6 +74,7 @@ export interface BrapiMarketDataProviderOptions {
   token?: string;
   timeoutMs?: number;
   maxSymbolsPerRequest?: number;
+  allowedSymbols?: string[];
   enableUnauthenticatedTestQuotes?: boolean;
   fetch?: FetchLike;
   logger?: LoggerPort;
@@ -87,6 +88,7 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
   private readonly token?: string;
   private readonly timeoutMs: number;
   private readonly maxSymbolsPerRequest?: number;
+  private readonly allowedSymbols?: Set<string>;
   private readonly enableUnauthenticatedTestQuotes: boolean;
   private readonly fetchImpl: FetchLike;
   private readonly logger?: LoggerPort;
@@ -100,6 +102,11 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     this.token = options.token?.trim() || undefined;
     this.timeoutMs = Math.max(1, options.timeoutMs ?? 5000);
     this.maxSymbolsPerRequest = options.maxSymbolsPerRequest;
+    this.allowedSymbols = options.allowedSymbols
+      ? new Set(
+          options.allowedSymbols.map((symbol) => symbol.trim().toUpperCase()),
+        )
+      : undefined;
     this.enableUnauthenticatedTestQuotes =
       options.enableUnauthenticatedTestQuotes ?? true;
     this.fetchImpl = options.fetch ?? fetch;
@@ -122,7 +129,12 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     if (symbols.length === 0) {
       return {
         quotes: [],
-        errors: [this.error(MarketDataErrorCode.EMPTY_RESPONSE, "No tickers were provided.")],
+        errors: [
+          this.error(
+            MarketDataErrorCode.EMPTY_RESPONSE,
+            "No tickers were provided.",
+          ),
+        ],
         trace,
       };
     }
@@ -135,12 +147,17 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
         quotes: [],
         errors: [
           this.error(
-            MarketDataErrorCode.INVALID_RESPONSE,
+            MarketDataErrorCode.TOO_MANY_SYMBOLS,
             `brapi request exceeds the configured maximum of ${this.maxSymbolsPerRequest} symbol(s).`,
           ),
         ],
         trace,
       };
+    }
+
+    const allowedSymbolsError = this.validateAllowedSymbols(symbols);
+    if (allowedSymbolsError) {
+      return { quotes: [], errors: [allowedSymbolsError], trace };
     }
 
     const authError = this.validateAuthentication(symbols, input.requireToken);
@@ -149,6 +166,16 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     }
 
     try {
+      const startedAt = this.clock().getTime();
+      this.logger?.info("Market data real query attempted", {
+        module: "market_data",
+        action: "market_data_real_query_attempted",
+        correlationId: "pending-request-context",
+        context: {
+          provider: "brapi",
+          symbols,
+        },
+      });
       const payload = await this.fetchQuotePayload(symbols);
       const results = Array.isArray(payload.results) ? payload.results : [];
       if (results.length === 0) {
@@ -167,6 +194,18 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
       const quotes = results
         .map((quote) => this.mapQuote(quote, trace))
         .filter((quote) => quote !== undefined);
+      if (quotes.length === 0) {
+        return {
+          quotes: [],
+          errors: [
+            this.error(
+              MarketDataErrorCode.INVALID_RESPONSE,
+              "brapi returned an invalid or incomplete quote response.",
+            ),
+          ],
+          trace,
+        };
+      }
       const missing = symbols.filter(
         (symbol) => !quotes.some((quote) => quote.symbol === symbol),
       );
@@ -179,6 +218,7 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
           symbols,
           quoteCount: quotes.length,
           authenticated: Boolean(this.token),
+          durationMs: this.clock().getTime() - startedAt,
         },
       });
 
@@ -255,8 +295,21 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
   }
 
   async listAssets(): Promise<Asset[]> {
-    const output = await this.getQuotes({ symbols: [...PUBLIC_TEST_TICKERS] });
-    return output.quotes.map((quote) => this.quoteToAsset(quote));
+    const symbols = this.allowedSymbols
+      ? [...this.allowedSymbols]
+      : [...PUBLIC_TEST_TICKERS];
+    const maxSymbols = this.maxSymbolsPerRequest ?? symbols.length;
+    const quotes: GetQuotesOutput["quotes"] = [];
+
+    for (let index = 0; index < symbols.length; index += maxSymbols) {
+      const output = await this.getQuotes({
+        symbols: symbols.slice(index, index + maxSymbols),
+      });
+      this.throwIfProviderFailed(output);
+      quotes.push(...output.quotes);
+    }
+
+    return quotes.map((quote) => this.quoteToAsset(quote));
   }
 
   async getAssetById(assetId: string): Promise<Asset | null> {
@@ -265,11 +318,13 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
 
   async getAsset(symbol: string): Promise<Asset | undefined> {
     const output = await this.getQuotes({ symbols: [symbol] });
+    this.throwIfProviderFailed(output);
     return output.quotes[0] ? this.quoteToAsset(output.quotes[0]) : undefined;
   }
 
   async getCurrentPrice(symbol: string): Promise<AssetPrice | undefined> {
     const output = await this.getQuotes({ symbols: [symbol] });
+    this.throwIfProviderFailed(output);
     const quote = output.quotes[0];
     if (!quote) {
       return undefined;
@@ -423,6 +478,47 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
       MarketDataErrorCode.MISSING_TOKEN,
       "BRAPI_API_TOKEN is required for this brapi request.",
     );
+  }
+
+  private validateAllowedSymbols(
+    symbols: string[],
+  ): MarketDataError | undefined {
+    if (!this.allowedSymbols) {
+      return undefined;
+    }
+
+    if (this.allowedSymbols.size === 0) {
+      return this.error(
+        MarketDataErrorCode.SYMBOL_NOT_ALLOWED,
+        "No real market tickers are allowed in MARKET_DATA_ALLOWED_SYMBOLS.",
+      );
+    }
+
+    const blocked = symbols.find((symbol) => !this.allowedSymbols?.has(symbol));
+    if (!blocked) {
+      return undefined;
+    }
+
+    return this.error(
+      MarketDataErrorCode.SYMBOL_NOT_ALLOWED,
+      `Ticker ${blocked} is not allowed for real market data in the MVP.`,
+      blocked,
+    );
+  }
+
+  private throwIfProviderFailed(output: GetQuotesOutput): void {
+    if (output.quotes.length > 0 || output.errors.length === 0) {
+      return;
+    }
+    const [error] = output.errors;
+    if (
+      error?.code === MarketDataErrorCode.SYMBOL_NOT_ALLOWED ||
+      error?.code === MarketDataErrorCode.TOO_MANY_SYMBOLS ||
+      error?.code === MarketDataErrorCode.ASSET_NOT_FOUND
+    ) {
+      return;
+    }
+    throw new Error(error?.message ?? "brapi provider failed.");
   }
 
   private mapQuote(
@@ -582,14 +678,19 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     if (!previousCents || previousCents <= 0) {
       return 0;
     }
-    return Math.trunc(((currentCents - previousCents) * 10_000) / previousCents);
+    return Math.trunc(
+      ((currentCents - previousCents) * 10_000) / previousCents,
+    );
   }
 
   private inferRange(from?: Date, to?: Date): string {
     if (!from || !to) {
       return "1mo";
     }
-    const days = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86_400_000));
+    const days = Math.max(
+      1,
+      Math.ceil((to.getTime() - from.getTime()) / 86_400_000),
+    );
     if (days <= 5) {
       return "5d";
     }
