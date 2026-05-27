@@ -1,3 +1,4 @@
+export * from "./config/MarketDataConfig.js";
 export * from "./market-data/FutureMarketDataProviders.js";
 export * from "./market-data/MarketDataProviderFactory.js";
 export * from "./market-data/BrapiMarketDataProvider.js";

@@ -115,7 +115,7 @@ Validacao desta sprint:
 Status: camada plugavel inicial implementada em infraestrutura.
 
 - `MarketDataProvider` agora formaliza consultas normalizadas de cotacoes e historico OHLCV com metadados de origem, cache, fallback e dado real.
-- `BrapiMarketDataProvider` monta `GET /api/quote/{tickers}`, usa Bearer token quando configurado, permite testes sem token apenas para tickers publicos controlados e converte precos externos para centavos inteiros na borda.
+- `BrapiMarketDataProvider` monta `GET /api/quote/{tickers}`, usa token apenas quando a feature flag permite dados reais e converte precos externos para centavos inteiros na borda.
 - `MARKET_DATA_PROVIDER=mock` continua sendo o padrao seguro.
 - `MARKET_DATA_PROVIDER=brapi` seleciona brapi com fallback para mock.
 - Documentacao da integracao esta em `docs/integrations/brapi.md`.

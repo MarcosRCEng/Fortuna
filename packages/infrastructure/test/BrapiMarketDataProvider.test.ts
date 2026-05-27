@@ -8,6 +8,7 @@ import {
 import {
   BrapiMarketDataProvider,
   createMarketDataProvider,
+  readMarketDataConfig,
 } from "../src/index.js";
 
 const brapiPayload = {
@@ -50,10 +51,10 @@ describe("BrapiMarketDataProvider", () => {
     );
   });
 
-  it("sends Authorization when BRAPI_TOKEN is configured", async () => {
+  it("sends Authorization when BRAPI_API_TOKEN is configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse(brapiPayload));
     const provider = new BrapiMarketDataProvider({
-      token: "secret-token",
+      token: "test-api-token",
       fetch: fetchMock,
     });
 
@@ -62,7 +63,7 @@ describe("BrapiMarketDataProvider", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(URL),
       expect.objectContaining({
-        headers: { Authorization: "Bearer secret-token" },
+        headers: { Authorization: "Bearer test-api-token" },
       }),
     );
   });
@@ -159,11 +160,11 @@ describe("BrapiMarketDataProvider", () => {
   it("selects brapi by environment and wraps it with fallback/cache metadata", async () => {
     const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
     const provider = createMarketDataProvider(
-      {
-        provider: "brapi",
-        cacheEnabled: false,
-        brapiToken: "token",
-      },
+      readMarketDataConfig({
+        MARKET_DATA_PROVIDER: "brapi",
+        MARKET_DATA_ALLOW_REAL_DATA: "true",
+        BRAPI_API_TOKEN: "token",
+      }),
       logger,
     );
 

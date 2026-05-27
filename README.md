@@ -83,17 +83,19 @@ Mock market data remains the safe default:
 MARKET_DATA_PROVIDER=mock
 ```
 
-The MVP now has a plugable brapi.dev adapter for controlled real market data experiments:
+The MVP has a plugable brapi.dev adapter for controlled real market data experiments. Real data is never enabled by provider selection alone:
 
 ```bash
 MARKET_DATA_PROVIDER=brapi
 BRAPI_BASE_URL=https://brapi.dev/api
-BRAPI_TOKEN=
+BRAPI_API_TOKEN=
 BRAPI_TIMEOUT_MS=5000
-BRAPI_ENABLE_UNAUTHENTICATED_TEST_QUOTES=true
+BRAPI_CACHE_TTL_SECONDS=900
+BRAPI_MAX_SYMBOLS_PER_REQUEST=1
+MARKET_DATA_ALLOW_REAL_DATA=false
 ```
 
-Use `BRAPI_TOKEN` locally or in secret-managed environments only. Controlled unauthenticated tests are limited to public test tickers such as `PETR4`, `MGLU3`, `VALE3` and `ITUB4`. Details are in `docs/integrations/brapi.md`.
+To use brapi locally, set `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true`, and provide `BRAPI_API_TOKEN` only in `.env.local`, `.env.development`, or a secret-managed environment. If real data is disabled, the token is missing, or config validation fails, Fortuna falls back to the mock provider. Details are in `docs/market-data-credentials.md` and `docs/integrations/brapi.md`.
 
 ## Run The Web App
 

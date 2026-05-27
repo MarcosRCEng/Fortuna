@@ -26,12 +26,14 @@ Recursos usados ou preparados:
 ```env
 MARKET_DATA_PROVIDER=mock
 BRAPI_BASE_URL=https://brapi.dev/api
-BRAPI_TOKEN=
+BRAPI_API_TOKEN=
 BRAPI_TIMEOUT_MS=5000
-BRAPI_ENABLE_UNAUTHENTICATED_TEST_QUOTES=true
+BRAPI_CACHE_TTL_SECONDS=900
+BRAPI_MAX_SYMBOLS_PER_REQUEST=1
+MARKET_DATA_ALLOW_REAL_DATA=false
 ```
 
-`MARKET_DATA_PROVIDER=mock` e o padrao seguro. Use `MARKET_DATA_PROVIDER=brapi` apenas quando quiser ativar o adapter externo. `BRAPI_TOKEN` nunca deve ser commitado.
+`MARKET_DATA_PROVIDER=mock` e o padrao seguro. Use `MARKET_DATA_PROVIDER=brapi` apenas junto com `MARKET_DATA_ALLOW_REAL_DATA=true` e um `BRAPI_API_TOKEN` local. `BRAPI_API_TOKEN` nunca deve ser commitado.
 
 ## Rodar local com mock
 
@@ -46,24 +48,25 @@ Esse modo preserva o comportamento jogavel do MVP com precos simulados e determi
 
 ```bash
 MARKET_DATA_PROVIDER=brapi
-BRAPI_TOKEN=<token-local>
+MARKET_DATA_ALLOW_REAL_DATA=true
+BRAPI_API_TOKEN=<token-local>
 BRAPI_TIMEOUT_MS=5000
 corepack pnpm dev:api
 ```
 
-Para testes controlados sem token, mantenha `BRAPI_ENABLE_UNAUTHENTICATED_TEST_QUOTES=true` e limite as consultas aos tickers publicos aceitos pela brapi, como `PETR4`, `MGLU3`, `VALE3` e `ITUB4`.
+Sem `MARKET_DATA_ALLOW_REAL_DATA=true` e sem `BRAPI_API_TOKEN`, a aplicacao deve permanecer no mock provider.
 
 ## Token
 
-Crie o token na brapi.dev e configure apenas no `.env` local, secret manager ou ambiente de deploy. Nao registre token em logs, responses, screenshots, documentacao, fixtures ou commits.
+Crie o token na brapi.dev e configure apenas no `.env` local, secret manager ou ambiente de deploy. Nao registre token em logs, responses, screenshots, documentacao, fixtures ou commits. Se um token aparecer em texto, issue, commit, prompt ou documentacao, trate-o como comprometido e rotacione/revogue imediatamente.
 
 ## Cache e fallback
 
 A factory resolve:
 
 - `MARKET_DATA_PROVIDER=mock` para `MockMarketDataProvider`;
-- `MARKET_DATA_PROVIDER=brapi` para `BrapiMarketDataProvider` com fallback para mock;
-- cache em memoria via `MARKET_DATA_CACHE_ENABLED` e `MARKET_DATA_CACHE_TTL_SECONDS`.
+- `MARKET_DATA_PROVIDER=brapi` com `MARKET_DATA_ALLOW_REAL_DATA=true` e `BRAPI_API_TOKEN` para `BrapiMarketDataProvider` com fallback para mock;
+- cache em memoria via `BRAPI_CACHE_TTL_SECONDS`.
 
 Os retornos normalizados carregam metadados como `source`, `isRealData`, `isCached` e `isFallback`. Fallback nao deve ser apresentado como cotacao real atual sem esses metadados.
 

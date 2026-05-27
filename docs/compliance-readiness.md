@@ -19,7 +19,7 @@
 ## Preparacao arquitetural
 - `MarketDataProvider` formaliza a porta de dados de mercado.
 - `MockMarketDataProvider` segue como provider padrao do MVP.
-- `BrapiMarketDataProvider` existe como adapter externo plugavel em infraestrutura, com token por ambiente, timeout, tratamento de erros, cache/fallback e DTO interno.
+- `BrapiMarketDataProvider` existe como adapter externo plugavel em infraestrutura, com token por ambiente, timeout, feature flag explicita, tratamento de erros, cache/fallback e DTO interno.
 - `ExternalMarketDataProvider` existe apenas como placeholder seguro e desabilitado.
 - `CachedMarketDataProvider` encapsula outro provider com TTL em memoria.
 - `FallbackMarketDataProvider` tenta provider primario e cai para secundario em falhas de provider.
@@ -28,12 +28,10 @@
 
 ## Configuracao de provider
 - `MARKET_DATA_PROVIDER=mock` e o padrao.
-- `MARKET_DATA_PROVIDER=brapi` ativa a brapi com fallback para mock e metadados de dado real.
-- `MARKET_DATA_PROVIDER=external` exige `EXTERNAL_MARKET_DATA_ENABLED=true`; sem isso retorna erro claro.
-- `MARKET_DATA_PROVIDER=fallback` prepara o fluxo externo para mock, sem chamada real.
-- `MARKET_DATA_CACHE_ENABLED=true` habilita cache em memoria.
-- `MARKET_DATA_CACHE_TTL_SECONDS=60` controla o TTL do cache.
-- `BRAPI_TOKEN` deve ser configurado por ambiente e nunca versionado.
+- `MARKET_DATA_PROVIDER=brapi` so tenta brapi quando `MARKET_DATA_ALLOW_REAL_DATA=true`, `BRAPI_API_TOKEN` existe e a configuracao e valida.
+- `BRAPI_CACHE_TTL_SECONDS=900` controla o TTL do cache da brapi.
+- `BRAPI_API_TOKEN` deve ser configurado por ambiente e nunca versionado.
+- Configuracao invalida, token ausente ou dados reais desativados resultam em fallback para mock.
 
 ## Consentimento
 - Consentimentos previstos: uso educativo, termos de simulacao, dados reais de mercado futuros, conexao de carteira futura, ciencia de ausencia de recomendacao financeira e ciencia de ausencia de investimento real.

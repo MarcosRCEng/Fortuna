@@ -73,6 +73,7 @@ export interface BrapiMarketDataProviderOptions {
   baseUrl?: string;
   token?: string;
   timeoutMs?: number;
+  maxSymbolsPerRequest?: number;
   enableUnauthenticatedTestQuotes?: boolean;
   fetch?: FetchLike;
   logger?: LoggerPort;
@@ -85,6 +86,7 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
   private readonly baseUrl: string;
   private readonly token?: string;
   private readonly timeoutMs: number;
+  private readonly maxSymbolsPerRequest?: number;
   private readonly enableUnauthenticatedTestQuotes: boolean;
   private readonly fetchImpl: FetchLike;
   private readonly logger?: LoggerPort;
@@ -97,6 +99,7 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     );
     this.token = options.token?.trim() || undefined;
     this.timeoutMs = Math.max(1, options.timeoutMs ?? 5000);
+    this.maxSymbolsPerRequest = options.maxSymbolsPerRequest;
     this.enableUnauthenticatedTestQuotes =
       options.enableUnauthenticatedTestQuotes ?? true;
     this.fetchImpl = options.fetch ?? fetch;
@@ -120,6 +123,22 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
       return {
         quotes: [],
         errors: [this.error(MarketDataErrorCode.EMPTY_RESPONSE, "No tickers were provided.")],
+        trace,
+      };
+    }
+
+    if (
+      this.maxSymbolsPerRequest !== undefined &&
+      symbols.length > this.maxSymbolsPerRequest
+    ) {
+      return {
+        quotes: [],
+        errors: [
+          this.error(
+            MarketDataErrorCode.INVALID_RESPONSE,
+            `brapi request exceeds the configured maximum of ${this.maxSymbolsPerRequest} symbol(s).`,
+          ),
+        ],
         trace,
       };
     }
@@ -402,7 +421,7 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
 
     return this.error(
       MarketDataErrorCode.MISSING_TOKEN,
-      "BRAPI_TOKEN is required for this brapi request.",
+      "BRAPI_API_TOKEN is required for this brapi request.",
     );
   }
 

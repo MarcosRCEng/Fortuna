@@ -21,9 +21,9 @@ import {
 import {
   CachedMarketDataProvider,
   createMarketDataProvider,
-  ExternalMarketDataProviderNotConfiguredError,
   FallbackMarketDataProvider,
   MockMarketDataProvider,
+  readMarketDataConfig,
 } from "../src/index.js";
 
 describe("MarketDataProvider architecture", () => {
@@ -43,20 +43,12 @@ describe("MarketDataProvider architecture", () => {
     expect(provider.getProviderType()).toBe(MarketDataProviderType.MOCK);
   });
 
-  it("selects mock provider by configuration and rejects disabled external provider", () => {
-    const mock = createMarketDataProvider({
+  it("selects mock provider by configuration", () => {
+    const mock = createMarketDataProvider(readMarketDataConfig({
       provider: "mock",
-      cacheEnabled: false,
-    });
+    }));
 
     expect(mock.getProviderType()).toBe(MarketDataProviderType.MOCK);
-    expect(() =>
-      createMarketDataProvider({
-        provider: "external",
-        externalEnabled: false,
-        cacheEnabled: false,
-      }),
-    ).toThrow(ExternalMarketDataProviderNotConfiguredError);
   });
 
   it("cache avoids repeated calls inside TTL", async () => {
