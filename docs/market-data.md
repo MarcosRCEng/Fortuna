@@ -113,7 +113,7 @@ Retorna cotacoes atuais para simbolos permitidos. `symbols` e obrigatorio, separ
 
 ### `GET /market/assets/:symbol/history?range=1mo&interval=1d`
 
-Retorna historico minimo. Ranges suportados: `1mo`, `3mo`, `6mo`, `1y`. Intervalo suportado: `1d`.
+Retorna historico minimo. O contrato arquitetural aceita `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `5y` e `max`, com intervalos `1d`, `1wk` e `1mo`. O endpoint MVP atual permanece mais conservador quando necessario para preservar a experiencia jogavel.
 
 ```json
 {
@@ -126,7 +126,8 @@ Retorna historico minimo. Ranges suportados: `1mo`, `3mo`, `6mo`, `1y`. Interval
       "lowInCents": 3650,
       "closeInCents": 3820,
       "volume": 12345600,
-      "provider": "mock"
+      "provider": "mock",
+      "isRealData": false
     }
   ],
   "meta": {
@@ -140,6 +141,8 @@ Retorna historico minimo. Ranges suportados: `1mo`, `3mo`, `6mo`, `1y`. Interval
 ```
 
 ### `GET /market/status`
+
+Alias: `GET /market/provider/status`.
 
 ```json
 {
@@ -178,9 +181,6 @@ O fallback para mock cobre:
 
 O fallback retorna dados deterministico-educativos com `provider="mock"` e `isRealData=false`, preservando o funcionamento do jogo mesmo sem internet ou provedor externo.
 
-## Endpoints Futuros
+## Arquitetura
 
-- `GET /market/assets/:symbol/quote`
-- `POST /market/refresh`
-
-Esses endpoints continuam fora do escopo desta primeira versao funcional, salvo rotas legadas ja existentes para suporte ao MVP jogavel.
+A descricao completa do contrato `MarketDataProvider`, decorators de cache/fallback/auditoria e limites de simulacao esta em [market-data-architecture.md](./market-data-architecture.md).

@@ -27,6 +27,8 @@
 - `ExternalMarketDataProvider` existe apenas como placeholder seguro e desabilitado.
 - `CachedMarketDataProvider` encapsula outro provider com TTL em memoria.
 - `FallbackMarketDataProvider` tenta provider primario e cai para secundario em falhas de provider.
+- `AuditedMarketDataProvider` registra consultas de cotacao, historico, cache hit/miss, fallback e falha sem tokens, headers sensiveis, payload externo completo ou dados pessoais do jogador.
+- O contrato novo de market data explicita `provider`, `isRealData` e `isDelayed`, permitindo que UI/API diferenciem dado real, cacheado e mockado sem misturar isso com execucao financeira real.
 - Consentimentos futuros foram modelados para uso educativo e integracoes reais futuras.
 - Auditoria registra eventos simulados relevantes com payload sanitizado.
 
@@ -54,6 +56,7 @@
 - Payloads sao sanitizados para remover tokens, segredos, headers, cookies, senhas e credenciais.
 - Valores financeiros sao registrados em centavos inteiros.
 - Auditoria nao deve armazenar segredos nem dados sensiveis desnecessarios.
+- Metadados de cotacao em transacoes simuladas devem servir somente para transparencia e trilha tecnica, nunca para indicar recomendacao, adequacao de perfil ou promessa de retorno.
 
 ## Disclaimers
 

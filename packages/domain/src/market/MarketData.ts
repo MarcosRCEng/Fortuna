@@ -36,10 +36,35 @@ export type HistoricalPrice = {
   closeInCents: number;
   volume?: number;
   provider: MarketDataProviderName;
+  isRealData: boolean;
 };
 
-export type MarketHistoryRange = "1mo" | "3mo" | "6mo" | "1y";
-export type MarketHistoryInterval = "1d";
+export type MarketHistoryRange =
+  | "1d"
+  | "5d"
+  | "1mo"
+  | "3mo"
+  | "6mo"
+  | "1y"
+  | "5y"
+  | "max";
+export type MarketHistoryInterval = "1d" | "1wk" | "1mo";
+
+export type HistoricalPriceInput = {
+  range?: MarketHistoryRange;
+  interval?: MarketHistoryInterval;
+};
+
+export type MarketDataProviderStatus = {
+  provider: string;
+  isAvailable: boolean;
+  isRealDataEnabled: boolean;
+  isUsingFallback: boolean;
+  cacheEnabled: boolean;
+  lastSuccessfulRequestAt?: string;
+  lastFailureAt?: string;
+  lastFailureReason?: string;
+};
 
 export type MarketProviderStatus = {
   provider: MarketDataProviderName;
@@ -51,11 +76,11 @@ export type MarketProviderStatus = {
 };
 
 export interface MarketDataProvider {
+  getQuote(symbol: string): Promise<MarketQuote>;
   getQuotes(symbols: string[]): Promise<MarketQuote[]>;
-  getHistoricalPrices(params: {
-    symbol: string;
-    range: MarketHistoryRange;
-    interval: MarketHistoryInterval;
-  }): Promise<HistoricalPrice[]>;
-  getStatus(): Promise<MarketProviderStatus>;
+  getHistoricalPrices(
+    symbol: string,
+    input: HistoricalPriceInput,
+  ): Promise<HistoricalPrice[]>;
+  getProviderStatus(): Promise<MarketDataProviderStatus>;
 }

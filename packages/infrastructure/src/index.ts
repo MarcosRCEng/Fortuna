@@ -3,6 +3,19 @@ export * from "./market-data/FutureMarketDataProviders.js";
 export * from "./market-data/MarketDataProviderFactory.js";
 export * from "./market-data/BrapiMarketDataProvider.js";
 export * from "./market-data/MvpMarketDataService.js";
+export {
+  AuditedMarketDataProvider as DomainAuditedMarketDataProvider,
+  BrapiMarketDataProvider as DomainBrapiMarketDataProvider,
+  CachedMarketDataProvider as DomainCachedMarketDataProvider,
+  FallbackMarketDataProvider as DomainFallbackMarketDataProvider,
+  InMemoryMarketDataCache,
+  MarketDataService as DomainMarketDataService,
+  MarketValidationError as DomainMarketValidationError,
+  MockMarketDataProvider as DomainMockMarketDataProvider,
+  createComposedMarketDataService,
+  normalizeSymbols as normalizeMarketDataSymbols,
+  toCents as toMarketDataCents,
+} from "./market-data/MarketDataProviders.js";
 export * from "./logging/PinoLogger.js";
 export * from "./market-data/MockMarketDataProvider.js";
 export * from "./persistence/prisma/PrismaClientFactory.js";

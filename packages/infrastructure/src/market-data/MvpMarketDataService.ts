@@ -328,6 +328,7 @@ export class MvpMarketDataService {
       closeInCents: toCents(point.close),
       volume: point.volume,
       provider: "brapi",
+      isRealData: true,
     };
   }
 
@@ -384,6 +385,7 @@ export class MvpMarketDataService {
           1_000_000 +
           (this.hash(`${symbol}:${date.toISOString()}:volume`) % 500_000),
         provider: "mock",
+        isRealData: false,
       });
     }
     return points;

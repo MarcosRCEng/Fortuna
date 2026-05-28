@@ -192,7 +192,7 @@ export class MarketController {
     return this.api.getExpectedYield(symbol);
   }
 
-  @Get("status")
+  @Get(["status", "provider/status"])
   @ApiOperation({
     summary: "Consultar status da camada de Market Data.",
     description:
