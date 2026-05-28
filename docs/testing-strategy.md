@@ -36,6 +36,19 @@ in-process NestJS application on a random local port, use only mock/in-memory
 providers, avoid brapi and real databases, and validate predictable errors by
 HTTP status, `error.code`, and `correlationId` when present.
 
+## API E2E por recurso
+
+A API possui testes E2E HTTP por recurso:
+
+- `financial-api.e2e.test.ts`: smoke test do ciclo financeiro completo.
+- `players.e2e.test.ts`: criação, consulta, carteira inicial e validações de jogador.
+- `assets.e2e.test.ts`: catálogo de ativos, preço, histórico e refresh mockado.
+- `orders.e2e.test.ts`: compra, venda e erros financeiros previsíveis.
+- `portfolio.e2e.test.ts`: carteira, portfólio, alocação e resumo.
+- `income-transactions.e2e.test.ts`: coleta de rendimentos e histórico.
+- `game-loop-education.e2e.test.ts`: Mentor, missões, cidade e estado do game loop.
+- `market-data.e2e.test.ts`: endpoints de provider de dados de mercado com dados reais desabilitados.
+
 ## Required Financial Scenarios
 
 Every financial use case should include:

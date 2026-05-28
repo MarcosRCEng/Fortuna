@@ -13,10 +13,19 @@ pnpm test:e2e
 At the API workspace level this expands to:
 
 ```bash
-vitest run e2e.test.ts
+vitest run .e2e.test.ts
+```
+
+From the repository root, the official commands are:
+
+```bash
+pnpm test:e2e
+corepack pnpm --filter @fortuna/api test:e2e
 ```
 
 ## Organization
+
+The suite covers every `test/**/*.e2e.test.ts` file:
 
 - `financial-api.e2e.test.ts`: smoke test for the complete financial cycle.
 - `players.e2e.test.ts`: player creation, lookup, wallet bootstrap, and input validation.
