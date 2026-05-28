@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -27,12 +28,125 @@ import {
   RefreshMarketPricesResponseDto,
   RefreshMarketPricesRequestDto,
 } from "../player/player.dto.js";
+import {
+  MarketValidationError,
+  MvpMarketDataService,
+  PinoLogger,
+} from "@fortuna/infrastructure";
+import type {
+  HistoricalPrice,
+  MarketAsset,
+  MarketHistoryInterval,
+  MarketHistoryRange,
+  MarketQuote,
+} from "@fortuna/domain";
+
+type MarketAssetsResponse = {
+  data: MarketAsset[];
+};
+
+type MarketQuotesResponse = {
+  data: MarketQuote[];
+  meta: {
+    cacheTtlSeconds: number;
+    realDataEnabled: boolean;
+  };
+};
+
+type MarketHistoryResponse = {
+  data: HistoricalPrice[];
+  meta: {
+    symbol: string;
+    range: MarketHistoryRange;
+    interval: MarketHistoryInterval;
+    cacheTtlSeconds: number;
+    realDataEnabled: boolean;
+  };
+};
+
+type MarketStatusResponse = {
+  data: {
+    provider: "brapi" | "mock" | "cache";
+    realDataEnabled: boolean;
+    hasBrapiToken: boolean;
+    cacheTtlSeconds: number;
+    allowedSymbols: string[];
+    lastSuccessfulFetchAt: string | null;
+    status: "ok" | "degraded" | "mock_only";
+  };
+};
 
 @ApiTags("market")
 @Controller(["api/v1/market", "market"])
 export class MarketController {
   @Inject(PlayerApiService)
   private readonly api!: PlayerApiService;
+  private readonly marketData = new MvpMarketDataService({
+    logger: new PinoLogger(),
+  });
+
+  @Get("assets")
+  @ApiOperation({
+    summary: "Listar ativos permitidos para dados de mercado no MVP.",
+    description:
+      "Retorna uma allowlist pequena e local. Nao consulta a lista completa da brapi.",
+  })
+  async listMarketAssets(): Promise<MarketAssetsResponse> {
+    return { data: this.marketData.listAssets() };
+  }
+
+  @Get("quotes")
+  @ApiOperation({
+    summary: "Consultar cotacoes atuais de ativos permitidos.",
+    description:
+      "Usa cache obrigatorio e cai para mock quando dados reais estao desabilitados, sem token ou indisponiveis.",
+  })
+  async getMarketQuotes(
+    @Query("symbols") symbols?: string,
+  ): Promise<MarketQuotesResponse> {
+    return this.handleMarketRequest(async () => {
+      const data = await this.marketData.getQuotes([symbols ?? ""]);
+      const status = this.marketData.getStatus();
+      return {
+        data,
+        meta: {
+          cacheTtlSeconds: status.cacheTtlSeconds,
+          realDataEnabled: status.realDataEnabled,
+        },
+      };
+    });
+  }
+
+  @Get("assets/:symbol/history")
+  @ApiOperation({
+    summary: "Consultar historico minimo de precos de um ativo permitido.",
+    description:
+      "Suporta ranges 1mo, 3mo, 6mo e 1y, apenas com intervalo 1d no MVP.",
+  })
+  async getMarketHistory(
+    @Param("symbol") symbol: string,
+    @Query("range") range: MarketHistoryRange = "1mo",
+    @Query("interval") interval: MarketHistoryInterval = "1d",
+  ): Promise<MarketHistoryResponse> {
+    return this.handleMarketRequest(async () => {
+      const data = await this.marketData.getHistoricalPrices({
+        symbol,
+        range,
+        interval,
+      });
+      const status = this.marketData.getStatus();
+      return {
+        data,
+        meta: {
+          symbol: symbol.trim().toUpperCase(),
+          range,
+          interval,
+          cacheTtlSeconds: status.cacheTtlSeconds,
+          realDataEnabled: status.realDataEnabled,
+        },
+      };
+    });
+  }
 
   @Get("quotes/:symbol")
   @ApiOperation({
@@ -80,13 +194,24 @@ export class MarketController {
 
   @Get("status")
   @ApiOperation({
-    summary: "Consultar status do provider de mercado.",
+    summary: "Consultar status da camada de Market Data.",
     description:
-      "Informa que o MVP usa provider simulado e deterministico, sem dados reais de mercado.",
+      "Informa provider configurado, flag de dados reais, presenca de token, cache, allowlist e estado geral.",
   })
   @ApiOkResponse({ type: MarketProviderStatusResponseDto })
-  getStatus(): Promise<MarketProviderStatusResponseDto> {
-    return this.api.getMarketProviderStatus();
+  getStatus(): MarketStatusResponse {
+    const status = this.marketData.getStatus();
+    return {
+      data: {
+        provider: status.provider,
+        realDataEnabled: status.realDataEnabled,
+        hasBrapiToken: status.hasToken,
+        cacheTtlSeconds: status.cacheTtlSeconds,
+        allowedSymbols: this.marketData.getAllowedSymbols(),
+        lastSuccessfulFetchAt: status.lastSuccessfulFetchAt ?? null,
+        status: status.status,
+      },
+    };
   }
 
   @Post("refresh")
@@ -117,5 +242,16 @@ export class MarketController {
     @Body() request: RefreshMarketPricesRequestDto = {},
   ): Promise<RefreshMarketPricesResponseDto> {
     return this.api.refreshMockPrices(request);
+  }
+
+  private async handleMarketRequest<T>(request: () => Promise<T>): Promise<T> {
+    try {
+      return await request();
+    } catch (error) {
+      if (error instanceof MarketValidationError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
   }
 }
