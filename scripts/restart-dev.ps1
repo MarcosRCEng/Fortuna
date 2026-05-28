@@ -12,6 +12,8 @@ $apiLog = Join-Path $logDir "api.log"
 $webLog = Join-Path $logDir "web.log"
 
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+Remove-Item -LiteralPath $apiLog -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $webLog -Force -ErrorAction SilentlyContinue
 
 function Stop-ListenersOnPort {
   param([int]$Port)
@@ -83,7 +85,14 @@ $envMap["WEB_PORT"] = [string]$WebPort
 
 $envScript = Convert-EnvMapToPowerShell -EnvMap $envMap
 
-$apiCommand = "Set-Location '$root'; $envScript; corepack pnpm dev:api *> '$apiLog'"
+$apiCommand = @"
+Set-Location '$root'
+$envScript
+corepack pnpm --filter @fortuna/application build *>> '$apiLog'
+corepack pnpm --filter @fortuna/infrastructure build *>> '$apiLog'
+corepack pnpm --filter @fortuna/api build *>> '$apiLog'
+corepack pnpm --filter @fortuna/api start *>> '$apiLog'
+"@
 $webCommand = "Set-Location '$root'; `$env:WEB_PORT='$WebPort'; corepack pnpm dev:web *> '$webLog'"
 
 Write-Host "Subindo API na porta $ApiPort..."
