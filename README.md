@@ -95,7 +95,7 @@ BRAPI_MAX_SYMBOLS_PER_REQUEST=1
 MARKET_DATA_ALLOW_REAL_DATA=false
 ```
 
-To use brapi locally, set `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true`, and provide `BRAPI_API_TOKEN` only in `.env.local`, `.env.development`, or a secret-managed environment. If real data is disabled, the token is missing, or config validation fails, Fortuna falls back to the mock provider. Details are in `docs/market-data-credentials.md` and `docs/integrations/brapi.md`.
+To use brapi locally, set `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true`, and provide `BRAPI_API_TOKEN` only in `.env.local`, `.env.development`, or a secret-managed environment. If real data is disabled, the token is missing, or config validation fails, Fortuna falls back to the mock provider. Details are in `docs/market-data.md`, `docs/market-data-credentials.md`, and `docs/integrations/brapi.md`.
 
 ## Run The Web App
 
@@ -141,6 +141,10 @@ cycle is exposed through:
 - `GET /players/:playerId/mentor/messages`
 - `GET /players/:playerId/city`
 - `GET /players/:playerId/game-loop/state`
+- `GET /market/assets`
+- `GET /market/quotes?symbols=PETR4`
+- `GET /market/assets/:symbol/history?range=1mo&interval=1d`
+- `GET /market/status`
 - `POST /market/refresh-mock-prices`
 
 Money is returned as integer cent fields plus formatted display helpers, for
