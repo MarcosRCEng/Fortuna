@@ -95,7 +95,18 @@ BRAPI_MAX_SYMBOLS_PER_REQUEST=1
 MARKET_DATA_ALLOW_REAL_DATA=false
 ```
 
-To use brapi locally, set `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true`, and provide `BRAPI_API_TOKEN` only in `.env.local`, `.env.development`, or a secret-managed environment. If real data is disabled, the token is missing, or config validation fails, Fortuna falls back to the mock provider. Details are in `docs/market-data.md`, `docs/market-data-credentials.md`, and `docs/integrations/brapi.md`.
+To use brapi locally, set `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true`, and provide `BRAPI_API_TOKEN` only in `.env.local`, `.env.development`, or a secret-managed environment. If real data is disabled, the token is missing, or config validation fails, Fortuna falls back to the mock provider.
+
+Integration and compliance notes:
+
+- [Integração de Dados de Mercado](docs/integrations/market-data.md)
+- [Integração brapi.dev](docs/integrations/brapi.md)
+- [Contrato de Provider de Dados de Mercado](docs/integrations/provider-contract.md)
+- [Cache e Fallback de Dados de Mercado](docs/integrations/cache-and-fallback.md)
+- [Disclaimer de Dados Reais de Mercado](docs/compliance/real-market-data-disclaimer.md)
+- [Runbook — Troubleshooting de Dados de Mercado](docs/runbooks/market-data-troubleshooting.md)
+- [Market Data Overview](docs/market-data.md)
+- [Market Data Credentials](docs/market-data-credentials.md)
 
 ## Run The Web App
 
