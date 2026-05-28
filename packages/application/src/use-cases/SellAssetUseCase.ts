@@ -95,9 +95,14 @@ export class SellAssetUseCase {
       total,
       occurredAt,
       balanceAfter: wallet.account.availableBalance,
-      metadata: command.correlationId
-        ? { correlationId: command.correlationId }
-        : undefined,
+      metadata: {
+        ...(command.correlationId
+          ? { correlationId: command.correlationId }
+          : {}),
+        marketPriceProvider: price.metadata.marketPriceProvider,
+        marketPriceIsRealData: String(price.metadata.marketPriceIsRealData),
+        marketPriceIsDelayed: String(price.metadata.marketPriceIsDelayed),
+      },
     };
     try {
       await this.transactions.append(transaction);
