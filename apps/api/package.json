@@ -10,7 +10,7 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "test:e2e": "vitest run test/financial-api.e2e.test.ts"
+    "test:e2e": "vitest run e2e.test.ts"
   },
   "dependencies": {
     "@fortuna/application": "workspace:*",

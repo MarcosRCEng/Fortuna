@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    include: ["test/**/*.test.ts"],
+    include: ["test/**/*.test.ts", "test/**/*.e2e.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
@@ -15,5 +15,5 @@ export default defineConfig({
         lines: 60,
       },
     },
-  }
+  },
 });

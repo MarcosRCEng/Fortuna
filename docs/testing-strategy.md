@@ -9,14 +9,32 @@ pnpm test:integration
 pnpm test:coverage
 ```
 
-`pnpm test` runs every workspace test. Unit tests currently live in `packages/domain/test` and `packages/application/test`. API/integration coverage lives in `apps/api/test`.
+`pnpm test` runs every workspace test. Unit tests currently live in `packages/domain/test` and `packages/application/test`. API/integration coverage lives in `apps/api/test`. `pnpm test:e2e` runs the API HTTP E2E suite through the API workspace script.
 
 ## Structure
 
 - `packages/domain/test`: value objects and financial entities.
 - `packages/application/test`: financial use cases, ports, repositories in memory, log spies, and state preservation checks.
-- `apps/api/test`: API integration tests.
+- `apps/api/test`: API integration tests and HTTP E2E tests.
 - `packages/testing`: shared builders, fixtures, and mocks as the suite grows.
+
+## API HTTP E2E Suite
+
+The API E2E suite is organized by resource and runs with `pnpm test:e2e`.
+`apps/api/test/financial-api.e2e.test.ts` remains the smoke test for the full
+financial cycle. New coverage is split into focused files:
+
+- `players.e2e.test.ts`;
+- `assets.e2e.test.ts`;
+- `orders.e2e.test.ts`;
+- `portfolio.e2e.test.ts`;
+- `income-transactions.e2e.test.ts`;
+- `game-loop-education.e2e.test.ts`.
+
+Shared helpers live in `apps/api/test/test-http.ts`. E2E tests start an
+in-process NestJS application on a random local port, use only mock/in-memory
+providers, avoid brapi and real databases, and validate predictable errors by
+HTTP status, `error.code`, and `correlationId` when present.
 
 ## Required Financial Scenarios
 
