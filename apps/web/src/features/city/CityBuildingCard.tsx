@@ -38,7 +38,7 @@ export function CityBuildingCard({
         <p>{building.reason}</p>
       </div>
       <div className="city-card-section">
-        <span>Proximo passo</span>
+        <span>O que evolui este predio</span>
         <p>{building.nextLevelHint}</p>
       </div>
       <p className="city-educational-message">{building.educationalMessage}</p>

@@ -12,7 +12,19 @@ function statusLabel(status: PlayerMission["status"]) {
   return labels[status];
 }
 
-export function MissionsPage({ missions }: { missions: PlayerMission[] }) {
+export function MissionsPage({
+  missions,
+  onGoToMarket,
+  onGoToWallet,
+  onCollectIncome,
+  submitting = false,
+}: {
+  missions: PlayerMission[];
+  onGoToMarket?: () => void;
+  onGoToWallet?: () => void;
+  onCollectIncome?: () => void;
+  submitting?: boolean;
+}) {
   return (
     <>
       <header className="page-header">
@@ -71,6 +83,13 @@ export function MissionsPage({ missions }: { missions: PlayerMission[] }) {
                     <span className="badge badge-warning">Alerta educativo</span>
                   ) : null}
                 </div>
+                <MissionAction
+                  mission={mission}
+                  disabled={submitting}
+                  onGoToMarket={onGoToMarket}
+                  onGoToWallet={onGoToWallet}
+                  onCollectIncome={onCollectIncome}
+                />
               </article>
             );
           })}
@@ -78,4 +97,93 @@ export function MissionsPage({ missions }: { missions: PlayerMission[] }) {
       )}
     </>
   );
+}
+
+function MissionAction({
+  mission,
+  disabled,
+  onGoToMarket,
+  onGoToWallet,
+  onCollectIncome,
+}: {
+  mission: PlayerMission;
+  disabled: boolean;
+  onGoToMarket?: () => void;
+  onGoToWallet?: () => void;
+  onCollectIncome?: () => void;
+}) {
+  if (
+    mission.status === "LOCKED" ||
+    mission.status === "COMPLETED" ||
+    mission.status === "CLAIMED"
+  ) {
+    return null;
+  }
+
+  const action = resolveMissionAction(mission, {
+    onGoToMarket,
+    onGoToWallet,
+    onCollectIncome,
+  });
+
+  if (!action) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      className="button button-secondary"
+      disabled={disabled}
+      onClick={action.onClick}
+    >
+      {action.label}
+    </button>
+  );
+}
+
+function resolveMissionAction(
+  mission: PlayerMission,
+  actions: {
+    onGoToMarket?: () => void;
+    onGoToWallet?: () => void;
+    onCollectIncome?: () => void;
+  },
+) {
+  const signal =
+    `${mission.code} ${mission.type} ${mission.objective}`.toUpperCase();
+
+  if (
+    actions.onCollectIncome &&
+    (signal.includes("INCOME") ||
+      signal.includes("YIELD") ||
+      signal.includes("RENDIMENTO"))
+  ) {
+    return { label: "Coletar rendimento", onClick: actions.onCollectIncome };
+  }
+
+  if (
+    actions.onGoToWallet &&
+    (signal.includes("PORTFOLIO") ||
+      signal.includes("DIVERS") ||
+      signal.includes("CONCENTRATION") ||
+      signal.includes("CARTEIRA"))
+  ) {
+    return { label: "Ver carteira", onClick: actions.onGoToWallet };
+  }
+
+  if (
+    actions.onGoToMarket &&
+    (signal.includes("RISK") ||
+      signal.includes("BUY") ||
+      signal.includes("ASSET") ||
+      signal.includes("MERCADO") ||
+      signal.includes("RISCO"))
+  ) {
+    return { label: "Ir para o mercado", onClick: actions.onGoToMarket };
+  }
+
+  return actions.onGoToMarket
+    ? { label: "Ir para o mercado", onClick: actions.onGoToMarket }
+    : undefined;
 }
