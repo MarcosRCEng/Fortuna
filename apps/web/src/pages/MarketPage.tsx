@@ -6,12 +6,14 @@ import type { Asset } from "../types/asset.js";
 export function MarketPage({
   assets,
   refreshing,
+  submitting,
   onBuy,
   onViewEducation,
   onRefreshMarket,
 }: {
   assets: Asset[];
   refreshing: boolean;
+  submitting: boolean;
   onBuy(asset: Asset): void;
   onViewEducation(asset: Asset): void;
   onRefreshMarket(): void;
@@ -51,6 +53,7 @@ export function MarketPage({
             <AssetCard
               key={asset.id}
               asset={asset}
+              disabled={submitting || refreshing}
               onBuy={onBuy}
               onViewEducation={onViewEducation}
             />

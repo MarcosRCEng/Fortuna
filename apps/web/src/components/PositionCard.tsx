@@ -4,9 +4,11 @@ import { assetTypeLabel } from "../utils/risk.js";
 
 export function PositionCard({
   position,
+  disabled = false,
   onSell,
 }: {
   position: Position;
+  disabled?: boolean;
   onSell(position: Position): void;
 }) {
   return (
@@ -43,6 +45,7 @@ export function PositionCard({
       <button
         type="button"
         className="button button-secondary"
+        disabled={disabled}
         onClick={() => onSell(position)}
       >
         Vender

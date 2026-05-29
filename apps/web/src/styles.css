@@ -836,19 +836,84 @@ input {
 
 .timeline li {
   display: grid;
-  gap: 14px;
-  grid-template-columns: 86px 1fr;
+  gap: 16px;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  padding: 4px 0;
 }
 
-.timeline li > span {
+.timeline-type {
+  align-content: start;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.timeline-type span {
   background: #edf5f1;
   border-radius: 8px;
   color: #244c3a;
   font-size: 0.78rem;
   font-weight: 800;
-  height: 32px;
+  min-height: 32px;
   padding: 8px;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.timeline-type small {
+  color: #647084;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.timeline-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.timeline-content strong {
+  line-height: 1.35;
+}
+
+.timeline-content small {
+  color: #647084;
+  line-height: 1.45;
+}
+
+.transaction-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.transaction-details div {
+  background: #f7f9fc;
+  border-radius: 8px;
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+  padding: 8px 10px;
+}
+
+.transaction-details dt,
+.transaction-details dd {
+  margin: 0;
+}
+
+.transaction-details dt {
+  color: #647084;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.transaction-details dd {
+  color: #17202f;
+  font-weight: 800;
 }
 
 .state {
@@ -1017,5 +1082,19 @@ input {
   .city-maturity-badge,
   .city-card-status {
     white-space: normal;
+  }
+
+  .timeline li {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-type span,
+  .timeline-type small {
+    text-align: left;
+  }
+
+  .transaction-details {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }

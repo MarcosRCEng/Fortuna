@@ -4,10 +4,12 @@ import { assetTypeLabel, riskLabel, riskTone } from "../utils/risk.js";
 
 export function AssetCard({
   asset,
+  disabled = false,
   onBuy,
   onViewEducation,
 }: {
   asset: Asset;
+  disabled?: boolean;
   onBuy(asset: Asset): void;
   onViewEducation(asset: Asset): void;
 }) {
@@ -54,7 +56,7 @@ export function AssetCard({
         <button
           type="button"
           className="button button-primary"
-          disabled={!asset.isActive}
+          disabled={disabled || !asset.isActive}
           onClick={() => onBuy(asset)}
         >
           Comprar
@@ -62,6 +64,7 @@ export function AssetCard({
         <button
           type="button"
           className="button button-ghost"
+          disabled={disabled}
           onClick={() => onViewEducation(asset)}
         >
           Estudar risco

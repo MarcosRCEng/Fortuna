@@ -343,6 +343,7 @@ export function App() {
     <MarketPage
       assets={assets}
       refreshing={refreshingMarket}
+      submitting={submitting}
       onBuy={openBuy}
       onViewEducation={handleViewAssetEducation}
       onRefreshMarket={handleRefreshMarket}
@@ -352,12 +353,19 @@ export function App() {
       availableCashCents={summary?.availableCashCents ?? 0}
       portfolio={portfolio}
       allocation={allocation}
+      submitting={submitting}
       onSell={openSell}
     />
   ) : activeScreen === "history" ? (
     <HistoryPage transactions={transactions} />
   ) : activeScreen === "missions" ? (
-    <MissionsPage missions={missions} />
+    <MissionsPage
+      missions={missions}
+      submitting={submitting}
+      onGoToMarket={() => handleNavigate("market")}
+      onGoToWallet={() => handleNavigate("wallet")}
+      onCollectIncome={handleCollectIncome}
+    />
   ) : activeScreen === "city" ? (
     <CityPage
       summary={summary}

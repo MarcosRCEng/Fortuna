@@ -9,11 +9,13 @@ export function WalletPage({
   availableCashCents,
   portfolio,
   allocation,
+  submitting,
   onSell,
 }: {
   availableCashCents: number;
   portfolio?: Portfolio;
   allocation?: PortfolioAllocation;
+  submitting: boolean;
   onSell(position: Position): void;
 }) {
   const positions = portfolio?.positions ?? [];
@@ -75,6 +77,7 @@ export function WalletPage({
                 <PositionCard
                   key={position.assetId}
                   position={position}
+                  disabled={submitting}
                   onSell={onSell}
                 />
               ))}

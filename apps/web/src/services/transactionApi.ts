@@ -1,5 +1,6 @@
 import { apiClient } from "./apiClient.js";
 import type { Transaction } from "../types/transaction.js";
+import { transactionTypeLabel } from "../utils/formatters.js";
 
 type TransactionResponse = {
   id: string;
@@ -45,6 +46,21 @@ function describeTransaction(transaction: TransactionResponse): string {
   return "Evento financeiro registrado.";
 }
 
+function describeGameplayEvent(event: GameLoopHistoryResponse["history"]["latest"][number]): string {
+  const friendlyTitle = looksTechnical(event.title)
+    ? transactionTypeLabel(event.type)
+    : event.title;
+  const description = event.description.replace(`${event.type}: `, "");
+
+  return friendlyTitle === description
+    ? description
+    : `${friendlyTitle}: ${description}`;
+}
+
+function looksTechnical(value: string): boolean {
+  return /^[A-Z0-9_]+$/.test(value);
+}
+
 export async function getTransactions(playerId: string): Promise<Transaction[]> {
   const [response, gameLoopState] = await Promise.all([
     apiClient<TransactionsListResponse>(`/players/${playerId}/transactions`),
@@ -71,7 +87,7 @@ export async function getTransactions(playerId: string): Promise<Transaction[]> 
         type: event.type,
         amountCents: event.amountCents ?? 0,
         balanceAfterCents: 0,
-        description: `${event.title}: ${event.description}`,
+        description: describeGameplayEvent(event),
         createdAt: event.occurredAt,
       })) ?? [];
 
