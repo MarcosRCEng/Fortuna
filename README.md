@@ -75,6 +75,15 @@ pnpm dev:api
 
 The API starts on `API_PORT`, defaulting to `3000`. Swagger is available at `/docs`.
 
+## Google Auth And Sessions
+
+The authenticated MVP uses Google OAuth through the API. Configure
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL` and
+`WEB_APP_URL`; the web app restores reloads and tab changes with `GET /auth/me`
+using an HttpOnly session cookie. See
+[Google OAuth](docs/auth/google-oauth.md) and
+[Session Security](docs/auth/session-security.md).
+
 ## Market Data Provider
 
 Mock market data remains the safe default:

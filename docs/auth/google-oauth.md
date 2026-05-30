@@ -31,12 +31,15 @@ Escopos usados: `openid`, `email` e `profile`. O Fortuna nao pede offline access
 ```txt
 React Web
 -> GET /auth/google
--> NestJS redireciona para Google
+-> NestJS gera state, salva em cookie HttpOnly curto e redireciona para Google
 -> GET /auth/google/callback
--> API valida perfil Google
+-> API valida code, state e email_verified
 -> API cria/atualiza User
 -> API cria/recupera Player
 -> API define cookie HttpOnly
 -> React restaura estado via GET /auth/me
 ```
 
+Callbacks sem `code`, sem `state` valido, com erro no token endpoint, sem e-mail,
+com `email_verified=false` ou para usuario inativo voltam para
+`/login?error=google_auth_failed`.

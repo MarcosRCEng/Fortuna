@@ -5,6 +5,7 @@ import { PlayerApiService } from "../src/modules/player/player-api.service.js";
 const googleProfile = {
   subject: "google-subject-1",
   email: "player@example.com",
+  emailVerified: true,
   name: "Jogadora Fortuna",
   avatarUrl: "https://example.com/avatar.png",
 };
@@ -60,6 +61,41 @@ describe("AuthService", () => {
     await expect(auth.authenticateRequest({ headers: {} })).resolves.toBeUndefined();
   });
 
+  it("validates OAuth state from the HttpOnly state cookie", () => {
+    const auth = createAuthService();
+    const state = "oauth-state";
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    expect(
+      auth.validateOAuthState(
+        {
+          headers: {
+            cookie: auth.oauthStateCookieHeader(state, expiresAt),
+          },
+        },
+        state,
+      ),
+    ).toBe(true);
+    expect(
+      auth.validateOAuthState(
+        {
+          headers: {
+            cookie: auth.oauthStateCookieHeader(state, expiresAt),
+          },
+        },
+        "different-state",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects an unverified Google email", async () => {
+    const auth = createAuthService();
+
+    await expect(
+      auth.validateGoogleUser({ ...googleProfile, emailVerified: false }),
+    ).rejects.toThrow("Email Google nao verificado.");
+  });
+
   it("revokes the session on logout", async () => {
     const auth = createAuthService();
     const user = await auth.validateGoogleUser(googleProfile);
@@ -77,4 +113,3 @@ describe("AuthService", () => {
     ).resolves.toBeUndefined();
   });
 });
-

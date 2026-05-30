@@ -445,6 +445,36 @@ export class PlayerApiService {
     };
   }
 
+  async updatePlayerNickname(
+    playerId: string,
+    nickname: unknown,
+  ): Promise<PlayerResponseDto> {
+    this.assertString(playerId, "playerId");
+    this.assertString(nickname, "nickname");
+    const sanitizedNickname = nickname.replace(/\s+/g, " ").trim();
+    if (sanitizedNickname.length < 3 || sanitizedNickname.length > 40) {
+      throw new BadRequestException(
+        "nickname must contain between 3 and 40 characters.",
+      );
+    }
+
+    const repository = this.persistence?.players ?? this.players;
+    const player = await repository.findById(playerId);
+    if (!player) {
+      throw new OperationRejectedError(
+        "Jogador nao encontrado.",
+        "PLAYER_NOT_FOUND",
+      );
+    }
+
+    await repository.save({
+      ...player,
+      nickname: sanitizedNickname,
+    });
+
+    return this.getPlayer(playerId);
+  }
+
   async getPlayerSummary(playerId: string): Promise<PlayerSummaryResponseDto> {
     await this.getPlayer(playerId);
     const wallet = await this.getWallet(playerId);

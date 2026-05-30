@@ -26,6 +26,13 @@ export function logout(): Promise<{ ok: true }> {
   return authRequest<{ ok: true }>("/auth/logout", { method: "POST" });
 }
 
+export function updateCurrentPlayer(nickname: string): Promise<AuthSession["player"]> {
+  return authRequest<AuthSession["player"]>("/api/v1/me/player", {
+    method: "PATCH",
+    body: JSON.stringify({ nickname }),
+  });
+}
+
 async function authRequest<TResponse>(
   path: string,
   init: RequestInit = {},

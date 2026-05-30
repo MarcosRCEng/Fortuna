@@ -220,6 +220,29 @@ button:disabled {
   line-height: 1.1;
 }
 
+.field-label {
+  color: #435166;
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-top: 0.75rem;
+}
+
+.text-input {
+  background: #ffffff;
+  border: 1px solid #cdd6e4;
+  border-radius: 8px;
+  color: #172033;
+  font: inherit;
+  padding: 0.85rem 1rem;
+  width: 100%;
+}
+
+.text-input:focus {
+  border-color: #2a75ff;
+  outline: 3px solid rgba(42, 117, 255, 0.18);
+}
+
 .page-header {
   align-items: flex-start;
   display: flex;

@@ -29,7 +29,9 @@ type UserRecord = {
   name?: string;
   avatarUrl?: string;
   googleSubject: string;
+  isActive: boolean;
   playerId: string;
+  playerNickname?: string;
 };
 
 @Injectable()
@@ -48,18 +50,29 @@ export class AuthService {
   ) {}
 
   buildGoogleAuthorizationUrl(): string {
+    const { url } = this.buildGoogleAuthorizationRequest();
+    return url;
+  }
+
+  buildGoogleAuthorizationRequest(): { url: string; state: string; expiresAt: Date } {
     if (!this.config.googleClientId) {
       throw new BadRequestException("GOOGLE_CLIENT_ID nao configurado.");
     }
 
+    const state = randomBytes(32).toString("base64url");
     const params = new URLSearchParams({
       client_id: this.config.googleClientId,
       redirect_uri: this.config.googleCallbackUrl,
       response_type: "code",
       scope: "openid email profile",
       prompt: "select_account",
+      state,
     });
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    return {
+      url: `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
+      state,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    };
   }
 
   async exchangeGoogleCode(code: string): Promise<GoogleProfile> {
@@ -102,6 +115,7 @@ export class AuthService {
     const profile = (await profileResponse.json()) as {
       sub?: string;
       email?: string;
+      email_verified?: boolean;
       name?: string;
       picture?: string;
     };
@@ -109,6 +123,9 @@ export class AuthService {
   }
 
   async validateGoogleUser(profile: GoogleProfile): Promise<UserRecord> {
+    if (!profile.emailVerified) {
+      throw new UnauthorizedException("Email Google nao verificado.");
+    }
     return this.findOrCreateUserFromGoogle(profile);
   }
 
@@ -169,6 +186,9 @@ export class AuthService {
     if (!user) {
       return undefined;
     }
+    if (!user.isActive) {
+      return undefined;
+    }
 
     return {
       id: user.id,
@@ -176,8 +196,29 @@ export class AuthService {
       name: user.name,
       avatarUrl: user.avatarUrl,
       playerId: user.playerId,
+      playerNickname: user.playerNickname,
       sessionId,
     };
+  }
+
+  async renewSession(
+    user: AuthenticatedUser,
+    request: AuthenticatedRequest,
+  ): Promise<{ token: string; expiresAt: Date }> {
+    await this.revokeSession(user.sessionId);
+    return this.createSession(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatarUrl: user.avatarUrl,
+        googleSubject: "",
+        isActive: true,
+        playerId: user.playerId,
+        playerNickname: user.playerNickname,
+      },
+      request,
+    );
   }
 
   async revokeSession(sessionId: string): Promise<void> {
@@ -202,6 +243,34 @@ export class AuthService {
     });
   }
 
+  oauthStateCookieHeader(state: string, expiresAt: Date): string {
+    return this.serializeCookie("fortuna_oauth_state", state, {
+      expiresAt,
+      httpOnly: true,
+    });
+  }
+
+  clearOAuthStateCookieHeader(): string {
+    return this.serializeCookie("fortuna_oauth_state", "", {
+      expiresAt: new Date(0),
+      httpOnly: true,
+    });
+  }
+
+  validateOAuthState(
+    request: AuthenticatedRequest,
+    receivedState?: string,
+  ): boolean {
+    if (!receivedState) {
+      return false;
+    }
+    const storedState = this.readCookie(request, "fortuna_oauth_state");
+    if (!storedState) {
+      return false;
+    }
+    return this.hashesMatch(storedState, receivedState);
+  }
+
   clearCookieHeader(): string {
     return this.serializeCookie(this.config.cookieName, "", {
       expiresAt: new Date(0),
@@ -217,38 +286,101 @@ export class AuthService {
     profile: GoogleProfile,
   ): Promise<UserRecord> {
     if (this.prisma) {
-      const user = await this.prisma.user.upsert({
-        where: { googleSubject: profile.subject },
-        update: {
-          email: profile.email,
-          name: profile.name,
-          avatarUrl: profile.avatarUrl,
-          lastLoginAt: new Date(),
-        },
-        create: {
-          email: profile.email,
-          name: profile.name,
-          avatarUrl: profile.avatarUrl,
-          googleSubject: profile.subject,
-          lastLoginAt: new Date(),
-        },
-        include: { player: true },
-      });
+      const { user, player } = await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.upsert({
+          where: { googleSubject: profile.subject },
+          update: {
+            email: profile.email,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+            lastLoginAt: new Date(),
+          },
+          create: {
+            email: profile.email,
+            name: profile.name,
+            avatarUrl: profile.avatarUrl,
+            googleSubject: profile.subject,
+            lastLoginAt: new Date(),
+          },
+          include: { player: true },
+        });
+        if (!user.isActive) {
+          throw new UnauthorizedException("Usuario inativo.");
+        }
 
-      let player = user.player;
-      if (!player) {
+        if (user.player) {
+          return { user, player: user.player };
+        }
+
         const playerId = `player-${user.id}`;
-        await this.players.createPlayer({
-          id: playerId,
-          name: profile.name ?? profile.email,
-          nickname: profile.name,
-          initialBalanceCents: 20_000,
+        const now = new Date();
+        const player = await tx.player.create({
+          data: {
+            id: playerId,
+            userId: user.id,
+            name: profile.name ?? profile.email,
+            nickname: null,
+          },
         });
-        player = await this.prisma.player.update({
-          where: { id: playerId },
-          data: { userId: user.id },
+        const walletId = `wallet-${playerId}`;
+        await tx.wallet.create({
+          data: {
+            id: walletId,
+            playerId,
+            availableBalanceCents: 20_000,
+          },
         });
-      }
+        await tx.cityState.create({
+          data: {
+            id: `city-${playerId}`,
+            playerId,
+            unlockedBuildings: {
+              version: 1,
+              playerProgress: {
+                playerId,
+                level: 1,
+                experiencePoints: 0,
+                completedMissionIds: [],
+                rewardedMissionIds: [],
+                grantedBadges: [],
+                unlockedDistricts: ["CENTRO_FINANCEIRO"],
+                unlockedAssetClasses: ["CASH"],
+                unlockedTools: ["WALLET_SUMMARY"],
+                unlockedReports: [],
+                seenEventTypes: [],
+                netWorthMilestonesReachedCents: [],
+                marketCyclesAdvanced: 0,
+                updatedAt: now.toISOString(),
+              },
+            },
+          },
+        });
+        await tx.transaction.create({
+          data: {
+            id: randomUUID(),
+            playerId,
+            walletId,
+            transactionType: "INITIAL_DEPOSIT",
+            status: "CONFIRMED",
+            grossAmountCents: 20_000,
+            feesCents: 0,
+            netAmountCents: 20_000,
+            balanceBeforeCents: 0,
+            balanceAfterCents: 20_000,
+            occurredAt: now,
+          },
+        });
+        await tx.gameEvent.create({
+          data: {
+            id: randomUUID(),
+            playerId,
+            eventType: "PLAYER_CREATED",
+            eventPayload: { source: "GOOGLE_AUTH" },
+            occurredAt: now,
+          },
+        });
+        return { user, player };
+      });
 
       return {
         id: user.id,
@@ -256,7 +388,9 @@ export class AuthService {
         name: user.name ?? undefined,
         avatarUrl: user.avatarUrl ?? undefined,
         googleSubject: user.googleSubject,
+        isActive: user.isActive,
         playerId: player.id,
+        playerNickname: player.nickname ?? undefined,
       };
     }
 
@@ -278,7 +412,9 @@ export class AuthService {
       name: profile.name,
       avatarUrl: profile.avatarUrl,
       googleSubject: profile.subject,
+      isActive: true,
       playerId: player.id,
+      playerNickname: player.nickname,
     };
     this.memoryUsersByGoogleSubject.set(profile.subject, user);
     this.memoryUsersById.set(user.id, user);
@@ -324,13 +460,18 @@ export class AuthService {
       if (!user?.player) {
         return undefined;
       }
+      if (!user.isActive) {
+        return undefined;
+      }
       return {
         id: user.id,
         email: user.email,
         name: user.name ?? undefined,
         avatarUrl: user.avatarUrl ?? undefined,
         googleSubject: user.googleSubject,
+        isActive: user.isActive,
         playerId: user.player.id,
+        playerNickname: user.player.nickname ?? undefined,
       };
     }
 
@@ -342,14 +483,19 @@ export class AuthService {
     email?: string;
     name?: string;
     picture?: string;
+    email_verified?: boolean;
   }): GoogleProfile {
     if (!profile.sub || !profile.email) {
       throw new UnauthorizedException("Perfil Google sem email ou subject.");
+    }
+    if (profile.email_verified !== true) {
+      throw new UnauthorizedException("Email Google nao verificado.");
     }
 
     return {
       subject: profile.sub,
       email: profile.email.toLowerCase(),
+      emailVerified: profile.email_verified,
       name: profile.name,
       avatarUrl: profile.picture,
     };

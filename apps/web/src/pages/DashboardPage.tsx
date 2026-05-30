@@ -31,11 +31,11 @@ export function DashboardPage({
       <>
         <EducationalDisclaimer />
         <EmptyState
-          title="Comece sua jornada Fortuna"
-          description="Crie um jogador para acompanhar saldo, carteira, rendimentos simulados e historico financeiro."
+          title="Jornada em preparacao"
+          description="A sessao esta ativa, mas os dados do jogador ainda nao foram carregados. Tente restaurar a sessao segura."
           action={
             <button type="button" className="button button-primary" onClick={onCreatePlayer}>
-              Criar jogador
+              Entrar com Google
             </button>
           }
         />
