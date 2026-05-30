@@ -15,6 +15,7 @@ export class ApiClientError extends Error {
 }
 
 const rawBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export const apiRootUrl = rawBaseUrl.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
 
 function normalizeBaseUrl(value: string): string {
   const withoutTrailingSlash = value.replace(/\/+$/, "");
@@ -52,6 +53,7 @@ export async function apiClient<TResponse>(
 ): Promise<TResponse> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",

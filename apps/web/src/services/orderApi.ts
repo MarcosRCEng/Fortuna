@@ -18,7 +18,7 @@ export async function buyAsset(
   quantity: number,
 ): Promise<OrderExecution> {
   const response = await apiClient<OrderExecutionResponse>(
-    `/players/${playerId}/orders/buy`,
+    playerId === "me" ? "/me/orders/buy" : `/players/${playerId}/orders/buy`,
     {
       method: "POST",
       body: JSON.stringify({ assetId, quantity: String(quantity) }),
@@ -33,7 +33,7 @@ export async function sellAsset(
   quantity: number,
 ): Promise<OrderExecution> {
   const response = await apiClient<OrderExecutionResponse>(
-    `/players/${playerId}/orders/sell`,
+    playerId === "me" ? "/me/orders/sell" : `/players/${playerId}/orders/sell`,
     {
       method: "POST",
       body: JSON.stringify({ assetId, quantity: String(quantity) }),

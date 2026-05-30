@@ -10,6 +10,12 @@ import { HistoryPage } from "../pages/HistoryPage.js";
 import { MarketPage } from "../pages/MarketPage.js";
 import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
+import {
+  getCurrentSession,
+  loginWithGoogle,
+  logout,
+  type AuthSession,
+} from "../services/authApi.js";
 import { getAssets } from "../services/assetApi.js";
 import { getCityState, type CityStateResponse } from "../services/cityApi.js";
 import { collectIncome } from "../services/incomeApi.js";
@@ -22,7 +28,6 @@ import {
 } from "../services/missionApi.js";
 import { buyAsset, sellAsset } from "../services/orderApi.js";
 import {
-  createPlayer,
   getPlayerSummary,
   markMentorMessageAsRead,
 } from "../services/playerApi.js";
@@ -36,8 +41,6 @@ import type { Asset } from "../types/asset.js";
 import type { PlayerSummary } from "../types/player.js";
 import type { Transaction } from "../types/transaction.js";
 import type { Portfolio, PortfolioAllocation, Position } from "../types/wallet.js";
-
-const playerStorageKey = "fortuna.playerId";
 
 const screenPaths: Record<ScreenKey, string> = {
   dashboard: "/",
@@ -63,9 +66,8 @@ export function App() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>(() =>
     screenFromPath(window.location.pathname),
   );
-  const [playerId, setPlayerId] = useState(() =>
-    localStorage.getItem(playerStorageKey),
-  );
+  const [session, setSession] = useState<AuthSession>();
+  const [authLoading, setAuthLoading] = useState(true);
   const [summary, setSummary] = useState<PlayerSummary>();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio>();
@@ -80,6 +82,33 @@ export function App() {
   const [success, setSuccess] = useState<string>();
   const [orderDraft, setOrderDraft] = useState<OrderDraft>();
   const [quantityInput, setQuantityInput] = useState("1");
+  const playerId = session ? "me" : null;
+
+  useEffect(() => {
+    let active = true;
+    async function restoreSession() {
+      setAuthLoading(true);
+      try {
+        const current = await getCurrentSession();
+        if (active) {
+          setSession(current);
+        }
+      } catch {
+        if (active) {
+          setSession(undefined);
+        }
+      } finally {
+        if (active) {
+          setAuthLoading(false);
+        }
+      }
+    }
+
+    void restoreSession();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!playerId) {
@@ -162,36 +191,21 @@ export function App() {
     [portfolio],
   );
 
-  async function handleCreatePlayer() {
+  async function handleLogout() {
     setSubmitting(true);
     setError(undefined);
-    setSuccess(undefined);
     try {
-      const player = await createPlayer("Jogador Fortuna");
-      localStorage.setItem(playerStorageKey, player.id);
-      setPlayerId(player.id);
-      const initializedMissions = await initializeMissions(player.id);
-      setMissions(initializedMissions.missions);
-      setSuccess("Jogador criado. Agora voce pode explorar mercado, carteira e historico.");
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : "Nao foi possivel criar jogador.",
-      );
+      await logout();
     } finally {
+      setSession(undefined);
+      setSummary(undefined);
+      setPortfolio(undefined);
+      setAllocation(undefined);
+      setTransactions([]);
+      setMissions([]);
+      setCityState(undefined);
       setSubmitting(false);
     }
-  }
-
-  function handleResetPlayer() {
-    localStorage.removeItem(playerStorageKey);
-    setPlayerId(null);
-    setSummary(undefined);
-    setPortfolio(undefined);
-    setAllocation(undefined);
-    setTransactions([]);
-    setMissions([]);
-    setCityState(undefined);
-    setSuccess("Jogador local removido. Crie ou carregue outro jogador para continuar.");
   }
 
   function openBuy(asset: Asset) {
@@ -332,13 +346,7 @@ export function App() {
   }
 
   const currentPage = !playerId ? (
-    <DashboardPage
-      collecting={submitting}
-      onCreatePlayer={handleCreatePlayer}
-      onGoToMarket={() => handleNavigate("market")}
-      onCollectIncome={handleCollectIncome}
-      onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
-    />
+    <LoginPage onLogin={loginWithGoogle} />
   ) : activeScreen === "market" ? (
     <MarketPage
       assets={assets}
@@ -381,7 +389,7 @@ export function App() {
       portfolio={portfolio}
       allocation={allocation}
       collecting={submitting}
-      onCreatePlayer={handleCreatePlayer}
+      onCreatePlayer={loginWithGoogle}
       onGoToMarket={() => handleNavigate("market")}
       onCollectIncome={handleCollectIncome}
       onMarkMentorMessageAsRead={handleMarkMentorMessageAsRead}
@@ -392,34 +400,59 @@ export function App() {
     <Layout
       activeScreen={activeScreen}
       onNavigate={handleNavigate}
-      onResetPlayer={handleResetPlayer}
+      currentUser={session?.user}
+      onLogout={handleLogout}
     >
-      {success ? (
-        <div className="state state-success" role="status">
-          <strong>Atualizado</strong>
-          <p>{success}</p>
-        </div>
-      ) : null}
-      {error ? <ErrorState message={error} onRetry={loadData} /> : null}
-      {loading ? (
-        <LoadingState message="Carregando dados financeiros da API..." />
+      {authLoading ? (
+        <LoadingState message="Restaurando sessao segura..." />
       ) : (
-        currentPage
+        <>
+          {success ? (
+            <div className="state state-success" role="status">
+              <strong>Atualizado</strong>
+              <p>{success}</p>
+            </div>
+          ) : null}
+          {error ? <ErrorState message={error} onRetry={loadData} /> : null}
+          {loading ? (
+            <LoadingState message="Carregando dados financeiros da API..." />
+          ) : (
+            currentPage
+          )}
+          {orderDraft ? (
+            <OrderModal
+              mode={orderDraft.mode}
+              asset={orderDraft.asset}
+              position={orderDraft.position}
+              availableCashCents={summary?.availableCashCents ?? 0}
+              quantityInput={quantityInput}
+              submitting={submitting}
+              onQuantityChange={setQuantityInput}
+              onCancel={() => setOrderDraft(undefined)}
+              onConfirm={handleConfirmOrder}
+            />
+          ) : null}
+        </>
       )}
-      {orderDraft ? (
-        <OrderModal
-          mode={orderDraft.mode}
-          asset={orderDraft.asset}
-          position={orderDraft.position}
-          availableCashCents={summary?.availableCashCents ?? 0}
-          quantityInput={quantityInput}
-          submitting={submitting}
-          onQuantityChange={setQuantityInput}
-          onCancel={() => setOrderDraft(undefined)}
-          onConfirm={handleConfirmOrder}
-        />
-      ) : null}
     </Layout>
+  );
+}
+
+function LoginPage({ onLogin }: { onLogin(): void }) {
+  return (
+    <section className="login-screen">
+      <div className="login-panel">
+        <span className="section-kicker">Sessao segura</span>
+        <h1>Entrar no Fortuna</h1>
+        <p>Use sua conta Google para salvar seu progresso.</p>
+        <button type="button" className="button button-primary" onClick={onLogin}>
+          Continuar com Google
+        </button>
+        <p className="educational-note">
+          O Fortuna e uma simulacao educativa. Nenhuma operacao real sera executada.
+        </p>
+      </div>
+    </section>
   );
 }
 

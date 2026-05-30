@@ -4,6 +4,7 @@ import { ApiExceptionFilter } from "./infra/errors/api-exception.filter.js";
 import { CorrelationIdMiddleware } from "./common/logging/correlation-id.middleware.js";
 import { LoggingInterceptor } from "./common/logging/logging.interceptor.js";
 import { LoggingModule } from "./common/logging/logging.module.js";
+import { AuthModule } from "./modules/auth/auth.module.js";
 import { AssetsModule } from "./modules/assets/assets.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { MarketModule } from "./modules/market/market.module.js";
@@ -17,6 +18,7 @@ import { WalletModule } from "./modules/wallet/wallet.module.js";
 @Module({
   imports: [
     LoggingModule,
+    AuthModule,
     HealthModule,
     WalletModule,
     AssetsModule,

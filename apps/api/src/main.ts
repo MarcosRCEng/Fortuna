@@ -5,16 +5,24 @@ import { AppModule } from "./app.module.js";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  const allowedOrigins = (
+    process.env.WEB_APP_URL ??
+    process.env.WEB_ORIGIN ??
+    "http://localhost:5173"
+  )
+    .split(",")
+    .map((origin) => origin.trim());
   app.enableCors({
-    origin:
-      process.env.WEB_ORIGIN?.split(",").map((origin) => origin.trim()) ??
-      "http://localhost:5173",
+    origin: allowedOrigins,
+    credentials: true,
   });
 
   const config = new DocumentBuilder()
     .setTitle("Fortuna API")
     .setDescription("Fortuna financial education platform API.")
     .setVersion("0.1.0")
+    .addTag("auth", "Autenticacao Google OAuth e sessao.")
+    .addTag("me", "Rotas autenticadas do jogador atual.")
     .addTag("players", "Jogadores, carteira, ordens e historico.")
     .addTag("assets", "Catalogo mockado de ativos.")
     .addTag("market", "Cotacoes mockadas de mercado.")

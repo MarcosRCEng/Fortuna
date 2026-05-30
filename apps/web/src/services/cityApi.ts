@@ -10,5 +10,5 @@ export type CityStateResponse = {
 };
 
 export function getCityState(playerId: string): Promise<CityStateResponse> {
-  return apiClient<CityStateResponse>(`/players/${playerId}/city`);
+  return apiClient<CityStateResponse>(playerId === "me" ? "/me/city" : `/players/${playerId}/city`);
 }

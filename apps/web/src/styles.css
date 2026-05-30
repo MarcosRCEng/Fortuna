@@ -130,6 +130,39 @@ button:disabled {
   color: #647084;
 }
 
+.session-menu {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-self: end;
+}
+
+.session-menu img,
+.session-menu > span {
+  border-radius: 999px;
+  height: 38px;
+  width: 38px;
+}
+
+.session-menu > span {
+  align-items: center;
+  background: #edf5f1;
+  color: #244c3a;
+  display: grid;
+  font-weight: 900;
+  place-items: center;
+}
+
+.session-menu strong,
+.session-menu small {
+  display: block;
+}
+
+.session-menu small {
+  color: #2f6f4e;
+  font-weight: 800;
+}
+
 .sidebar nav {
   display: grid;
   gap: 8px;
@@ -157,6 +190,34 @@ button:disabled {
   display: grid;
   gap: 20px;
   padding: 32px;
+}
+
+.login-screen {
+  display: grid;
+  min-height: calc(100vh - 140px);
+  place-items: center;
+}
+
+.login-panel {
+  background: #ffffff;
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(36, 76, 58, 0.08);
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+  padding: 28px;
+  width: min(100%, 520px);
+}
+
+.login-panel h1,
+.login-panel p {
+  margin: 0;
+}
+
+.login-panel h1 {
+  font-size: 2rem;
+  line-height: 1.1;
 }
 
 .page-header {
