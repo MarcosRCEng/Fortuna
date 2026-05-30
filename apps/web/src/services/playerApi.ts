@@ -41,18 +41,26 @@ export function createPlayer(name: string): Promise<Player> {
 }
 
 export function getPlayer(playerId: string): Promise<Player> {
-  return apiClient<Player>(`/players/${playerId}`);
+  return apiClient<Player>(playerId === "me" ? "/me/player" : `/players/${playerId}`);
 }
 
 export async function getPlayerSummary(
   playerId: string,
 ): Promise<PlayerSummary> {
   const [response, mentor] = await Promise.all([
-    apiClient<PlayerSummaryResponse>(`/players/${playerId}/summary`),
-    apiClient<MentorLatestMessageResponse>(`/players/${playerId}/mentor/latest`),
+    apiClient<PlayerSummaryResponse>(
+      playerId === "me" ? "/me/summary" : `/players/${playerId}/summary`,
+    ),
+    apiClient<MentorLatestMessageResponse>(
+      playerId === "me"
+        ? "/me/mentor/latest"
+        : `/players/${playerId}/mentor/latest`,
+    ),
   ]);
   const gameLoopState = await apiClient<GameLoopStateResponse>(
-    `/players/${playerId}/game-loop/state`,
+    playerId === "me"
+      ? "/me/game-loop/state"
+      : `/players/${playerId}/game-loop/state`,
   ).catch(() => undefined);
   const latestGameLoopMessage = gameLoopState?.mentor.latestMessages[0] ?? null;
   return {
@@ -82,7 +90,12 @@ export async function markMentorMessageAsRead(
   playerId: string,
   messageId: string,
 ): Promise<void> {
-  await apiClient(`/players/${playerId}/mentor/messages/${messageId}/read`, {
-    method: "POST",
-  });
+  await apiClient(
+    playerId === "me"
+      ? `/me/mentor/messages/${messageId}/read`
+      : `/players/${playerId}/mentor/messages/${messageId}/read`,
+    {
+      method: "POST",
+    },
+  );
 }

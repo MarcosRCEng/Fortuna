@@ -76,3 +76,20 @@ A integração deve respeitar a seguinte política:
 - Não exibir dados como se fossem tempo real garantido.
 - Exibir disclaimer quando dados reais estiverem habilitados.
 - Registrar provider, horário da consulta e status da origem dos dados quando aplicável.
+# Credenciais brapi no MVP
+
+O token da brapi e uma credencial de integracao, nao uma identidade de usuario. O e-mail autenticado pelo Google identifica o usuario no Fortuna; o token brapi deve ficar somente no backend.
+
+Para o MVP, use um token de aplicacao:
+
+```env
+MARKET_DATA_PROVIDER=brapi
+MARKET_DATA_ALLOW_REAL_DATA=false
+BRAPI_BASE_URL=https://brapi.dev/api
+BRAPI_API_TOKEN=
+BRAPI_TIMEOUT_MS=5000
+BRAPI_CACHE_TTL_SECONDS=900
+BRAPI_MAX_SYMBOLS_PER_REQUEST=1
+```
+
+Nao exponha `BRAPI_API_TOKEN` no frontend e nao grave esse token em `localStorage`. O modelo `UserBrapiCredential` existe para uma sprint futura com token por usuario criptografado no backend.

@@ -1,13 +1,17 @@
-import type { ReactNode } from "react";
-
 export function Header({
   title,
   description,
-  action,
+  currentUser,
+  onLogout,
 }: {
   title: string;
   description: string;
-  action?: ReactNode;
+  currentUser?: {
+    name?: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  onLogout?: () => void;
 }) {
   return (
     <header className="topbar">
@@ -22,7 +26,22 @@ export function Header({
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      {action}
+      {currentUser ? (
+        <div className="session-menu">
+          {currentUser.avatarUrl ? (
+            <img src={currentUser.avatarUrl} alt="" />
+          ) : (
+            <span>{(currentUser.name ?? currentUser.email).slice(0, 1)}</span>
+          )}
+          <div>
+            <strong>{currentUser.name ?? currentUser.email}</strong>
+            <small>Conectado</small>
+          </div>
+          <button type="button" className="button button-ghost" onClick={onLogout}>
+            Sair
+          </button>
+        </div>
+      ) : null}
     </header>
   );
 }

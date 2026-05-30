@@ -5,12 +5,18 @@ import { NavigationTabs, type ScreenKey } from "./NavigationTabs.js";
 export function Layout({
   activeScreen,
   onNavigate,
-  onResetPlayer,
+  currentUser,
+  onLogout,
   children,
 }: {
   activeScreen: ScreenKey;
   onNavigate(screen: ScreenKey): void;
-  onResetPlayer(): void;
+  currentUser?: {
+    name?: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  onLogout(): void;
   children: ReactNode;
 }) {
   return (
@@ -18,13 +24,10 @@ export function Layout({
       <Header
         title="Fortuna"
         description="Acompanhe sua evolucao financeira simulada com calma, contexto e rastreabilidade."
-        action={
-          <button type="button" className="button button-ghost" onClick={onResetPlayer}>
-            Trocar jogador
-          </button>
-        }
+        currentUser={currentUser}
+        onLogout={onLogout}
       />
-      <NavigationTabs active={activeScreen} onNavigate={onNavigate} />
+      {currentUser ? <NavigationTabs active={activeScreen} onNavigate={onNavigate} /> : null}
       <main className="content-shell">{children}</main>
     </div>
   );

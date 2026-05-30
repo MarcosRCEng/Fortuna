@@ -63,10 +63,14 @@ function looksTechnical(value: string): boolean {
 
 export async function getTransactions(playerId: string): Promise<Transaction[]> {
   const [response, gameLoopState] = await Promise.all([
-    apiClient<TransactionsListResponse>(`/players/${playerId}/transactions`),
-    apiClient<GameLoopHistoryResponse>(`/players/${playerId}/game-loop/state`).catch(
-      () => undefined,
+    apiClient<TransactionsListResponse>(
+      playerId === "me" ? "/me/transactions" : `/players/${playerId}/transactions`,
     ),
+    apiClient<GameLoopHistoryResponse>(
+      playerId === "me"
+        ? "/me/game-loop/state"
+        : `/players/${playerId}/game-loop/state`,
+    ).catch(() => undefined),
   ]);
   const financialTransactions = response.items.map((transaction) => ({
     id: transaction.id,

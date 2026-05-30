@@ -37,12 +37,14 @@ type AllocationResponse = {
 };
 
 export function getWallet(playerId: string): Promise<Wallet> {
-  return apiClient<Wallet>(`/players/${playerId}/wallet`);
+  return apiClient<Wallet>(playerId === "me" ? "/me/wallet" : `/players/${playerId}/wallet`);
 }
 
 export async function getPortfolio(playerId: string): Promise<Portfolio> {
   const [portfolio, assets] = await Promise.all([
-    apiClient<PortfolioResponse>(`/players/${playerId}/portfolio`),
+    apiClient<PortfolioResponse>(
+      playerId === "me" ? "/me/portfolio" : `/players/${playerId}/portfolio`,
+    ),
     getAssets(),
   ]);
   const typeByAsset = new Map(assets.map((asset) => [asset.id, asset.type]));
@@ -71,7 +73,9 @@ export async function getPortfolioAllocation(
   playerId: string,
 ): Promise<PortfolioAllocation> {
   const response = await apiClient<AllocationResponse>(
-    `/players/${playerId}/portfolio/allocation`,
+    playerId === "me"
+      ? "/me/portfolio/allocation"
+      : `/players/${playerId}/portfolio/allocation`,
   );
   return {
     playerId: response.playerId,

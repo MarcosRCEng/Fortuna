@@ -29,19 +29,24 @@ export type PlayerMission = {
 export function getMissions(
   playerId: string,
 ): Promise<{ missions: PlayerMission[] }> {
-  return apiClient(`/players/${playerId}/missions`);
+  return apiClient(playerId === "me" ? "/me/missions" : `/players/${playerId}/missions`);
 }
 
 export function initializeMissions(
   playerId: string,
 ): Promise<{ missions: PlayerMission[] }> {
-  return apiClient(`/players/${playerId}/missions/initialize`, {
+  return apiClient(playerId === "me" ? "/me/missions/initialize" : `/players/${playerId}/missions/initialize`, {
     method: "POST",
   });
 }
 
 export function viewAssetEducation(playerId: string, assetId: string) {
-  return apiClient(`/players/${playerId}/assets/${assetId}/education-viewed`, {
-    method: "POST",
-  });
+  return apiClient(
+    playerId === "me"
+      ? `/me/assets/${assetId}/education-viewed`
+      : `/players/${playerId}/assets/${assetId}/education-viewed`,
+    {
+      method: "POST",
+    },
+  );
 }
