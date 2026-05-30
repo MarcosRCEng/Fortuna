@@ -4,6 +4,7 @@ export interface AuthenticatedUser {
   name?: string;
   avatarUrl?: string;
   playerId: string;
+  playerNickname?: string;
   sessionId: string;
 }
 
@@ -16,7 +17,7 @@ export interface AuthenticatedRequest {
 export interface GoogleProfile {
   subject: string;
   email: string;
+  emailVerified: boolean;
   name?: string;
   avatarUrl?: string;
 }
-

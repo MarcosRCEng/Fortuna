@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -17,6 +18,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { PlayerApiService } from "./player-api.service.js";
+import { PlayerOwnershipGuard } from "../auth/player-ownership.guard.js";
 import {
   ApiErrorDto,
   CollectIncomeRequestDto,
@@ -38,6 +40,7 @@ import {
 } from "./player.dto.js";
 
 @ApiTags("players")
+@UseGuards(PlayerOwnershipGuard)
 @Controller(["api/v1/players", "players"])
 export class PlayerController {
   @Inject(PlayerApiService)

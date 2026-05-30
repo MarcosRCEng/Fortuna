@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ErrorState } from "../components/ErrorState.js";
 import { Layout } from "../components/Layout.js";
 import { LoadingState } from "../components/LoadingState.js";
@@ -14,6 +14,7 @@ import {
   getCurrentSession,
   loginWithGoogle,
   logout,
+  updateCurrentPlayer,
   type AuthSession,
 } from "../services/authApi.js";
 import { getAssets } from "../services/assetApi.js";
@@ -77,6 +78,7 @@ export function App() {
   const [cityState, setCityState] = useState<CityStateResponse>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [onboardingName, setOnboardingName] = useState("");
   const [refreshingMarket, setRefreshingMarket] = useState(false);
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -204,6 +206,37 @@ export function App() {
       setTransactions([]);
       setMissions([]);
       setCityState(undefined);
+      setSubmitting(false);
+    }
+  }
+
+  async function handleOnboardingSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      const player = await updateCurrentPlayer(onboardingName);
+      setSession((current) =>
+        current
+          ? {
+              ...current,
+              player: {
+                ...current.player,
+                ...player,
+              },
+            }
+          : current,
+      );
+      setOnboardingName("");
+      await loadData();
+      handleNavigate("dashboard");
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Nao foi possivel salvar seu nome de jogador.",
+      );
+    } finally {
       setSubmitting(false);
     }
   }
@@ -345,8 +378,17 @@ export function App() {
     }
   }
 
+  const needsOnboarding = Boolean(playerId && !session?.player.nickname);
+
   const currentPage = !playerId ? (
     <LoginPage onLogin={loginWithGoogle} />
+  ) : needsOnboarding ? (
+    <OnboardingPage
+      value={onboardingName}
+      submitting={submitting}
+      onChange={setOnboardingName}
+      onSubmit={handleOnboardingSubmit}
+    />
   ) : activeScreen === "market" ? (
     <MarketPage
       assets={assets}
@@ -435,6 +477,47 @@ export function App() {
         </>
       )}
     </Layout>
+  );
+}
+
+function OnboardingPage({
+  value,
+  submitting,
+  onChange,
+  onSubmit,
+}: {
+  value: string;
+  submitting: boolean;
+  onChange(value: string): void;
+  onSubmit(event: FormEvent<HTMLFormElement>): void;
+}) {
+  return (
+    <section className="login-screen">
+      <form className="login-panel" onSubmit={onSubmit}>
+        <span className="section-kicker">Boas-vindas</span>
+        <h1>Escolha seu nome de jogador</h1>
+        <label className="field-label" htmlFor="player-nickname">
+          Nome de jogador
+        </label>
+        <input
+          id="player-nickname"
+          className="text-input"
+          type="text"
+          minLength={3}
+          maxLength={40}
+          required
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="submit"
+          className="button button-primary"
+          disabled={submitting}
+        >
+          Comecar minha jornada
+        </button>
+      </form>
+    </section>
   );
 }
 

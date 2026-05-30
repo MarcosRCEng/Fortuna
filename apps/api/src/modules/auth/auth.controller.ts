@@ -27,26 +27,42 @@ export class AuthController {
   @Get("google")
   @ApiOperation({ summary: "Iniciar login com Google OAuth." })
   google(@Res() response: ResponseLike): void {
-    response.redirect(this.auth.buildGoogleAuthorizationUrl());
+    const authorization = this.auth.buildGoogleAuthorizationRequest();
+    response.setHeader(
+      "Set-Cookie",
+      this.auth.oauthStateCookieHeader(authorization.state, authorization.expiresAt),
+    );
+    response.redirect(authorization.url);
   }
 
   @Get("google/callback")
   @ApiOperation({ summary: "Receber callback Google e criar sessao." })
   async googleCallback(
     @Query("code") code: string | undefined,
+    @Query("state") state: string | undefined,
     @Req() request: AuthenticatedRequest,
     @Res() response: ResponseLike,
   ): Promise<void> {
-    if (!code) {
-      response.redirect(this.auth.webAppRedirect("/login?error=google"));
+    const clearStateCookie = this.auth.clearOAuthStateCookieHeader();
+    if (!code || !this.auth.validateOAuthState(request, state)) {
+      response.setHeader("Set-Cookie", clearStateCookie);
+      response.redirect(this.auth.webAppRedirect("/login?error=google_auth_failed"));
       return;
     }
 
-    const profile = await this.auth.exchangeGoogleCode(code);
-    const user = await this.auth.validateGoogleUser(profile);
-    const session = await this.auth.createSession(user, request);
-    response.setHeader("Set-Cookie", this.auth.cookieHeader(session.token, session.expiresAt));
-    response.redirect(this.auth.webAppRedirect("/"));
+    try {
+      const profile = await this.auth.exchangeGoogleCode(code);
+      const user = await this.auth.validateGoogleUser(profile);
+      const session = await this.auth.createSession(user, request);
+      response.setHeader("Set-Cookie", [
+        this.auth.cookieHeader(session.token, session.expiresAt),
+        clearStateCookie,
+      ]);
+      response.redirect(this.auth.webAppRedirect("/"));
+    } catch {
+      response.setHeader("Set-Cookie", clearStateCookie);
+      response.redirect(this.auth.webAppRedirect("/login?error=google_auth_failed"));
+    }
   }
 
   @Get("me")
@@ -63,6 +79,7 @@ export class AuthController {
       },
       player: {
         id: user.playerId,
+        nickname: user.playerNickname,
       },
     };
   }
@@ -80,11 +97,17 @@ export class AuthController {
     return { ok: true };
   }
 
-  @Post("refresh")
+  @Post("session/renew")
   @UseGuards(SessionAuthGuard)
   @HttpCode(200)
-  @ApiOperation({ summary: "Validar sessao persistente atual." })
-  refresh(@CurrentUser() user: AuthenticatedUser) {
+  @ApiOperation({ summary: "Renovar sessao persistente atual." })
+  async renewSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: ResponseLike,
+  ) {
+    const session = await this.auth.renewSession(user, request);
+    response.setHeader("Set-Cookie", this.auth.cookieHeader(session.token, session.expiresAt));
     return {
       user: {
         id: user.id,
@@ -94,8 +117,20 @@ export class AuthController {
       },
       player: {
         id: user.playerId,
+        nickname: user.playerNickname,
       },
     };
   }
-}
 
+  @Post("refresh")
+  @UseGuards(SessionAuthGuard)
+  @HttpCode(200)
+  @ApiOperation({ summary: "Rota legada: renova a sessao persistente atual." })
+  refresh(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: ResponseLike,
+  ) {
+    return this.renewSession(user, request, response);
+  }
+}

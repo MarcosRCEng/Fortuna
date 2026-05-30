@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { PlayerApiService } from "../player/player-api.service.js";
 import type {
@@ -19,6 +29,15 @@ export class MeController {
   @ApiOperation({ summary: "Consultar jogador autenticado." })
   getPlayer(@CurrentUser() user: AuthenticatedUser) {
     return this.players.getPlayer(user.playerId);
+  }
+
+  @Patch("player")
+  @ApiOperation({ summary: "Atualizar dados do jogador autenticado." })
+  updatePlayer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: { nickname?: string },
+  ) {
+    return this.players.updatePlayerNickname(user.playerId, request.nickname);
   }
 
   @Get("summary")
