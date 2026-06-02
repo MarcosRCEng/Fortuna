@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { CityStateResponse } from "../../services/cityApi.js";
 import type { PlayerMission } from "../../services/missionApi.js";
 import type { PlayerSummary } from "../../types/player.js";
@@ -8,6 +8,9 @@ import { CityBuildingsGrid } from "./CityBuildingsGrid.js";
 import { CitySummary } from "./CitySummary.js";
 import { deriveCityBuildings } from "./city.rules.js";
 import type { DeriveCityInput } from "./city.types.js";
+import type { CityBuildingViewModel } from "./city.types.js";
+import { CityBuildingDetailsModal } from "./components/CityBuildingDetailsModal.js";
+import { CityScene } from "./components/CityScene.js";
 
 export function CityPage({
   summary,
@@ -24,6 +27,7 @@ export function CityPage({
   transactions: Transaction[];
   missions: PlayerMission[];
 }) {
+  const [selectedBuilding, setSelectedBuilding] = useState<CityBuildingViewModel | null>(null);
   const input = useMemo(
     () =>
       createCityInput({
@@ -70,6 +74,8 @@ export function CityPage({
         collectedIncomeCents={input.collectedIncomeCents}
       />
 
+      <CityScene buildings={buildings} onBuildingClick={setSelectedBuilding} />
+
       <section className="panel city-guidance">
         <div>
           <span className="section-kicker">Leitura educativa</span>
@@ -82,6 +88,13 @@ export function CityPage({
       </section>
 
       <CityBuildingsGrid buildings={buildings} />
+
+      {selectedBuilding ? (
+        <CityBuildingDetailsModal
+          building={selectedBuilding}
+          onClose={() => setSelectedBuilding(null)}
+        />
+      ) : null}
     </>
   );
 }
