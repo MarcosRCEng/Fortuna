@@ -65,6 +65,26 @@ export class AuthController {
     }
   }
 
+  @Get("dev-login")
+  @ApiOperation({ summary: "Criar sessao local de desenvolvimento." })
+  async devLogin(
+    @Req() request: AuthenticatedRequest,
+    @Res() response: ResponseLike,
+  ): Promise<void> {
+    if (!this.auth.isDevelopmentLoginEnabled()) {
+      response.redirect(this.auth.webAppRedirect("/login?error=dev_login_disabled"));
+      return;
+    }
+
+    const user = await this.auth.createDevelopmentUser();
+    const session = await this.auth.createSession(user, request);
+    response.setHeader(
+      "Set-Cookie",
+      this.auth.cookieHeader(session.token, session.expiresAt),
+    );
+    response.redirect(this.auth.webAppRedirect("/city"));
+  }
+
   @Get("me")
   @UseGuards(SessionAuthGuard)
   @ApiOperation({ summary: "Consultar usuario e jogador da sessao atual." })

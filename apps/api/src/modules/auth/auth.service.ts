@@ -129,6 +129,23 @@ export class AuthService {
     return this.findOrCreateUserFromGoogle(profile);
   }
 
+  isDevelopmentLoginEnabled(): boolean {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  async createDevelopmentUser(): Promise<UserRecord> {
+    if (!this.isDevelopmentLoginEnabled()) {
+      throw new UnauthorizedException("Login local indisponivel.");
+    }
+
+    return this.findOrCreateUserFromGoogle({
+      subject: "local-dev-marcos-rc-bomber",
+      email: "marcos.rc.bomber@gmail.com",
+      emailVerified: true,
+      name: "Marcos",
+    });
+  }
+
   async createSession(
     user: UserRecord,
     request: AuthenticatedRequest,

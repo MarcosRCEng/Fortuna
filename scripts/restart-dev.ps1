@@ -93,7 +93,7 @@ corepack pnpm --filter @fortuna/infrastructure build *>> '$apiLog'
 corepack pnpm --filter @fortuna/api build *>> '$apiLog'
 corepack pnpm --filter @fortuna/api start *>> '$apiLog'
 "@
-$webCommand = "Set-Location '$root'; `$env:WEB_PORT='$WebPort'; corepack pnpm dev:web *> '$webLog'"
+$webCommand = "Set-Location '$root'; $envScript; corepack pnpm dev:web *> '$webLog'"
 
 Write-Host "Subindo API na porta $ApiPort..."
 Start-Process -FilePath "powershell" -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $apiCommand -WindowStyle Hidden | Out-Null
