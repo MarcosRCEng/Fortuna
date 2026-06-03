@@ -12,6 +12,7 @@ import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
 import {
   getCurrentSession,
+  loginWithLocalDevSession,
   loginWithGoogle,
   logout,
   updateCurrentPlayer,
@@ -531,6 +532,15 @@ function LoginPage({ onLogin }: { onLogin(): void }) {
         <button type="button" className="button button-primary" onClick={onLogin}>
           Continuar com Google
         </button>
+        {import.meta.env.DEV ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={loginWithLocalDevSession}
+          >
+            Entrar em modo local
+          </button>
+        ) : null}
         <p className="educational-note">
           O Fortuna e uma simulacao educativa. Nenhuma operacao real sera executada.
         </p>

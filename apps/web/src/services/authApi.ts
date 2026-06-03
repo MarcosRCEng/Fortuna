@@ -18,6 +18,10 @@ export function loginWithGoogle(): void {
   window.location.assign(`${apiRootUrl}/auth/google`);
 }
 
+export function loginWithLocalDevSession(): void {
+  window.location.assign(`${apiRootUrl}/auth/dev-login`);
+}
+
 export function getCurrentSession(): Promise<AuthSession> {
   return authRequest<AuthSession>("/auth/me");
 }
