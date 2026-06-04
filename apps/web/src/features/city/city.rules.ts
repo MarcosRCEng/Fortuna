@@ -4,6 +4,7 @@ import type {
   DeriveCityInput,
 } from "./city.types.js";
 import { cityBuildingsCatalog } from "./data/cityBuildingsCatalog.js";
+import { getCityBuildingCatalogItem } from "./data/cityLayout.selectors.js";
 
 const MAX_LEVEL = 3;
 const LOW_RESERVE_CENTS = 20_000;
@@ -246,11 +247,7 @@ function createBuilding(
 ): CityBuildingViewModel {
   const progressPercent = clampPercent(details.progressPercent);
   const level = calculateLevelByProgress(progressPercent);
-  const catalogItem = cityBuildingsCatalog.find((item) => item.id === id);
-
-  if (!catalogItem) {
-    throw new Error(`Predio da Cidade Fortuna sem catalogo: ${id}`);
-  }
+  const catalogItem = getCityBuildingCatalogItem(id);
 
   return {
     id,
