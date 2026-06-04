@@ -1,6 +1,6 @@
 import type { CityBuildingType, CityBuildingViewModel } from "../city.types.js";
 
-export type CityVisualStage = 0 | 1 | 2;
+export type CityVisualStage = 0 | 1 | 2 | 3;
 
 export type CityBuildingVisualId = CityBuildingType;
 

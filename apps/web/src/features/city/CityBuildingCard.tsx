@@ -1,11 +1,8 @@
 import type { CityBuildingViewModel } from "./city.types.js";
-
-const statusLabels: Record<CityBuildingViewModel["status"], string> = {
-  locked: "Bloqueado",
-  started: "Nivel 1",
-  growing: "Nivel 2",
-  strong: "Nivel 3",
-};
+import {
+  getCityBuildingMaturityBadgeLabel,
+  getCityBuildingStageLabel,
+} from "./pixi/citySprites.js";
 
 export function CityBuildingCard({
   building,
@@ -19,13 +16,13 @@ export function CityBuildingCard({
           {building.icon}
         </span>
         <span className={`city-card-status city-card-status-${building.status}`}>
-          {statusLabels[building.status]}
+          {getCityBuildingMaturityBadgeLabel(building.level)}
         </span>
       </div>
       <div>
         <h2>{building.name}</h2>
         <strong>
-          Stage {building.level}/{building.maxLevel} · {building.district}
+          {getCityBuildingStageLabel(building.level)} · {building.district}
         </strong>
       </div>
       <p>{building.description}</p>

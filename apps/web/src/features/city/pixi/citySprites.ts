@@ -19,9 +19,10 @@ export const CITY_BUILDING_SPRITES: CityBuildingSpriteRegistry =
     const { assetPrefix } = getCityBuildingCatalogItem(buildingId);
 
     registry[buildingId] = {
-      0: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_1.png`,
-      1: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_2.png`,
-      2: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_3.png`,
+      0: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l0.svg`,
+      1: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_1.png`,
+      2: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_2.png`,
+      3: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_3.png`,
     };
     return registry;
   }, {} as CityBuildingSpriteRegistry);
@@ -32,24 +33,51 @@ export const CITY_BUILDING_PLACEHOLDER_SPRITES: CityBuildingSpriteRegistry =
       0: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l0.svg`,
       1: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l1.svg`,
       2: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l2.svg`,
+      3: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l2.svg`,
     };
     return registry;
   }, {} as CityBuildingSpriteRegistry);
 
 export function getVisualStageFromLevel(level: number): CityVisualStage {
-  if (level <= 1) {
+  if (level <= 0) {
     return 0;
   }
 
-  if (level === 2) {
+  if (level <= 2) {
     return 1;
   }
 
-  return 2;
+  if (level <= 4) {
+    return 2;
+  }
+
+  return 3;
 }
 
-export function getVisualAssetStageFromLevel(level: number): 1 | 2 | 3 {
-  return (getVisualStageFromLevel(level) + 1) as 1 | 2 | 3;
+export function getVisualAssetStageFromLevel(level: number): CityVisualStage {
+  return getVisualStageFromLevel(level);
+}
+
+export function getCityBuildingStageLabel(level: number): string {
+  return `Stage ${getVisualStageFromLevel(level)}/3`;
+}
+
+export function getCityBuildingMaturityBadgeLabel(level: number): string {
+  const stage = getVisualStageFromLevel(level);
+
+  if (stage === 0) {
+    return "Bloqueado";
+  }
+
+  if (stage === 1) {
+    return "Primeiros passos";
+  }
+
+  if (stage === 2) {
+    return "Em crescimento";
+  }
+
+  return "Maduro";
 }
 
 export function getBuildingSpriteScale(level: number): number {
@@ -63,7 +91,11 @@ export function getBuildingSpriteScale(level: number): number {
     return 0.14;
   }
 
-  return 0.17;
+  if (stage === 2) {
+    return 0.17;
+  }
+
+  return 0.19;
 }
 
 export function getBuildingSprite(
@@ -88,7 +120,8 @@ export function validateCitySpriteRegistry(): boolean {
       Boolean(getCityBuildingPosition(buildingId)) &&
       Boolean(sprites[0]) &&
       Boolean(sprites[1]) &&
-      Boolean(sprites[2])
+      Boolean(sprites[2]) &&
+      Boolean(sprites[3])
     );
   });
 }
