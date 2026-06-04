@@ -1,18 +1,14 @@
 import type { CityBuildingViewModel } from "../city.types.js";
 import {
-  getCityBuildingCatalogItem,
   getCityBuildingPosition,
   getOrderedCityBuildingsForRender,
 } from "../data/cityLayout.selectors.js";
 import { cityIsoToScreen } from "../data/citySceneLayout.js";
-import { getVisualAssetStageFromLevel } from "../pixi/citySprites.js";
-
-const statusLabels: Record<CityBuildingViewModel["status"], string> = {
-  locked: "Bloqueado",
-  started: "Nivel 1",
-  growing: "Nivel 2",
-  strong: "Nivel 3",
-};
+import {
+  getBuildingSprite,
+  getCityBuildingMaturityBadgeLabel,
+  getCityBuildingStageLabel,
+} from "../pixi/citySprites.js";
 
 export function CityBuildingLayer({
   buildings,
@@ -29,11 +25,10 @@ export function CityBuildingLayer({
     <div className="city-layer city-building-layer">
       {orderedBuildings.map((building) => {
         const tilePosition = getCityBuildingPosition(building.id);
-        const catalogItem = getCityBuildingCatalogItem(building.id);
         const position = cityIsoToScreen(tilePosition.tileX, tilePosition.tileY);
-        const stage = getVisualAssetStageFromLevel(building.level);
-        const assetPath = `/assets/city/buildings/${catalogItem.assetPrefix}_stage_${stage}.png`;
+        const assetPath = getBuildingSprite(building.id, building.level);
         const isLocked = building.status === "locked";
+        const statusLabel = getCityBuildingMaturityBadgeLabel(building.level);
 
         return (
           <button
@@ -46,7 +41,7 @@ export function CityBuildingLayer({
               zIndex: 100 + tilePosition.tileX + tilePosition.tileY,
             }}
             aria-pressed={building.id === selectedBuildingId}
-            aria-label={`${building.name}, ${statusLabels[building.status]}`}
+            aria-label={`${building.name}, ${statusLabel}`}
             onClick={() => onBuildingClick(building)}
           >
             <span className="city-building-shadow" />
@@ -67,11 +62,11 @@ export function CityBuildingLayer({
             />
             <span className="city-building-fallback-label">
               {building.shortLabel}
-              <small>Stage {stage}</small>
+              <small>{getCityBuildingStageLabel(building.level)}</small>
             </span>
             <span className="city-building-label">
               <strong>{building.shortLabel}</strong>
-              <small>{statusLabels[building.status]}</small>
+              <small>{statusLabel}</small>
             </span>
             {building.hasAction ? (
               <span className="city-action-indicator">{building.actionLabel ?? "Acao"}</span>
