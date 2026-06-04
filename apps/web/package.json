@@ -8,7 +8,8 @@
     "dev": "vite --host 0.0.0.0",
     "lint": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "validate:city-assets": "node scripts/validate-city-assets.mjs"
   },
   "dependencies": {
     "@pixi/react": "^8.0.5",
