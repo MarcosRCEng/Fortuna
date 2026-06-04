@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CITY_BUILDING_ASSET_MANIFEST_SET } from "./cityAssetManifest.js";
 import { CITY_BUILDING_IDS, CITY_BUILDING_POSITIONS } from "./cityScene.constants.js";
 import {
   getCityBuildingCatalogItem,
@@ -30,12 +31,12 @@ describe("city sprite registry", () => {
     }
   });
 
-  it("maps each known building to blocked placeholder, stage 1, stage 2 and stage 3 assets", () => {
+  it("maps each known building to stage 0, stage 1, stage 2 and stage 3 assets", () => {
     for (const buildingId of CITY_BUILDING_IDS) {
       const { assetPrefix } = getCityBuildingCatalogItem(buildingId);
 
       expect(CITY_BUILDING_SPRITES[buildingId][0]).toContain(
-        `building_${buildingId}_l0.svg`,
+        `${assetPrefix}_stage_0.png`,
       );
       expect(CITY_BUILDING_SPRITES[buildingId][1]).toContain(
         `${assetPrefix}_stage_1.png`,
@@ -105,9 +106,24 @@ describe("city sprite registry", () => {
     },
   );
 
-  it("uses stage 1 asset for level 1 and placeholder for level 0", () => {
+  it("uses catalog asset prefixes for level 1 building sprites", () => {
+    expect(getBuildingSprite("financial_hall", 1)).toBe(
+      "/assets/city/buildings/building_financial_hall_stage_1.png",
+    );
+    expect(getBuildingSprite("income_park", 1)).toBe(
+      "/assets/city/buildings/building_income_park_stage_1.png",
+    );
+    expect(getBuildingSprite("mentor_tower", 1)).toBe(
+      "/assets/city/buildings/building_mentor_tower_stage_1.png",
+    );
+  });
+
+  it("uses stage assets as the primary path before placeholder fallback", () => {
     expect(getBuildingSprite("financial_hall", 0)).toContain(
-      "building_financial_hall_l0.svg",
+      "building_financial_hall_stage_0.png",
+    );
+    expect(getBuildingSprite("financial_hall", 0)).toContain(
+      "/assets/city/buildings/",
     );
     expect(getBuildingSprite("financial_hall", 1)).toContain(
       "building_financial_hall_stage_1.png",
@@ -115,5 +131,19 @@ describe("city sprite registry", () => {
     expect(getBuildingSprite("financial_hall", 1)).not.toContain(
       "building_financial_hall_stage_2.png",
     );
+  });
+
+  it("falls back to development SVG when a built asset is not in the manifest", () => {
+    const assetPath = "/assets/city/buildings/building_financial_hall_stage_1.png";
+
+    CITY_BUILDING_ASSET_MANIFEST_SET.delete(assetPath);
+
+    try {
+      expect(getBuildingSprite("financial_hall", 1)).toContain(
+        "building_financial_hall_l1.svg",
+      );
+    } finally {
+      CITY_BUILDING_ASSET_MANIFEST_SET.add(assetPath);
+    }
   });
 });

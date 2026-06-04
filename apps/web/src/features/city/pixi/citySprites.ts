@@ -8,7 +8,10 @@ import {
   getCityBuildingPosition,
 } from "../data/cityLayout.selectors.js";
 import { CITY_BUILDING_IDS } from "./cityScene.constants.js";
-import { CITY_BUILDING_ASSET_BASE_PATH } from "./cityAssetManifest.js";
+import {
+  CITY_BUILDING_ASSET_BASE_PATH,
+  CITY_BUILDING_ASSET_MANIFEST_SET,
+} from "./cityAssetManifest.js";
 
 const PLACEHOLDER_BASE_PATH = "/assets/city/placeholders";
 
@@ -19,7 +22,7 @@ export const CITY_BUILDING_SPRITES: CityBuildingSpriteRegistry =
     const { assetPrefix } = getCityBuildingCatalogItem(buildingId);
 
     registry[buildingId] = {
-      0: `${PLACEHOLDER_BASE_PATH}/building_${buildingId}_l0.svg`,
+      0: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_0.png`,
       1: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_1.png`,
       2: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_2.png`,
       3: `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_3.png`,
@@ -102,7 +105,15 @@ export function getBuildingSprite(
   buildingId: CityBuildingType,
   level: number,
 ): string {
-  return CITY_BUILDING_SPRITES[buildingId][getVisualStageFromLevel(level)];
+  const visualStage = getVisualStageFromLevel(level);
+  const { assetPrefix } = getCityBuildingCatalogItem(buildingId);
+  const assetPath = `${CITY_BUILDING_ASSET_BASE_PATH}/${assetPrefix}_stage_${visualStage}.png`;
+
+  if (CITY_BUILDING_ASSET_MANIFEST_SET.has(assetPath)) {
+    return assetPath;
+  }
+
+  return getBuildingPlaceholderSprite(buildingId, level);
 }
 
 export function getBuildingPlaceholderSprite(
