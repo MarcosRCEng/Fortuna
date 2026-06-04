@@ -12,7 +12,7 @@ const BUILDING_IDS = [
   "mentor_tower",
 ];
 
-const STAGES = [1, 2, 3];
+const STAGES = [0, 1, 2, 3];
 const MIN_ASSET_BYTES = 1024;
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const assetsDir = join(scriptDir, "..", "public", "assets", "city", "buildings");
