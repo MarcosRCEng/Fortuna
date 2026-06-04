@@ -3,6 +3,7 @@ import type { CityBuildingViewModel } from "../city.types.js";
 import { cityBuildingPads, cityIsoToScreen } from "../data/citySceneLayout.js";
 import { CityBuildingLayer } from "./CityBuildingLayer.js";
 import { CityDecorationLayer } from "./CityDecorationLayer.js";
+import { CityGroundPlane } from "./CityGroundPlane.js";
 import { CityHudOverlay } from "./CityHudOverlay.js";
 import { CityRoadLayer } from "./CityRoadLayer.js";
 
@@ -44,40 +45,13 @@ export function CityScene({
         <div className="city-scene-canvas" role="application" aria-label="Cidade isometrica interativa">
           <div className="city-skyline" aria-hidden="true" />
           <div className="city-map-board">
+            <CityGroundPlane />
             <svg
-              className="city-layer city-base-layer"
+              className="city-layer city-pad-layer"
               viewBox="0 0 900 600"
               preserveAspectRatio="none"
               aria-hidden="true"
             >
-              <path
-                className="city-platform-side city-platform-side-left"
-                d="M390 54 L846 282 L846 326 L390 554 L390 510 L794 308 L390 106 Z"
-              />
-              <path
-                className="city-platform-side city-platform-side-right"
-                d="M390 54 L-66 282 L-66 326 L390 554 L390 510 L14 322 L390 106 Z"
-              />
-              <path
-                className="city-platform-top"
-                d="M390 54 L846 282 L390 510 L-66 282 Z"
-              />
-              <path
-                className="city-platform-inner"
-                d="M390 104 L746 282 L390 460 L34 282 Z"
-              />
-              <path
-                className="city-platform-plaza"
-                d="M390 236 L514 298 L390 360 L266 298 Z"
-              />
-              <path
-                className="city-platform-grass city-platform-grass-left"
-                d="M34 282 L390 104 L390 156 L86 308 Z"
-              />
-              <path
-                className="city-platform-grass city-platform-grass-right"
-                d="M746 282 L390 104 L390 156 L694 308 Z"
-              />
               {cityBuildingPads.map((pad) => {
                 const position = cityIsoToScreen(pad.tileX, pad.tileY);
 
