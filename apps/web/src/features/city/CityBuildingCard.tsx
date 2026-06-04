@@ -1,10 +1,10 @@
 import type { CityBuildingViewModel } from "./city.types.js";
 
 const statusLabels: Record<CityBuildingViewModel["status"], string> = {
-  locked: "Ainda nao iniciado",
-  started: "Primeiros passos",
-  growing: "Em desenvolvimento",
-  strong: "Bem desenvolvido",
+  locked: "Bloqueado",
+  started: "Nivel 1",
+  growing: "Nivel 2",
+  strong: "Nivel 3",
 };
 
 export function CityBuildingCard({
@@ -25,7 +25,7 @@ export function CityBuildingCard({
       <div>
         <h2>{building.name}</h2>
         <strong>
-          Nivel {building.level}/{building.maxLevel}
+          Stage {building.level}/{building.maxLevel} · {building.district}
         </strong>
       </div>
       <p>{building.description}</p>
@@ -40,6 +40,10 @@ export function CityBuildingCard({
       <div className="city-card-section">
         <span>O que evolui este predio</span>
         <p>{building.nextLevelHint}</p>
+      </div>
+      <div className="city-card-section">
+        <span>Proxima acao educativa</span>
+        <p>{building.nextAction}</p>
       </div>
       <p className="city-educational-message">{building.educationalMessage}</p>
     </article>

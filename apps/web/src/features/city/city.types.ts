@@ -9,18 +9,46 @@ export type CityBuildingType =
 
 export type CityBuildingStatus = "locked" | "started" | "growing" | "strong";
 
+export type CityBuildingUnlockRule =
+  | "always"
+  | "has_cash"
+  | "has_variable_income"
+  | "has_real_estate"
+  | "has_completed_mission"
+  | "has_income";
+
+export type CityBuildingStageRule =
+  | "general_maturity"
+  | "reserve_security"
+  | "variable_income"
+  | "real_estate_income"
+  | "education_progress"
+  | "passive_income"
+  | "mentor_guidance";
+
 export interface CityBuildingViewModel {
   id: CityBuildingType;
   name: string;
+  shortLabel: string;
+  district: string;
   description: string;
+  purpose: string;
   educationalMessage: string;
   icon: string;
   level: number;
   maxLevel: number;
   progressPercent: number;
   nextLevelHint: string;
+  nextAction: string;
   reason: string;
   status: CityBuildingStatus;
+  route?: string;
+  assetPrefix: string;
+  position: { tileX: number; tileY: number };
+  visualPriority: number;
+  hasAction: boolean;
+  actionLabel?: string;
+  alertLabel?: string;
 }
 
 export interface DeriveCityInput {

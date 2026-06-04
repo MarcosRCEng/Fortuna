@@ -3,83 +3,10 @@ import type {
   CityBuildingViewModel,
   DeriveCityInput,
 } from "./city.types.js";
+import { cityBuildingsCatalog } from "./data/cityBuildingsCatalog.js";
 
-const MAX_LEVEL = 5;
-
-type BuildingTemplate = Omit<
-  CityBuildingViewModel,
-  "level" | "progressPercent" | "reason" | "status" | "nextLevelHint"
->;
-
-const buildingTemplates: Record<CityBuildingViewModel["id"], BuildingTemplate> = {
-  financial_hall: {
-    id: "financial_hall",
-    name: "Prefeitura Financeira",
-    description: "Representa sua evolucao geral como investidor em aprendizado.",
-    educationalMessage:
-      "Sua cidade cresce conforme voce aprende, diversifica e mantem boas praticas financeiras.",
-    icon: "PF",
-    maxLevel: MAX_LEVEL,
-  },
-  reserve_bank: {
-    id: "reserve_bank",
-    name: "Banco da Reserva",
-    description: "Mostra sua preparacao para imprevistos e sua organizacao de liquidez.",
-    educationalMessage:
-      "Liquidez e reserva simulada ajudam a pensar em estabilidade antes de ampliar riscos.",
-    icon: "BR",
-    maxLevel: MAX_LEVEL,
-  },
-  city_exchange: {
-    id: "city_exchange",
-    name: "Bolsa da Cidade",
-    description:
-      "Mostra seu contato com ativos de maior oscilacao e aprendizado sobre risco.",
-    educationalMessage:
-      "Renda variavel exige decisao consciente, diversificacao e respeito ao seu perfil de risco.",
-    icon: "BC",
-    maxLevel: MAX_LEVEL,
-  },
-  real_estate_center: {
-    id: "real_estate_center",
-    name: "Centro Imobiliario",
-    description:
-      "Representa sua exposicao ao setor imobiliario simulado e ao conceito de renda recorrente.",
-    educationalMessage:
-      "FIIs simulados ajudam a estudar renda recorrente, vacancia, liquidez e diversificacao.",
-    icon: "CI",
-    maxLevel: MAX_LEVEL,
-  },
-  financial_school: {
-    id: "financial_school",
-    name: "Escola Financeira",
-    description: "A escola evolui conforme voce conclui missoes e aprende conceitos financeiros.",
-    educationalMessage:
-      "Conhecimento, leitura e missoes educativas sustentam escolhas mais conscientes.",
-    icon: "EF",
-    maxLevel: MAX_LEVEL,
-  },
-  income_park: {
-    id: "income_park",
-    name: "Parque dos Rendimentos",
-    description:
-      "Mostra seu aprendizado sobre renda passiva simulada e acompanhamento de rendimentos.",
-    educationalMessage:
-      "Rendimentos simulados ensinam acompanhamento de fluxo, sem prometer resultado financeiro.",
-    icon: "PR",
-    maxLevel: MAX_LEVEL,
-  },
-  mentor_tower: {
-    id: "mentor_tower",
-    name: "Torre do Mentor",
-    description:
-      "A torre acompanha suas decisoes e oferece orientacao educativa durante a jornada.",
-    educationalMessage:
-      "Alertas e dicas do Mentor ajudam a refletir sobre risco, liquidez e diversificacao.",
-    icon: "TM",
-    maxLevel: MAX_LEVEL,
-  },
-};
+const MAX_LEVEL = 3;
+const LOW_RESERVE_CENTS = 20_000;
 
 export function calculateLevelByProgress(progressPercent: number): number {
   const progress = clampPercent(progressPercent);
@@ -88,23 +15,15 @@ export function calculateLevelByProgress(progressPercent: number): number {
     return 0;
   }
 
-  if (progress < 20) {
+  if (progress < 34) {
     return 1;
   }
 
-  if (progress < 40) {
+  if (progress < 67) {
     return 2;
   }
 
-  if (progress < 60) {
-    return 3;
-  }
-
-  if (progress < 80) {
-    return 4;
-  }
-
-  return 5;
+  return 3;
 }
 
 export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewModel[] {
@@ -124,13 +43,33 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
     safeInput.totalMissionsCount,
   );
 
-  return [
-    createBuilding("financial_hall", {
+  const buildingDetails: Record<
+    CityBuildingViewModel["id"],
+    Pick<
+      CityBuildingViewModel,
+      | "description"
+      | "educationalMessage"
+      | "icon"
+      | "progressPercent"
+      | "reason"
+      | "nextLevelHint"
+      | "nextAction"
+      | "hasAction"
+      | "actionLabel"
+      | "alertLabel"
+    >
+  > = {
+    financial_hall: {
+      description: "Representa sua evolucao geral como investidor em aprendizado.",
+      educationalMessage:
+        "Sua cidade cresce conforme voce aprende, diversifica e mantem boas praticas financeiras.",
+      icon: "PF",
       progressPercent: clampPercent(
         (safeInput.totalEquityCents > 0 ? 25 : 0) +
-          Math.min(25, missionProgress / 4) +
-          assetClassCount * 12 +
-          (safeInput.positionsCount >= 3 ? 14 : 0) -
+          Math.min(20, missionProgress / 3) +
+          assetClassCount * 14 +
+          (safeInput.positionsCount >= 3 ? 18 : 0) +
+          (safeInput.completedMissionsCount >= 3 ? 12 : 0) -
           (safeInput.hasConcentrationWarning ? 18 : 0),
       ),
       reason:
@@ -141,12 +80,20 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
             : "Patrimonio simulado, missoes e diversificacao contribuem para a maturidade geral.",
       nextLevelHint:
         "Continue aprendendo, registrando missoes e evitando concentrar demais em um unico ativo.",
-    }),
-    createBuilding("reserve_bank", {
+      nextAction: "Revisar o painel inicial para observar patrimonio, missoes e equilibrio.",
+      hasAction: safeInput.hasConcentrationWarning,
+      actionLabel: safeInput.hasConcentrationWarning ? "Revisar concentracao" : undefined,
+      alertLabel: safeInput.hasConcentrationWarning ? "Diversificar" : undefined,
+    },
+    reserve_bank: {
+      description: "Mostra sua preparacao para imprevistos e sua organizacao de liquidez.",
+      educationalMessage:
+        "Liquidez e reserva simulada ajudam a pensar em estabilidade antes de ampliar riscos.",
+      icon: "BR",
       progressPercent: clampPercent(
-        Math.min(55, allocation.fixedIncomePercent) +
-          (safeInput.availableBalanceCents > 0 ? 20 : 0) +
-          (hasFixedIncome ? 20 : 0) +
+        Math.min(45, allocation.fixedIncomePercent) +
+          (safeInput.availableBalanceCents > 0 ? 25 : 0) +
+          (safeInput.availableBalanceCents >= LOW_RESERVE_CENTS ? 20 : 0) +
           (safeInput.completedMissionsCount > 0 ? 5 : 0),
       ),
       reason: hasFixedIncome
@@ -156,8 +103,20 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
           : "Ainda nao ha sinais de reserva ou liquidez na cidade.",
       nextLevelHint:
         "Estude reserva de emergencia, liquidez e o papel de ativos de menor risco na carteira.",
-    }),
-    createBuilding("city_exchange", {
+      nextAction: "Abrir carteira e avaliar saldo disponivel, liquidez e ativos conservadores.",
+      hasAction: safeInput.availableBalanceCents > 0 && safeInput.availableBalanceCents < LOW_RESERVE_CENTS,
+      actionLabel: "Reserva baixa",
+      alertLabel:
+        safeInput.availableBalanceCents > 0 && safeInput.availableBalanceCents < LOW_RESERVE_CENTS
+          ? "Reserva baixa"
+          : undefined,
+    },
+    city_exchange: {
+      description:
+        "Mostra seu contato com ativos de maior oscilacao e aprendizado sobre risco.",
+      educationalMessage:
+        "Renda variavel exige decisao consciente, diversificacao e respeito ao seu perfil de risco.",
+      icon: "BC",
       progressPercent: clampPercent(
         (hasStocks ? 35 : 0) +
           Math.min(30, allocation.stocksPercent) +
@@ -166,11 +125,20 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
       ),
       reason: hasStocks
         ? "Voce ja teve contato com acoes simuladas e pode observar os efeitos de oscilacao e concentracao."
-        : "A bolsa ainda nao aparece porque nao ha acoes na carteira simulada.",
+          : "A bolsa ainda nao aparece porque nao ha acoes na carteira simulada.",
       nextLevelHint:
         "Antes de ampliar renda variavel, revise risco, diversificacao e explicacoes educativas dos ativos.",
-    }),
-    createBuilding("real_estate_center", {
+      nextAction: "Ir ao mercado para estudar ativos de renda variavel e concentracao.",
+      hasAction: safeInput.hasConcentrationWarning,
+      actionLabel: "Alerta de risco",
+      alertLabel: safeInput.hasConcentrationWarning ? "Risco elevado" : undefined,
+    },
+    real_estate_center: {
+      description:
+        "Representa sua exposicao ao setor imobiliario simulado e ao conceito de renda recorrente.",
+      educationalMessage:
+        "FIIs simulados ajudam a estudar renda recorrente, vacancia, liquidez e diversificacao.",
+      icon: "CI",
       progressPercent: clampPercent(
         (hasRealEstate ? 40 : 0) +
           Math.min(30, allocation.realEstatePercent) +
@@ -179,11 +147,19 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
       ),
       reason: hasRealEstate
         ? "A carteira possui FIIs simulados e permite estudar exposicao imobiliaria e renda recorrente."
-        : "O centro imobiliario ainda aguarda FIIs ou ativos imobiliarios simulados na carteira.",
+          : "O centro imobiliario ainda aguarda FIIs ou ativos imobiliarios simulados na carteira.",
       nextLevelHint:
         "Explore FIIs com foco educativo em liquidez, diversificacao e renda recorrente simulada.",
-    }),
-    createBuilding("financial_school", {
+      nextAction: "Estudar FIIs e comparar renda recorrente, liquidez e diversificacao.",
+      hasAction: false,
+      actionLabel: undefined,
+      alertLabel: undefined,
+    },
+    financial_school: {
+      description: "A escola evolui conforme voce conclui missoes e aprende conceitos financeiros.",
+      educationalMessage:
+        "Conhecimento, leitura e missoes educativas sustentam escolhas mais conscientes.",
+      icon: "EF",
       progressPercent: missionProgress,
       reason:
         safeInput.completedMissionsCount > 0
@@ -191,8 +167,20 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
           : "A escola ainda esta no comeco porque nenhuma missao educativa foi concluida.",
       nextLevelHint:
         "Conclua missoes e leia explicacoes educativas para fortalecer a base de conhecimento.",
-    }),
-    createBuilding("income_park", {
+      nextAction: "Abrir missoes educativas pendentes e concluir o proximo objetivo.",
+      hasAction: safeInput.totalMissionsCount === 0 || safeInput.completedMissionsCount < safeInput.totalMissionsCount,
+      actionLabel: "Missao disponivel",
+      alertLabel:
+        safeInput.totalMissionsCount === 0 || safeInput.completedMissionsCount < safeInput.totalMissionsCount
+          ? "Acao disponivel"
+          : undefined,
+    },
+    income_park: {
+      description:
+        "Mostra seu aprendizado sobre renda passiva simulada e acompanhamento de rendimentos.",
+      educationalMessage:
+        "Rendimentos simulados ensinam acompanhamento de fluxo, sem prometer resultado financeiro.",
+      icon: "PR",
       progressPercent: clampPercent(
         (safeInput.collectibleIncomeCents > 0 ? 35 : 0) +
           (safeInput.collectedIncomeCents > 0 ? 45 : 0) +
@@ -206,8 +194,17 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
             : "Ainda nao ha rendimentos coletados ou disponiveis para acompanhamento.",
       nextLevelHint:
         "Acompanhe rendimentos simulados como aprendizado sobre fluxo, prazos e recorrencia.",
-    }),
-    createBuilding("mentor_tower", {
+      nextAction: "Revisar rendimentos disponiveis e aprender sobre recorrencia simulada.",
+      hasAction: safeInput.collectibleIncomeCents > 0,
+      actionLabel: "Rendimento disponivel",
+      alertLabel: safeInput.collectibleIncomeCents > 0 ? "Acao disponivel" : undefined,
+    },
+    mentor_tower: {
+      description:
+        "A torre acompanha suas decisoes e oferece orientacao educativa durante a jornada.",
+      educationalMessage:
+        "Alertas e dicas do Mentor ajudam a refletir sobre risco, liquidez e diversificacao.",
+      icon: "TM",
       progressPercent: clampPercent(
         safeInput.mentorMessagesCount * 25 +
           (safeInput.hasConcentrationWarning ? 25 : 0) +
@@ -219,27 +216,65 @@ export function deriveCityBuildings(input: DeriveCityInput): CityBuildingViewMod
           : "A torre ainda aguarda mensagens ou alertas educativos do Mentor Fortuna.",
       nextLevelHint:
         "Interaja com mercado, carteira e missoes para receber reflexoes educativas do Mentor.",
-    }),
-  ];
+      nextAction: "Ler a mensagem mais recente do Mentor e registrar a reflexao educativa.",
+      hasAction: safeInput.mentorMessagesCount > 0,
+      actionLabel: "Mensagem nova",
+      alertLabel: safeInput.mentorMessagesCount > 0 ? "Acao disponivel" : undefined,
+    },
+  };
+
+  return cityBuildingsCatalog
+    .map((catalogItem) => createBuilding(catalogItem.id, buildingDetails[catalogItem.id]))
+    .sort((left, right) => left.visualPriority - right.visualPriority);
 }
 
 function createBuilding(
   id: CityBuildingViewModel["id"],
   details: Pick<
     CityBuildingViewModel,
-    "progressPercent" | "reason" | "nextLevelHint"
+    | "description"
+    | "educationalMessage"
+    | "icon"
+    | "progressPercent"
+    | "reason"
+    | "nextLevelHint"
+    | "nextAction"
+    | "hasAction"
+    | "actionLabel"
+    | "alertLabel"
   >,
 ): CityBuildingViewModel {
   const progressPercent = clampPercent(details.progressPercent);
   const level = calculateLevelByProgress(progressPercent);
+  const catalogItem = cityBuildingsCatalog.find((item) => item.id === id);
+
+  if (!catalogItem) {
+    throw new Error(`Predio da Cidade Fortuna sem catalogo: ${id}`);
+  }
 
   return {
-    ...buildingTemplates[id],
+    id,
+    name: catalogItem.title,
+    shortLabel: catalogItem.shortLabel,
+    district: catalogItem.district,
+    purpose: catalogItem.purpose,
+    route: catalogItem.route,
+    assetPrefix: catalogItem.assetPrefix,
+    position: catalogItem.position,
+    visualPriority: catalogItem.visualPriority,
+    maxLevel: MAX_LEVEL,
+    description: details.description,
+    educationalMessage: details.educationalMessage,
+    icon: details.icon,
     level,
     progressPercent,
     status: resolveStatus(level),
     reason: details.reason,
     nextLevelHint: details.nextLevelHint,
+    nextAction: details.nextAction,
+    hasAction: details.hasAction,
+    actionLabel: details.actionLabel,
+    alertLabel: details.alertLabel,
   };
 }
 
