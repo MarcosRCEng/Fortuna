@@ -13,6 +13,7 @@ export type CityRoadTile = {
 export type CityRoadRoute = {
   id: string;
   points: Array<{ tileX: number; tileY: number }>;
+  centerline?: boolean;
 };
 
 export type CityDecoration = {
@@ -22,6 +23,15 @@ export type CityDecoration = {
   kind: "tree" | "round-tree" | "bench" | "lamp" | "fountain" | "hedge" | "sparkle" | "coin";
   offsetX?: number;
   offsetY?: number;
+};
+
+export type CityBuildingPad = {
+  id: string;
+  tileX: number;
+  tileY: number;
+  width: number;
+  height: number;
+  variant: "civic" | "finance" | "park" | "campus" | "market";
 };
 
 export const cityRoadTiles: CityRoadTile[] = [
@@ -47,33 +57,62 @@ export const cityRoadTiles: CityRoadTile[] = [
 export const cityRoadRoutes: CityRoadRoute[] = [
   {
     id: "main-avenue",
+    centerline: true,
     points: [
-      { tileX: 0.7, tileY: 4.6 },
-      { tileX: 8.1, tileY: 4.6 },
+      { tileX: 0.8, tileY: 4.55 },
+      { tileX: 8.05, tileY: 4.55 },
     ],
   },
   {
     id: "west-avenue",
+    centerline: true,
     points: [
-      { tileX: 3.2, tileY: 0.8 },
-      { tileX: 3.2, tileY: 7.2 },
+      { tileX: 3.15, tileY: 0.95 },
+      { tileX: 3.15, tileY: 7.05 },
     ],
   },
   {
     id: "east-avenue",
+    centerline: true,
     points: [
-      { tileX: 5.7, tileY: 0.9 },
-      { tileX: 5.7, tileY: 7.1 },
+      { tileX: 5.55, tileY: 1.05 },
+      { tileX: 5.55, tileY: 6.95 },
     ],
   },
   {
     id: "mentor-loop",
     points: [
-      { tileX: 5.7, tileY: 3.3 },
-      { tileX: 7.4, tileY: 3.3 },
-      { tileX: 7.4, tileY: 2.2 },
+      { tileX: 5.55, tileY: 3.35 },
+      { tileX: 7.25, tileY: 3.35 },
+      { tileX: 7.25, tileY: 2.25 },
     ],
   },
+  {
+    id: "hall-plaza-west",
+    points: [
+      { tileX: 3.15, tileY: 3.55 },
+      { tileX: 4.05, tileY: 3.55 },
+      { tileX: 4.45, tileY: 4.15 },
+    ],
+  },
+  {
+    id: "income-park-path",
+    points: [
+      { tileX: 5.55, tileY: 5.15 },
+      { tileX: 5.05, tileY: 5.75 },
+    ],
+  },
+];
+
+export const cityBuildingPads: CityBuildingPad[] = [
+  { id: "pad-reserve", tileX: 2.15, tileY: 3.45, width: 150, height: 76, variant: "finance" },
+  { id: "pad-exchange", tileX: 5.25, tileY: 1.22, width: 146, height: 74, variant: "market" },
+  { id: "pad-hall", tileX: 4.1, tileY: 2.85, width: 168, height: 88, variant: "civic" },
+  { id: "pad-school", tileX: 2.05, tileY: 5.45, width: 150, height: 76, variant: "campus" },
+  { id: "pad-estate", tileX: 6.55, tileY: 4.15, width: 150, height: 76, variant: "market" },
+  { id: "pad-park", tileX: 4.9, tileY: 5.18, width: 172, height: 92, variant: "park" },
+  { id: "pad-mentor", tileX: 7.45, tileY: 2.35, width: 156, height: 82, variant: "civic" },
+  { id: "pad-center-green", tileX: 3.9, tileY: 5.95, width: 170, height: 88, variant: "park" },
 ];
 
 export const cityDecorations: CityDecoration[] = [

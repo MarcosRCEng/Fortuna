@@ -1,5 +1,6 @@
 import type { CityBuildingViewModel } from "../city.types.js";
 import { cityIsoToScreen } from "../data/citySceneLayout.js";
+import { getVisualAssetStageFromLevel } from "../pixi/citySprites.js";
 
 const statusLabels: Record<CityBuildingViewModel["status"], string> = {
   locked: "Bloqueado",
@@ -28,7 +29,7 @@ export function CityBuildingLayer({
     <div className="city-layer city-building-layer">
       {orderedBuildings.map((building) => {
         const position = cityIsoToScreen(building.position.tileX, building.position.tileY);
-        const stage = Math.max(1, building.level);
+        const stage = getVisualAssetStageFromLevel(building.level);
         const assetPath = `/assets/city/buildings/${building.assetPrefix}_stage_${stage}.png`;
         const isLocked = building.status === "locked";
 
@@ -64,7 +65,7 @@ export function CityBuildingLayer({
             />
             <span className="city-building-fallback-label">
               {building.shortLabel}
-              <small>Stage {building.level}</small>
+              <small>Stage {stage}</small>
             </span>
             <span className="city-building-label">
               <strong>{building.shortLabel}</strong>

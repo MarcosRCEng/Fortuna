@@ -54,7 +54,7 @@ describe("city sprite registry", () => {
     [0, 0],
     [1, 0],
     [2, 1],
-    [3, 1],
+    [3, 2],
     [4, 2],
     [5, 2],
   ] as const)("maps level %i to visual stage %i", (level, expectedStage) => {
@@ -65,7 +65,7 @@ describe("city sprite registry", () => {
     [0, 0.11],
     [1, 0.11],
     [2, 0.14],
-    [3, 0.14],
+    [3, 0.17],
     [4, 0.17],
     [5, 0.17],
   ] as const)("maps level %i to sprite scale %f", (level, expectedScale) => {
