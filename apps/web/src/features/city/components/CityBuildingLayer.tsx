@@ -1,4 +1,9 @@
 import type { CityBuildingViewModel } from "../city.types.js";
+import {
+  getCityBuildingCatalogItem,
+  getCityBuildingPosition,
+  getOrderedCityBuildingsForRender,
+} from "../data/cityLayout.selectors.js";
 import { cityIsoToScreen } from "../data/citySceneLayout.js";
 import { getVisualAssetStageFromLevel } from "../pixi/citySprites.js";
 
@@ -18,19 +23,16 @@ export function CityBuildingLayer({
   selectedBuildingId?: string;
   onBuildingClick: (building: CityBuildingViewModel) => void;
 }) {
-  const orderedBuildings = [...buildings].sort(
-    (left, right) =>
-      left.position.tileX +
-      left.position.tileY -
-      (right.position.tileX + right.position.tileY),
-  );
+  const orderedBuildings = getOrderedCityBuildingsForRender(buildings);
 
   return (
     <div className="city-layer city-building-layer">
       {orderedBuildings.map((building) => {
-        const position = cityIsoToScreen(building.position.tileX, building.position.tileY);
+        const tilePosition = getCityBuildingPosition(building.id);
+        const catalogItem = getCityBuildingCatalogItem(building.id);
+        const position = cityIsoToScreen(tilePosition.tileX, tilePosition.tileY);
         const stage = getVisualAssetStageFromLevel(building.level);
-        const assetPath = `/assets/city/buildings/${building.assetPrefix}_stage_${stage}.png`;
+        const assetPath = `/assets/city/buildings/${catalogItem.assetPrefix}_stage_${stage}.png`;
         const isLocked = building.status === "locked";
 
         return (
@@ -41,7 +43,7 @@ export function CityBuildingLayer({
             style={{
               left: position.x,
               top: position.y,
-              zIndex: 100 + building.position.tileX + building.position.tileY,
+              zIndex: 100 + tilePosition.tileX + tilePosition.tileY,
             }}
             aria-pressed={building.id === selectedBuildingId}
             aria-label={`${building.name}, ${statusLabels[building.status]}`}

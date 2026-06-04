@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CITY_BUILDING_IDS, CITY_BUILDING_POSITIONS } from "./cityScene.constants.js";
 import {
+  getCityBuildingCatalogItem,
+  getCityBuildingPosition,
+} from "../data/cityLayout.selectors.js";
+import {
   CITY_BUILDING_PLACEHOLDER_SPRITES,
   CITY_BUILDING_SPRITES,
   getBuildingSpriteScale,
@@ -11,7 +15,10 @@ import {
 describe("city sprite registry", () => {
   it("maps each known building to a fixed isometric position", () => {
     for (const buildingId of CITY_BUILDING_IDS) {
-      expect(CITY_BUILDING_POSITIONS[buildingId]).toEqual(
+      expect(CITY_BUILDING_POSITIONS[buildingId]).toBe(
+        getCityBuildingPosition(buildingId),
+      );
+      expect(getCityBuildingPosition(buildingId)).toEqual(
         expect.objectContaining({
           tileX: expect.any(Number),
           tileY: expect.any(Number),
@@ -22,14 +29,16 @@ describe("city sprite registry", () => {
 
   it("maps each known building to stage 1, stage 2 and stage 3 assets", () => {
     for (const buildingId of CITY_BUILDING_IDS) {
+      const { assetPrefix } = getCityBuildingCatalogItem(buildingId);
+
       expect(CITY_BUILDING_SPRITES[buildingId][0]).toContain(
-        `building_${buildingId}_stage_1.png`,
+        `${assetPrefix}_stage_1.png`,
       );
       expect(CITY_BUILDING_SPRITES[buildingId][1]).toContain(
-        `building_${buildingId}_stage_2.png`,
+        `${assetPrefix}_stage_2.png`,
       );
       expect(CITY_BUILDING_SPRITES[buildingId][2]).toContain(
-        `building_${buildingId}_stage_3.png`,
+        `${assetPrefix}_stage_3.png`,
       );
     }
 
