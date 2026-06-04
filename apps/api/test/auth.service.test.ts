@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AuthService } from "../src/modules/auth/auth.service.js";
 import { PlayerApiService } from "../src/modules/player/player-api.service.js";
 
@@ -15,6 +15,68 @@ function createAuthService(): AuthService {
 }
 
 describe("AuthService", () => {
+  const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+  const originalGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  beforeEach(() => {
+    if (originalGoogleClientId === undefined) {
+      delete process.env.GOOGLE_CLIENT_ID;
+    } else {
+      process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    }
+    if (originalGoogleClientSecret === undefined) {
+      delete process.env.GOOGLE_CLIENT_SECRET;
+    } else {
+      process.env.GOOGLE_CLIENT_SECRET = originalGoogleClientSecret;
+    }
+  });
+
+  afterEach(() => {
+    if (originalGoogleClientId === undefined) {
+      delete process.env.GOOGLE_CLIENT_ID;
+    } else {
+      process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
+    }
+    if (originalGoogleClientSecret === undefined) {
+      delete process.env.GOOGLE_CLIENT_SECRET;
+    } else {
+      process.env.GOOGLE_CLIENT_SECRET = originalGoogleClientSecret;
+    }
+  });
+
+  it("returns a controlled error when GOOGLE_CLIENT_ID is not configured", () => {
+    delete process.env.GOOGLE_CLIENT_ID;
+    const auth = createAuthService();
+
+    expect(() => auth.buildGoogleAuthorizationRequest()).toThrow(
+      "GOOGLE_CLIENT_ID nao configurado.",
+    );
+  });
+
+  it("builds the Google authorization request when GOOGLE_CLIENT_ID is configured", () => {
+    process.env.GOOGLE_CLIENT_ID =
+      "test-client-id.apps.googleusercontent.com";
+    process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
+    const auth = createAuthService();
+
+    const authorization = auth.buildGoogleAuthorizationRequest();
+
+    expect(authorization.url).toContain(
+      "client_id=test-client-id.apps.googleusercontent.com",
+    );
+  });
+
+  it("returns a controlled error when GOOGLE_CLIENT_SECRET is not configured", () => {
+    process.env.GOOGLE_CLIENT_ID =
+      "test-client-id.apps.googleusercontent.com";
+    delete process.env.GOOGLE_CLIENT_SECRET;
+    const auth = createAuthService();
+
+    expect(() => auth.buildGoogleAuthorizationRequest()).toThrow(
+      "Credenciais Google OAuth nao configuradas.",
+    );
+  });
+
   it("creates a user and player on the first Google login", async () => {
     const auth = createAuthService();
 

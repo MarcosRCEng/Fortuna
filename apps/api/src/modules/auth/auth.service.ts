@@ -58,6 +58,9 @@ export class AuthService {
     if (!this.config.googleClientId) {
       throw new BadRequestException("GOOGLE_CLIENT_ID nao configurado.");
     }
+    if (!this.config.googleClientSecret) {
+      throw new BadRequestException("Credenciais Google OAuth nao configuradas.");
+    }
 
     const state = randomBytes(32).toString("base64url");
     const params = new URLSearchParams({
@@ -127,6 +130,23 @@ export class AuthService {
       throw new UnauthorizedException("Email Google nao verificado.");
     }
     return this.findOrCreateUserFromGoogle(profile);
+  }
+
+  isDevelopmentLoginEnabled(): boolean {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  async createDevelopmentUser(): Promise<UserRecord> {
+    if (!this.isDevelopmentLoginEnabled()) {
+      throw new UnauthorizedException("Login local indisponivel.");
+    }
+
+    return this.findOrCreateUserFromGoogle({
+      subject: "local-dev-marcos-rc-bomber",
+      email: "marcos.rc.bomber@gmail.com",
+      emailVerified: true,
+      name: "Marcos",
+    });
   }
 
   async createSession(

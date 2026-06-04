@@ -24,6 +24,8 @@ Sem texto dentro do sprite
 Sombra suave no sprite ou sombra controlada pelo PixiJS
 ```
 
+Os PNGs atuais carregam via PixiJS `Assets.load`. Como alguns arquivos recebidos vieram com fundo claro/xadrez embutido, `CityScene` remove esse fundo claro conectado as bordas em runtime antes de criar a textura. A recomendacao final continua sendo gerar assets com alpha real.
+
 ## Convencao de nomes
 
 Cada predio segue o padrao:

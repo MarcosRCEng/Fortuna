@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   HttpCode,
+  Logger,
   Post,
   Query,
   Req,
@@ -22,12 +24,22 @@ type ResponseLike = {
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly auth: AuthService) {}
 
   @Get("google")
   @ApiOperation({ summary: "Iniciar login com Google OAuth." })
   google(@Res() response: ResponseLike): void {
-    const authorization = this.auth.buildGoogleAuthorizationRequest();
+    let authorization: { url: string; state: string; expiresAt: Date };
+    try {
+      authorization = this.auth.buildGoogleAuthorizationRequest();
+    } catch (caught) {
+      this.logger.warn(`Google OAuth preflight failed: ${this.safeErrorMessage(caught)}`);
+      response.redirect(this.auth.webAppRedirect(this.googleAuthErrorPath(caught)));
+      return;
+    }
+
     response.setHeader(
       "Set-Cookie",
       this.auth.oauthStateCookieHeader(authorization.state, authorization.expiresAt),
@@ -59,10 +71,31 @@ export class AuthController {
         clearStateCookie,
       ]);
       response.redirect(this.auth.webAppRedirect("/"));
-    } catch {
+    } catch (caught) {
+      this.logger.warn(`Google OAuth callback failed: ${this.safeErrorMessage(caught)}`);
       response.setHeader("Set-Cookie", clearStateCookie);
-      response.redirect(this.auth.webAppRedirect("/login?error=google_auth_failed"));
+      response.redirect(this.auth.webAppRedirect(this.googleAuthErrorPath(caught)));
     }
+  }
+
+  @Get("dev-login")
+  @ApiOperation({ summary: "Criar sessao local de desenvolvimento." })
+  async devLogin(
+    @Req() request: AuthenticatedRequest,
+    @Res() response: ResponseLike,
+  ): Promise<void> {
+    if (!this.auth.isDevelopmentLoginEnabled()) {
+      response.redirect(this.auth.webAppRedirect("/login?error=dev_login_disabled"));
+      return;
+    }
+
+    const user = await this.auth.createDevelopmentUser();
+    const session = await this.auth.createSession(user, request);
+    response.setHeader(
+      "Set-Cookie",
+      this.auth.cookieHeader(session.token, session.expiresAt),
+    );
+    response.redirect(this.auth.webAppRedirect("/city"));
   }
 
   @Get("me")
@@ -132,5 +165,39 @@ export class AuthController {
     @Res({ passthrough: true }) response: ResponseLike,
   ) {
     return this.renewSession(user, request, response);
+  }
+
+  private googleAuthErrorPath(caught: unknown): string {
+    const message = this.safeErrorMessage(caught);
+    if (message.includes("GOOGLE_CLIENT_ID nao configurado")) {
+      return "/login?error=google_client_id_missing";
+    }
+    if (message.includes("Credenciais Google OAuth nao configuradas")) {
+      return "/login?error=google_oauth_credentials";
+    }
+    if (message.includes("Google OAuth recusou o codigo informado")) {
+      return "/login?error=google_token_exchange_failed";
+    }
+    if (message.includes("Google OAuth nao retornou access token")) {
+      return "/login?error=google_token_exchange_failed";
+    }
+    if (message.includes("Nao foi possivel consultar perfil Google")) {
+      return "/login?error=google_profile_failed";
+    }
+    if (message.includes("Email Google nao verificado")) {
+      return "/login?error=google_email_unverified";
+    }
+    return "/login?error=google_auth_failed";
+  }
+
+  private safeErrorMessage(caught: unknown): string {
+    if (caught instanceof BadRequestException) {
+      const response = caught.getResponse();
+      if (typeof response === "object" && response && "message" in response) {
+        const message = (response as { message?: unknown }).message;
+        return Array.isArray(message) ? message.join(" ") : String(message);
+      }
+    }
+    return caught instanceof Error ? caught.message : String(caught);
   }
 }

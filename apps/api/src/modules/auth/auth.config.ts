@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
 export interface AuthConfig {
   accessTokenSecret: string;
   refreshTokenSecret: string;
@@ -11,6 +14,8 @@ export interface AuthConfig {
   googleCallbackUrl: string;
   webAppUrl: string;
 }
+
+loadLocalEnvFiles();
 
 export function readAuthConfig(): AuthConfig {
   return {
@@ -37,6 +42,66 @@ export function readAuthConfig(): AuthConfig {
     webAppUrl:
       process.env.WEB_APP_URL ?? process.env.WEB_ORIGIN ?? "http://localhost:5173",
   };
+}
+
+function loadLocalEnvFiles(): void {
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+    return;
+  }
+
+  const root = findWorkspaceRoot(process.cwd());
+  const env: Record<string, string> = {};
+  for (const file of [
+    join(root, ".env"),
+    join(root, ".env.local"),
+    join(root, "apps", "api", ".env"),
+    join(root, "apps", "api", ".env.local"),
+  ]) {
+    readDotEnv(file, env);
+  }
+
+  for (const [key, value] of Object.entries(env)) {
+    process.env[key] ??= value;
+  }
+}
+
+function findWorkspaceRoot(start: string): string {
+  let current = start;
+  while (!existsSync(join(current, "pnpm-workspace.yaml"))) {
+    const parent = dirname(current);
+    if (parent === current) {
+      return start;
+    }
+    current = parent;
+  }
+  return current;
+}
+
+function readDotEnv(file: string, env: Record<string, string>): void {
+  if (!existsSync(file)) {
+    return;
+  }
+
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/u)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) {
+      continue;
+    }
+    const match = /^\s*([^=]+?)\s*=\s*(.*)\s*$/u.exec(line);
+    if (!match) {
+      continue;
+    }
+    env[match[1].trim()] = unquoteEnvValue(match[2].trim());
+  }
+}
+
+function unquoteEnvValue(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
 }
 
 function parseSameSite(value?: string): AuthConfig["cookieSameSite"] {

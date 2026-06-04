@@ -12,6 +12,7 @@ import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
 import {
   getCurrentSession,
+  loginWithLocalDevSession,
   loginWithGoogle,
   logout,
   updateCurrentPlayer,
@@ -522,21 +523,53 @@ function OnboardingPage({
 }
 
 function LoginPage({ onLogin }: { onLogin(): void }) {
+  const loginError = googleAuthErrorMessage(
+    new URLSearchParams(window.location.search).get("error"),
+  );
+
   return (
     <section className="login-screen">
       <div className="login-panel">
         <span className="section-kicker">Sessao segura</span>
         <h1>Entrar no Fortuna</h1>
         <p>Use sua conta Google para salvar seu progresso.</p>
+        {loginError ? <ErrorState message={loginError} /> : null}
         <button type="button" className="button button-primary" onClick={onLogin}>
           Continuar com Google
         </button>
+        {import.meta.env.DEV ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={loginWithLocalDevSession}
+          >
+            Entrar em modo local
+          </button>
+        ) : null}
         <p className="educational-note">
           O Fortuna e uma simulacao educativa. Nenhuma operacao real sera executada.
         </p>
       </div>
     </section>
   );
+}
+
+function googleAuthErrorMessage(error: string | null): string | undefined {
+  const messages: Record<string, string> = {
+    google_client_id_missing:
+      "GOOGLE_CLIENT_ID nao esta configurado no ambiente da API.",
+    google_oauth_credentials:
+      "GOOGLE_CLIENT_SECRET nao esta configurado no ambiente da API.",
+    google_token_exchange_failed:
+      "O Google recusou a troca do codigo OAuth. Confira client secret, callback URL e credencial Web application no Google Cloud.",
+    google_profile_failed:
+      "Nao foi possivel consultar o perfil Google depois do login.",
+    google_email_unverified:
+      "O e-mail Google precisa estar verificado para entrar no Fortuna.",
+    google_auth_failed:
+      "Nao foi possivel concluir o login com Google.",
+  };
+  return error ? messages[error] : undefined;
 }
 
 function positionToAsset(position: Position): Asset {

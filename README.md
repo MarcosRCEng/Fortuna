@@ -84,6 +84,14 @@ using an HttpOnly session cookie. See
 [Google OAuth](docs/auth/google-oauth.md) and
 [Session Security](docs/auth/session-security.md).
 
+For local browser testing, the expected URLs are
+`WEB_APP_URL=http://127.0.0.1:5173` and
+`GOOGLE_CALLBACK_URL=http://127.0.0.1:3000/auth/google/callback`. If Google
+returns `Erro 403: org_internal`, the API has already reached Google; fix the
+Google Auth Platform audience by using `External` for regular `@gmail.com`
+accounts, or sign in with a user from the owning Google Workspace/Cloud
+Identity organization. In `Testing` mode, add the e-mail under `Test users`.
+
 ## Market Data Provider
 
 Mock market data remains the safe default:

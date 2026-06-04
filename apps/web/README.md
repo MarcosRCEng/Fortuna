@@ -7,10 +7,13 @@ Interface React da experiencia financeira educacional do Fortuna.
 Crie um `.env.local` em `apps/web` quando precisar apontar para uma API diferente:
 
 ```txt
-VITE_API_URL=http://localhost:3000
+VITE_API_BASE_URL=http://127.0.0.1:3000
+VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 ```
 
 O front adiciona `/api/v1` automaticamente quando a URL nao inclui esse prefixo.
+`VITE_API_URL` continua aceito por compatibilidade, mas prefira
+`VITE_API_BASE_URL`.
 
 ## Rodando
 
