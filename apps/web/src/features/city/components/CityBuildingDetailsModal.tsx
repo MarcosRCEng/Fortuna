@@ -1,10 +1,10 @@
 import type { CityBuildingViewModel } from "../city.types.js";
 
 const statusLabels: Record<CityBuildingViewModel["status"], string> = {
-  locked: "Ainda nao iniciado",
-  started: "Primeiros passos",
-  growing: "Em desenvolvimento",
-  strong: "Bem desenvolvido",
+  locked: "Bloqueado",
+  started: "Nivel 1",
+  growing: "Nivel 2",
+  strong: "Nivel 3",
 };
 
 export function CityBuildingDetailsModal({
@@ -31,12 +31,13 @@ export function CityBuildingDetailsModal({
         </div>
 
         <p>{building.description}</p>
+        <p className="educational-note">{building.purpose}</p>
 
         <dl className="data-grid modal-summary">
           <div>
             <dt>Nivel atual</dt>
             <dd>
-              {building.level}/{building.maxLevel}
+              Stage {building.level}/{building.maxLevel}
             </dd>
           </div>
           <div>
@@ -48,8 +49,8 @@ export function CityBuildingDetailsModal({
             <dd>{building.progressPercent}%</dd>
           </div>
           <div>
-            <dt>Metrica educativa</dt>
-            <dd>{building.icon}</dd>
+            <dt>Distrito</dt>
+            <dd>{building.district}</dd>
           </div>
         </dl>
 
@@ -65,6 +66,15 @@ export function CityBuildingDetailsModal({
           <span>O que evolui este predio</span>
           <p>{building.nextLevelHint}</p>
         </div>
+        <div className="city-card-section">
+          <span>Proxima acao educativa</span>
+          <p>{building.nextAction}</p>
+        </div>
+        {building.route ? (
+          <a className="button button-primary city-route-button" href={building.route}>
+            Navegar para area relacionada
+          </a>
+        ) : null}
         <p className="city-educational-message">{building.educationalMessage}</p>
       </section>
     </div>

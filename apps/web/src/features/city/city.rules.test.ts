@@ -61,7 +61,8 @@ describe("deriveCityBuildings", () => {
       "reserve_bank",
     );
 
-    expect(reserve.level).toBeGreaterThanOrEqual(4);
+    expect(reserve.level).toBe(3);
+    expect(reserve.maxLevel).toBe(3);
     expect(reserve.educationalMessage).toContain("Liquidez");
   });
 
@@ -77,7 +78,7 @@ describe("deriveCityBuildings", () => {
       "city_exchange",
     );
 
-    expect(exchange.level).toBeGreaterThanOrEqual(4);
+    expect(exchange.level).toBe(3);
     expect(exchange.reason).toContain("acoes simuladas");
   });
 
@@ -93,7 +94,7 @@ describe("deriveCityBuildings", () => {
       "real_estate_center",
     );
 
-    expect(realEstate.level).toBeGreaterThanOrEqual(4);
+    expect(realEstate.level).toBe(3);
     expect(realEstate.description).toContain("setor imobiliario");
   });
 
@@ -116,7 +117,7 @@ describe("deriveCityBuildings", () => {
       "financial_hall",
     );
 
-    expect(hall.level).toBe(5);
+    expect(hall.level).toBe(3);
     expect(hall.reason).toContain("diversificacao");
   });
 
@@ -167,7 +168,7 @@ describe("deriveCityBuildings", () => {
       "financial_school",
     );
 
-    expect(school.level).toBe(4);
+    expect(school.level).toBe(2);
     expect(school.reason).toContain("3 de 5");
   });
 
@@ -180,7 +181,7 @@ describe("deriveCityBuildings", () => {
       "income_park",
     );
 
-    expect(park.level).toBeGreaterThanOrEqual(3);
+    expect(park.level).toBeGreaterThanOrEqual(2);
     expect(park.reason).toContain("Rendimentos simulados");
   });
 
@@ -193,7 +194,7 @@ describe("deriveCityBuildings", () => {
       "mentor_tower",
     );
 
-    expect(tower.level).toBe(3);
+    expect(tower.level).toBe(2);
     expect(tower.reason).toContain("Mentor");
   });
 });
