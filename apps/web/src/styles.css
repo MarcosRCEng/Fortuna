@@ -811,38 +811,55 @@ input {
   position: absolute;
 }
 
-.city-base-layer {
-  filter: drop-shadow(0 22px 20px rgba(43, 65, 58, 0.18));
+.city-ground-plane {
   overflow: visible;
   z-index: 10;
 }
 
-.city-platform-top {
-  fill: #d8eadc;
-  stroke: rgba(94, 130, 105, 0.48);
-  stroke-width: 3;
+.city-ground-shadow {
+  fill: rgba(43, 65, 58, 0.2);
+  filter: blur(16px);
 }
 
-.city-platform-inner {
-  fill: #e4f0df;
-  opacity: 0.72;
-}
-
-.city-platform-plaza {
-  fill: #e6d8b8;
-  opacity: 0.86;
-  stroke: rgba(177, 146, 91, 0.28);
+.city-ground-side {
+  stroke: rgba(71, 104, 82, 0.22);
   stroke-width: 2;
 }
 
-.city-platform-grass {
-  fill: #c2e1ca;
-  opacity: 0.64;
+.city-ground-side-left {
+  fill: url(#city-ground-left-side);
+}
+
+.city-ground-side-right {
+  fill: url(#city-ground-right-side);
+}
+
+.city-ground-top {
+  fill: url(#city-ground-top);
+}
+
+.city-ground-texture {
+  filter: url(#city-ground-texture);
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.city-ground-rim {
+  fill: none;
+  stroke: rgba(64, 105, 77, 0.58);
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.city-pad-layer {
+  overflow: visible;
+  z-index: 20;
 }
 
 .city-building-pad {
+  opacity: 0.78;
   stroke: rgba(255, 255, 255, 0.76);
-  stroke-width: 5;
+  stroke-width: 4;
 }
 
 .city-building-pad-civic,
@@ -862,14 +879,6 @@ input {
 
 .city-building-pad-market {
   fill: #cbd7da;
-}
-
-.city-platform-side-left {
-  fill: #a5c4ac;
-}
-
-.city-platform-side-right {
-  fill: #90b69c;
 }
 
 .city-road-layer {
