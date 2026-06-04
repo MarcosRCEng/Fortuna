@@ -58,6 +58,9 @@ export class AuthService {
     if (!this.config.googleClientId) {
       throw new BadRequestException("GOOGLE_CLIENT_ID nao configurado.");
     }
+    if (!this.config.googleClientSecret) {
+      throw new BadRequestException("Credenciais Google OAuth nao configuradas.");
+    }
 
     const state = randomBytes(32).toString("base64url");
     const params = new URLSearchParams({
