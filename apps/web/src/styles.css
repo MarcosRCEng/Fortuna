@@ -884,8 +884,15 @@ input {
 .city-road-layer {
   height: 100%;
   overflow: visible;
+  pointer-events: none;
   width: 100%;
   z-index: 30;
+}
+
+.city-road-canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .city-decoration-layer {
@@ -894,39 +901,6 @@ input {
 
 .city-building-layer {
   z-index: 100;
-}
-
-.city-road-bed,
-.city-road-curb,
-.city-road-asphalt,
-.city-road-centerline {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.city-road-bed {
-  opacity: 0.7;
-  stroke: #d7dac9;
-  stroke-width: 62;
-}
-
-.city-road-curb {
-  filter: drop-shadow(0 5px 4px rgba(45, 58, 74, 0.12));
-  stroke: #e6dcc8;
-  stroke-width: 42;
-}
-
-.city-road-asphalt {
-  stroke: url(#city-road-surface);
-  stroke-width: 31;
-}
-
-.city-road-centerline {
-  opacity: 0.82;
-  stroke: #f1d17b;
-  stroke-dasharray: 12 18;
-  stroke-width: 4;
 }
 
 .city-decoration {
