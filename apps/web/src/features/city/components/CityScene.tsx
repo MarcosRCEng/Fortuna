@@ -1,9 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { CityBuildingViewModel } from "../city.types.js";
-import {
-  CITY_SCENE_GRID,
-  cityIsoToScreen,
-} from "../data/citySceneLayout.js";
+import { cityBuildingPads, cityIsoToScreen } from "../data/citySceneLayout.js";
 import { CityBuildingLayer } from "./CityBuildingLayer.js";
 import { CityDecorationLayer } from "./CityDecorationLayer.js";
 import { CityHudOverlay } from "./CityHudOverlay.js";
@@ -26,25 +23,6 @@ export function CityScene({
     firstActionBuilding ??
     firstUnlockedBuilding ??
     buildings[0];
-  const sceneTiles = useMemo(() => {
-    return Array.from(
-      { length: CITY_SCENE_GRID.width * CITY_SCENE_GRID.height },
-      (_, index) => {
-        const tileX = index % CITY_SCENE_GRID.width;
-        const tileY = Math.floor(index / CITY_SCENE_GRID.width);
-        const position = cityIsoToScreen(tileX, tileY);
-        const isPlaza = (tileX === 4 && tileY === 3) || (tileX === 4 && tileY === 4);
-        const isGreen = tileX === 0 || tileY === 0 || tileX === 8 || tileY === 7;
-
-        return {
-          id: `tile-${tileX}-${tileY}`,
-          className: isPlaza ? "city-base-tile-plaza" : isGreen ? "city-base-tile-green" : "",
-          x: position.x,
-          y: position.y,
-        };
-      },
-    );
-  }, []);
 
   function selectBuilding(building: CityBuildingViewModel) {
     setSelectedBuildingId(building.id);
@@ -66,15 +44,52 @@ export function CityScene({
         <div className="city-scene-canvas" role="application" aria-label="Cidade isometrica interativa">
           <div className="city-skyline" aria-hidden="true" />
           <div className="city-map-board">
-            <div className="city-layer city-base-layer" aria-hidden="true">
-              {sceneTiles.map((tile) => (
-                <span
-                  key={tile.id}
-                  className={`city-base-tile ${tile.className}`}
-                  style={{ left: tile.x, top: tile.y }}
-                />
-              ))}
-            </div>
+            <svg
+              className="city-layer city-base-layer"
+              viewBox="0 0 900 600"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path
+                className="city-platform-side city-platform-side-left"
+                d="M390 54 L846 282 L846 326 L390 554 L390 510 L794 308 L390 106 Z"
+              />
+              <path
+                className="city-platform-side city-platform-side-right"
+                d="M390 54 L-66 282 L-66 326 L390 554 L390 510 L14 322 L390 106 Z"
+              />
+              <path
+                className="city-platform-top"
+                d="M390 54 L846 282 L390 510 L-66 282 Z"
+              />
+              <path
+                className="city-platform-inner"
+                d="M390 104 L746 282 L390 460 L34 282 Z"
+              />
+              <path
+                className="city-platform-plaza"
+                d="M390 236 L514 298 L390 360 L266 298 Z"
+              />
+              <path
+                className="city-platform-grass city-platform-grass-left"
+                d="M34 282 L390 104 L390 156 L86 308 Z"
+              />
+              <path
+                className="city-platform-grass city-platform-grass-right"
+                d="M746 282 L390 104 L390 156 L694 308 Z"
+              />
+              {cityBuildingPads.map((pad) => {
+                const position = cityIsoToScreen(pad.tileX, pad.tileY);
+
+                return (
+                  <polygon
+                    key={pad.id}
+                    className={`city-building-pad city-building-pad-${pad.variant}`}
+                    points={createDiamondPoints(position.x, position.y, pad.width, pad.height)}
+                  />
+                );
+              })}
+            </svg>
             <CityRoadLayer />
             <CityDecorationLayer
               showYieldCoin={buildings.some((building) => building.id === "income_park" && building.hasAction)}
@@ -99,4 +114,16 @@ export function CityScene({
       </div>
     </section>
   );
+}
+
+function createDiamondPoints(centerX: number, centerY: number, width: number, height: number) {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+
+  return [
+    `${centerX},${centerY - halfHeight}`,
+    `${centerX + halfWidth},${centerY}`,
+    `${centerX},${centerY + halfHeight}`,
+    `${centerX - halfWidth},${centerY}`,
+  ].join(" ");
 }

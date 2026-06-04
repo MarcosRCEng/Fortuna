@@ -35,11 +35,15 @@ export function getVisualStageFromLevel(level: number): CityVisualStage {
     return 0;
   }
 
-  if (level <= 3) {
+  if (level === 2) {
     return 1;
   }
 
   return 2;
+}
+
+export function getVisualAssetStageFromLevel(level: number): 1 | 2 | 3 {
+  return (getVisualStageFromLevel(level) + 1) as 1 | 2 | 3;
 }
 
 export function getBuildingSpriteScale(level: number): number {

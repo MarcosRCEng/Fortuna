@@ -283,11 +283,11 @@ function resolveStatus(level: number): CityBuildingStatus {
     return "locked";
   }
 
-  if (level <= 2) {
+  if (level === 1) {
     return "started";
   }
 
-  if (level <= 4) {
+  if (level === 2) {
     return "growing";
   }
 
