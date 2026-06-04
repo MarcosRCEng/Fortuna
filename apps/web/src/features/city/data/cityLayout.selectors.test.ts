@@ -37,12 +37,12 @@ describe("city layout selectors", () => {
 
     expect(orderedIds).toEqual(expectedIds);
     expect(orderedIds).toEqual([
-      "reserve_bank",
-      "city_exchange",
-      "financial_hall",
       "financial_school",
-      "mentor_tower",
+      "reserve_bank",
+      "financial_hall",
+      "city_exchange",
       "income_park",
+      "mentor_tower",
       "real_estate_center",
     ] satisfies CityBuildingType[]);
   });
