@@ -1,4 +1,5 @@
-import { cityDecorations, cityIsoToScreen } from "../data/citySceneLayout.js";
+import { CITY_MAP_CONFIG, getOrderedGridDecorations } from "../data/cityGridLayout.js";
+import { isoToScreen } from "../data/isoMath.js";
 
 export function CityDecorationLayer({
   showYieldCoin,
@@ -7,25 +8,25 @@ export function CityDecorationLayer({
   showYieldCoin: boolean;
   showProgressSparkle: boolean;
 }) {
+  const decorations = getOrderedGridDecorations({ showYieldCoin, showProgressSparkle });
+
   return (
     <div className="city-layer city-decoration-layer" aria-hidden="true">
-      {cityDecorations.map((decoration) => {
-        if (decoration.kind === "coin" && !showYieldCoin) {
-          return null;
-        }
-        if (decoration.kind === "sparkle" && !showProgressSparkle) {
-          return null;
-        }
-
-        const position = cityIsoToScreen(decoration.tileX, decoration.tileY);
+      {decorations.map((decoration) => {
+        const position = isoToScreen(decoration, CITY_MAP_CONFIG);
 
         return (
-          <span
+          <img
             key={decoration.id}
             className={`city-decoration city-decoration-${decoration.kind}`}
+            src={decoration.asset}
+            alt=""
+            draggable={false}
             style={{
               left: position.x + (decoration.offsetX ?? 0),
               top: position.y + (decoration.offsetY ?? 0),
+              width: decoration.width,
+              zIndex: 80 + decoration.gridX + decoration.gridY,
             }}
           />
         );
