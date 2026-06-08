@@ -792,13 +792,20 @@ input {
   min-width: 1040px;
   position: relative;
   transform-origin: center top;
+  --city-tile-width: 108px;
+  --city-tile-height: 54px;
+  --city-tile-border: rgba(87, 126, 91, 0.06);
+  --city-tile-fill: linear-gradient(135deg, rgba(232, 243, 218, 0.34), rgba(191, 220, 184, 0.2));
+  --city-tile-opacity: 0.34;
+  --city-road-fill: #d8d2c4;
+  --city-road-edge: rgba(132, 123, 103, 0.16);
 }
 
 .city-map-board::before {
-  background: rgba(54, 68, 77, 0.18);
+  background: rgba(54, 68, 77, 0.14);
   border-radius: 50%;
   content: "";
-  filter: blur(18px);
+  filter: blur(20px);
   height: 104px;
   left: 96px;
   position: absolute;
@@ -817,12 +824,12 @@ input {
 }
 
 .city-ground-shadow {
-  fill: rgba(43, 65, 58, 0.2);
+  fill: rgba(43, 65, 58, 0.16);
   filter: blur(16px);
 }
 
 .city-ground-side {
-  stroke: rgba(71, 104, 82, 0.22);
+  stroke: rgba(71, 104, 82, 0.14);
   stroke-width: 2;
 }
 
@@ -840,15 +847,15 @@ input {
 
 .city-ground-texture {
   filter: url(#city-ground-texture);
-  opacity: 0.34;
+  opacity: 0.24;
   pointer-events: none;
 }
 
 .city-ground-rim {
   fill: none;
-  stroke: rgba(64, 105, 77, 0.58);
+  stroke: rgba(64, 105, 77, 0.28);
   stroke-linejoin: round;
-  stroke-width: 4;
+  stroke-width: 2;
 }
 
 .city-background-layer {
@@ -900,28 +907,179 @@ input {
 
 .city-iso-tile {
   display: block;
-  height: 136px;
-  object-fit: contain;
+  height: var(--city-tile-height);
+  isolation: isolate;
   pointer-events: none;
   position: absolute;
   transform-origin: center center;
-  width: 136px;
+  width: var(--city-tile-width);
 }
 
 .city-iso-tile-grass {
-  opacity: 0.96;
+  --city-tile-border: rgba(91, 132, 94, 0.04);
+  --city-tile-detail-opacity: 0;
+  --city-tile-opacity: 0.34;
+}
+
+.city-iso-tile-tone-0 {
+  --city-tile-fill: linear-gradient(135deg, rgba(235, 244, 220, 0.34), rgba(197, 223, 185, 0.19));
+}
+
+.city-iso-tile-tone-1 {
+  --city-tile-fill: linear-gradient(135deg, rgba(226, 241, 216, 0.28), rgba(187, 218, 183, 0.16));
+}
+
+.city-iso-tile-tone-2 {
+  --city-tile-fill: linear-gradient(135deg, rgba(239, 244, 225, 0.3), rgba(202, 226, 194, 0.17));
+}
+
+.city-iso-tile-tone-3 {
+  --city-tile-fill: linear-gradient(135deg, rgba(229, 241, 220, 0.26), rgba(190, 219, 188, 0.15));
 }
 
 .city-iso-tile-empty_lot {
-  filter: drop-shadow(0 2px 0 rgba(82, 98, 74, 0.1));
+  --city-tile-border: rgba(153, 135, 94, 0.16);
+  --city-tile-detail-opacity: 0.42;
+  --city-tile-fill: linear-gradient(145deg, rgba(239, 233, 210, 0.84), rgba(221, 232, 207, 0.72));
+  --city-tile-opacity: 0.78;
 }
 
 .city-iso-tile-road {
-  filter: drop-shadow(0 3px 0 rgba(35, 51, 59, 0.16));
+  --city-tile-border: rgba(95, 129, 98, 0.05);
+  --city-tile-detail-opacity: 0;
+  --city-tile-fill: linear-gradient(135deg, rgba(224, 235, 214, 0.5), rgba(207, 225, 204, 0.34));
+  --city-tile-opacity: 0.48;
 }
 
 .city-iso-tile-plaza {
-  filter: drop-shadow(0 2px 0 rgba(92, 106, 73, 0.12));
+  --city-tile-border: rgba(82, 135, 125, 0.14);
+  --city-tile-detail-opacity: 0.28;
+  --city-tile-fill: linear-gradient(145deg, rgba(218, 239, 229, 0.86), rgba(199, 227, 226, 0.74));
+  --city-tile-opacity: 0.82;
+}
+
+.city-iso-tile-surface,
+.city-road-visual {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  position: absolute;
+}
+
+.city-iso-tile-surface {
+  background: var(--city-tile-fill);
+  box-shadow: inset 0 0 0 1px var(--city-tile-border);
+  inset: -1px -2px;
+  opacity: var(--city-tile-opacity);
+  overflow: hidden;
+  z-index: 0;
+}
+
+.city-iso-tile-surface::after {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(139, 154, 129, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(121, 115, 86, 0.12);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  content: "";
+  inset: 18% 20%;
+  opacity: var(--city-tile-detail-opacity, 0);
+  position: absolute;
+}
+
+.city-iso-tile::after {
+  box-shadow: inset 0 0 0 1px rgba(75, 109, 83, 0.24);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  content: "";
+  inset: -1px -2px;
+  opacity: 0;
+  position: absolute;
+  transition: opacity 140ms ease;
+  z-index: 4;
+}
+
+.city-map-board:hover .city-iso-tile::after {
+  opacity: 0.08;
+}
+
+.city-map-board-debug .city-iso-tile::after {
+  opacity: 0.5;
+}
+
+.city-road-visual {
+  inset: -4px -8px;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.city-road-arm,
+.city-road-core {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 52%),
+    var(--city-road-fill);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 var(--city-road-edge);
+  position: absolute;
+}
+
+.city-road-arm {
+  border-radius: 999px;
+  height: 22px;
+  left: 50%;
+  margin-top: -11px;
+  top: 50%;
+  transform-origin: 0 50%;
+  width: 86px;
+  z-index: 1;
+}
+
+.city-road-arm-north {
+  transform: rotate(-26.565deg);
+}
+
+.city-road-arm-east {
+  transform: rotate(26.565deg);
+}
+
+.city-road-arm-south {
+  transform: rotate(153.435deg);
+}
+
+.city-road-arm-west {
+  transform: rotate(-153.435deg);
+}
+
+.city-road-core {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  height: 26px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  z-index: 2;
+}
+
+.city-iso-road-road_cross .city-road-core {
+  height: 30px;
+  width: 52px;
+}
+
+.city-iso-road-road_t .city-road-core {
+  height: 28px;
+  width: 50px;
+}
+
+.city-iso-road-road_corner .city-road-core {
+  height: 24px;
+  width: 42px;
+}
+
+.city-iso-tile-asset {
+  height: 136px;
+  left: 50%;
+  object-fit: contain;
+  opacity: 0.56;
+  position: absolute;
+  top: 50%;
+  width: 136px;
+  z-index: 5;
 }
 
 .city-decoration {

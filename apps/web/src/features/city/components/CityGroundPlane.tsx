@@ -33,18 +33,18 @@ export function CityGroundPlane() {
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="city-ground-top" x1="0.26" x2="0.78" y1="0.15" y2="0.9">
-          <stop offset="0%" stopColor="#e4f1dc" />
-          <stop offset="45%" stopColor="#d3e8cf" />
-          <stop offset="100%" stopColor="#b9d8bc" />
+        <linearGradient id="city-ground-top" x1="0.24" x2="0.8" y1="0.12" y2="0.92">
+          <stop offset="0%" stopColor="#edf4df" />
+          <stop offset="48%" stopColor="#dceccb" />
+          <stop offset="100%" stopColor="#c3ddb8" />
         </linearGradient>
         <linearGradient id="city-ground-left-side" x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#99bea3" />
-          <stop offset="100%" stopColor="#7fa890" />
+          <stop offset="0%" stopColor="#a8c6a4" />
+          <stop offset="100%" stopColor="#8fb795" />
         </linearGradient>
         <linearGradient id="city-ground-right-side" x1="1" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#8bb493" />
-          <stop offset="100%" stopColor="#6f9a82" />
+          <stop offset="0%" stopColor="#9bc19b" />
+          <stop offset="100%" stopColor="#80aa88" />
         </linearGradient>
         <filter id="city-ground-texture" x="-10%" y="-10%" width="120%" height="120%">
           <feTurbulence baseFrequency="0.018" numOctaves="2" seed="7" type="fractalNoise" />
