@@ -38,8 +38,8 @@ describe("city layout selectors", () => {
     expect(orderedIds).toEqual(expectedIds);
     expect(orderedIds).toEqual([
       "financial_school",
-      "reserve_bank",
       "financial_hall",
+      "reserve_bank",
       "city_exchange",
       "income_park",
       "mentor_tower",

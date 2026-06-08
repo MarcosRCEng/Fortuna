@@ -1,8 +1,34 @@
+import { CITY_MAP_CONFIG } from "../data/cityGridLayout.js";
+import { getIsoMapDiamondPoints } from "../data/isoMath.js";
+
 export function CityGroundPlane() {
+  const [north, east, south, west] = getIsoMapDiamondPoints(CITY_MAP_CONFIG);
+  const topPath = [
+    `M${north.x} ${north.y - CITY_MAP_CONFIG.tileHeight / 2}`,
+    `L${east.x + CITY_MAP_CONFIG.tileWidth / 2} ${east.y}`,
+    `L${south.x} ${south.y + CITY_MAP_CONFIG.tileHeight / 2}`,
+    `L${west.x - CITY_MAP_CONFIG.tileWidth / 2} ${west.y}`,
+    "Z",
+  ].join(" ");
+  const leftSidePath = [
+    `M${west.x - CITY_MAP_CONFIG.tileWidth / 2} ${west.y}`,
+    `L${south.x} ${south.y + CITY_MAP_CONFIG.tileHeight / 2}`,
+    `L${south.x} ${south.y + 76}`,
+    `L${west.x - CITY_MAP_CONFIG.tileWidth / 2} ${west.y + 28}`,
+    "Z",
+  ].join(" ");
+  const rightSidePath = [
+    `M${east.x + CITY_MAP_CONFIG.tileWidth / 2} ${east.y}`,
+    `L${south.x} ${south.y + CITY_MAP_CONFIG.tileHeight / 2}`,
+    `L${south.x} ${south.y + 76}`,
+    `L${east.x + CITY_MAP_CONFIG.tileWidth / 2} ${east.y + 28}`,
+    "Z",
+  ].join(" ");
+
   return (
     <svg
       className="city-layer city-ground-plane"
-      viewBox="0 0 900 600"
+      viewBox="0 0 1040 680"
       preserveAspectRatio="none"
       aria-hidden="true"
     >
@@ -29,18 +55,18 @@ export function CityGroundPlane() {
         </filter>
       </defs>
 
-      <ellipse className="city-ground-shadow" cx="390" cy="520" rx="410" ry="62" />
-      <path
-        className="city-ground-side city-ground-side-left"
-        d="M390 58 L850 284 L850 330 L390 560 L390 512 L804 306 Z"
+      <ellipse
+        className="city-ground-shadow"
+        cx={south.x}
+        cy={south.y + 92}
+        rx="450"
+        ry="64"
       />
-      <path
-        className="city-ground-side city-ground-side-right"
-        d="M390 58 L-70 284 L-70 330 L390 560 L390 512 L-24 306 Z"
-      />
-      <path className="city-ground-top" d="M390 58 L850 284 L390 512 L-70 284 Z" />
-      <path className="city-ground-texture" d="M390 58 L850 284 L390 512 L-70 284 Z" />
-      <path className="city-ground-rim" d="M390 58 L850 284 L390 512 L-70 284 Z" />
+      <path className="city-ground-side city-ground-side-left" d={leftSidePath} />
+      <path className="city-ground-side city-ground-side-right" d={rightSidePath} />
+      <path className="city-ground-top" d={topPath} />
+      <path className="city-ground-texture" d={topPath} />
+      <path className="city-ground-rim" d={topPath} />
     </svg>
   );
 }

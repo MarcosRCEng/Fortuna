@@ -762,34 +762,34 @@ input {
     linear-gradient(180deg, #bfeaf2 0%, #dff2f1 43%, #dbe8dd 100%);
   border: 1px solid #cbd9d6;
   border-radius: 8px;
-  min-height: 600px;
+  min-height: 680px;
   overflow: auto hidden;
   position: relative;
 }
 
 .city-skyline {
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0)),
-    linear-gradient(180deg, rgba(83, 129, 158, 0.2), rgba(83, 129, 158, 0));
-  height: 160px;
+    linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0)),
+    linear-gradient(180deg, rgba(109, 154, 159, 0.14), rgba(109, 154, 159, 0));
+  height: 180px;
   inset: 0 0 auto;
   position: absolute;
 }
 
 .city-skyline::before {
   background:
-    linear-gradient(90deg, transparent 0 8%, rgba(82, 116, 140, 0.18) 8% 13%, transparent 13% 22%, rgba(82, 116, 140, 0.13) 22% 29%, transparent 29% 42%, rgba(82, 116, 140, 0.16) 42% 48%, transparent 48% 61%, rgba(82, 116, 140, 0.12) 61% 67%, transparent 67% 81%, rgba(82, 116, 140, 0.15) 81% 88%, transparent 88%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(103, 140, 161, 0.18));
+    linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(126, 166, 142, 0.12)),
+    linear-gradient(135deg, transparent 0 19%, rgba(115, 155, 131, 0.16) 19% 20%, transparent 20% 38%, rgba(115, 155, 131, 0.14) 38% 39%, transparent 39% 100%);
   bottom: 0;
   content: "";
-  height: 96px;
+  height: 104px;
   inset-inline: 0;
   position: absolute;
 }
 
 .city-map-board {
-  height: 600px;
-  min-width: 900px;
+  height: 680px;
+  min-width: 1040px;
   position: relative;
   transform-origin: center top;
 }
@@ -799,11 +799,11 @@ input {
   border-radius: 50%;
   content: "";
   filter: blur(18px);
-  height: 92px;
+  height: 104px;
   left: 96px;
   position: absolute;
-  top: 506px;
-  width: 790px;
+  top: 578px;
+  width: 860px;
 }
 
 .city-layer {
@@ -851,34 +851,13 @@ input {
   stroke-width: 4;
 }
 
-.city-pad-layer {
-  overflow: visible;
+.city-background-layer {
+  z-index: 0;
+}
+
+.city-terrain-layer {
+  pointer-events: none;
   z-index: 20;
-}
-
-.city-building-pad {
-  opacity: 0.78;
-  stroke: rgba(255, 255, 255, 0.76);
-  stroke-width: 4;
-}
-
-.city-building-pad-civic,
-.city-building-pad-finance,
-.city-building-pad-market {
-  fill: #d7d4c8;
-}
-
-.city-building-pad-park,
-.city-building-pad-campus {
-  fill: #a8cf79;
-}
-
-.city-building-pad-finance {
-  fill: #ded8c8;
-}
-
-.city-building-pad-market {
-  fill: #cbd7da;
 }
 
 .city-road-layer {
@@ -889,189 +868,147 @@ input {
   z-index: 30;
 }
 
-.city-road-canvas {
-  display: block;
-  height: 100%;
-  width: 100%;
+.city-plaza-layer {
+  pointer-events: none;
+  z-index: 34;
+}
+
+.city-building-shadow-layer {
+  pointer-events: none;
+  z-index: 45;
 }
 
 .city-decoration-layer {
-  z-index: 80;
+  pointer-events: none;
+  z-index: 60;
 }
 
 .city-building-layer {
-  z-index: 100;
+  z-index: 50;
+}
+
+.city-badge-layer {
+  pointer-events: none;
+  z-index: 70;
+}
+
+.city-selection-layer {
+  overflow: visible;
+  pointer-events: none;
+  z-index: 80;
+}
+
+.city-iso-tile {
+  display: block;
+  height: 136px;
+  object-fit: contain;
+  pointer-events: none;
+  position: absolute;
+  transform-origin: center center;
+  width: 136px;
+}
+
+.city-iso-tile-grass {
+  opacity: 0.96;
+}
+
+.city-iso-tile-empty_lot {
+  filter: drop-shadow(0 2px 0 rgba(82, 98, 74, 0.1));
+}
+
+.city-iso-tile-road {
+  filter: drop-shadow(0 3px 0 rgba(35, 51, 59, 0.16));
+}
+
+.city-iso-tile-plaza {
+  filter: drop-shadow(0 2px 0 rgba(92, 106, 73, 0.12));
 }
 
 .city-decoration {
   display: block;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
   position: absolute;
   transform: translate(-50%, -100%);
-  z-index: 80;
-}
-
-.city-decoration-tree,
-.city-decoration-round-tree {
-  background: #79ba88;
-  border: 5px solid #a8d7b2;
-  border-radius: 999px;
-  box-shadow: 0 10px 0 -4px #866d44;
-  height: 38px;
-  width: 38px;
-}
-
-.city-decoration-tree::after {
-  background: #5ea574;
-  border-radius: 999px;
-  content: "";
-  height: 24px;
-  left: 17px;
-  position: absolute;
-  top: -10px;
-  width: 24px;
-}
-
-.city-decoration-bench {
-  background: #c9a86a;
-  border-radius: 6px;
-  box-shadow: 0 8px 0 -4px #7d6a49;
-  height: 14px;
-  width: 42px;
-}
-
-.city-decoration-lamp {
-  background: #557083;
-  border-radius: 999px;
-  height: 46px;
-  width: 8px;
-}
-
-.city-decoration-lamp::before {
-  background: #efd38a;
-  border-radius: 999px;
-  content: "";
-  height: 18px;
-  left: -7px;
-  position: absolute;
-  top: -13px;
-  width: 22px;
-}
-
-.city-decoration-fountain {
-  background: #d8c6a2;
-  border: 4px solid #f0e4ca;
-  border-radius: 50%;
-  height: 54px;
-  width: 54px;
-}
-
-.city-decoration-fountain::after {
-  background: #9ccfe2;
-  border-radius: 50%;
-  content: "";
-  inset: 10px;
-  position: absolute;
-}
-
-.city-decoration-hedge {
-  background: #91c99b;
-  border-radius: 999px;
-  height: 18px;
-  width: 64px;
 }
 
 .city-decoration-coin,
 .city-decoration-sparkle {
   animation: city-soft-pulse 2.8s ease-in-out infinite;
-  background: #dfbd64;
-  border: 3px solid #fff2c4;
-  border-radius: 999px;
-  height: 24px;
-  width: 24px;
 }
 
-.city-decoration-sparkle {
-  background: #eef4fb;
-  border-color: #b9cde8;
-}
-
-.city-scene-building {
-  align-items: center;
+.city-iso-building {
+  --building-anchor-x: -50%;
+  --building-anchor-y: -100%;
+  --building-lift: 0px;
+  --building-scale: 1;
   background: transparent;
   border: 0;
   color: #17202f;
-  display: grid;
-  justify-items: center;
-  min-height: 186px;
+  display: block;
+  height: 226px;
   padding: 0;
   position: absolute;
-  transform: translate(-50%, -81%);
+  transform: translate(
+      var(--building-anchor-x),
+      calc(var(--building-anchor-y) + var(--building-lift))
+    )
+    scale(var(--building-scale));
+  transform-origin: center bottom;
   transition:
     filter 160ms ease,
     transform 180ms ease;
-  width: 176px;
 }
 
-.city-scene-building:focus-visible {
+.city-iso-building:focus-visible {
   outline: 3px solid #365f91;
   outline-offset: 6px;
 }
 
-.city-scene-building:hover,
-.city-scene-building[aria-pressed="true"] {
+.city-iso-building:hover,
+.city-iso-building[aria-pressed="true"] {
+  --building-lift: -6px;
+  --building-scale: 1.03;
   filter: drop-shadow(0 18px 18px rgba(42, 84, 64, 0.18));
-  transform: translate(-50%, -83%) scale(1.03);
 }
 
-.city-scene-building img {
+.city-iso-building-asset {
   animation: city-building-enter 380ms ease-out both;
   display: block;
-  max-height: 172px;
-  max-width: 174px;
+  left: 50%;
+  max-height: 218px;
   object-fit: contain;
-  position: relative;
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
   z-index: 2;
 }
 
-.city-scene-building-locked img {
-  filter: grayscale(0.25) saturate(0.75);
-  opacity: 0.46;
-  transform: scale(0.78);
+.city-iso-building-locked .city-iso-building-asset {
+  filter: saturate(0.86);
+  opacity: 0.9;
 }
 
-.city-scene-building-started img {
-  transform: scale(0.86);
+.city-iso-building-started .city-iso-building-asset {
+  transform: translateX(-50%) scale(0.94);
 }
 
-.city-scene-building-growing img {
-  transform: scale(0.98);
+.city-iso-building-growing .city-iso-building-asset {
+  transform: translateX(-50%) scale(1);
 }
 
-.city-scene-building-strong img {
-  transform: scale(1.08);
+.city-iso-building-strong .city-iso-building-asset {
+  transform: translateX(-50%) scale(1.06);
 }
 
 .city-building-shadow {
-  background: rgba(23, 32, 47, 0.18);
+  background: radial-gradient(ellipse, rgba(23, 32, 47, 0.2), rgba(23, 32, 47, 0));
   border-radius: 50%;
-  bottom: 10px;
-  filter: blur(3px);
-  height: 22px;
+  filter: blur(5px);
   position: absolute;
-  width: 112px;
-}
-
-.city-locked-plot {
-  background:
-    repeating-linear-gradient(90deg, rgba(121, 103, 75, 0.16) 0 6px, rgba(121, 103, 75, 0) 6px 12px),
-    #d9cbb2;
-  border: 1px solid #c4b08e;
-  height: 62px;
-  position: absolute;
-  top: 80px;
-  transform: rotate(45deg) skew(-7deg, -7deg);
-  width: 62px;
-  z-index: 1;
+  transform: translate(-50%, -50%);
 }
 
 .city-building-label {
@@ -1087,19 +1024,21 @@ input {
   min-width: 94px;
   opacity: 0;
   padding: 6px 8px;
-  position: relative;
-  transform: translateY(-4px);
+  position: absolute;
+  left: 50%;
+  bottom: -34px;
+  transform: translate(-50%, -4px);
   transition:
     opacity 140ms ease,
     transform 140ms ease;
   z-index: 4;
 }
 
-.city-scene-building:hover .city-building-label,
-.city-scene-building:focus-visible .city-building-label,
-.city-scene-building[aria-pressed="true"] .city-building-label {
+.city-iso-building:hover .city-building-label,
+.city-iso-building:focus-visible .city-building-label,
+.city-iso-building[aria-pressed="true"] .city-building-label {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(-50%, 0);
 }
 
 .city-building-label strong,
@@ -1113,8 +1052,7 @@ input {
   font-weight: 800;
 }
 
-.city-action-indicator,
-.city-alert-indicator {
+.city-overlay-badge {
   background: #f3ead8;
   border: 1px solid #ddc280;
   border-radius: 999px;
@@ -1126,12 +1064,11 @@ input {
   overflow-wrap: anywhere;
   padding: 4px 8px;
   position: absolute;
-  right: 8px;
-  top: 14px;
-  z-index: 5;
+  text-align: center;
+  transform: translate(-50%, -100%);
 }
 
-.city-alert-indicator {
+.city-overlay-badge-alert {
   background: #fff1e8;
   border-color: #f2c9ac;
   color: #8a4a1f;
@@ -1145,8 +1082,11 @@ input {
   display: none;
   font-size: 0.78rem;
   font-weight: 900;
+  left: 50%;
   padding: 10px;
-  position: relative;
+  position: absolute;
+  bottom: 34px;
+  transform: translateX(-50%);
   z-index: 3;
 }
 
@@ -1157,8 +1097,16 @@ input {
   margin-top: 3px;
 }
 
-.city-scene-building-fallback .city-building-fallback-label {
+.city-iso-building-fallback .city-building-fallback-label {
   display: block;
+}
+
+.city-selection-footprint {
+  fill: rgba(255, 255, 255, 0.18);
+  stroke: #365f91;
+  stroke-dasharray: 8 7;
+  stroke-linejoin: round;
+  stroke-width: 3;
 }
 
 .city-hud-overlay {
@@ -1631,11 +1579,11 @@ input {
 @media (prefers-reduced-motion: reduce) {
   .city-decoration-coin,
   .city-decoration-sparkle,
-  .city-scene-building img {
+  .city-iso-building-asset {
     animation: none;
   }
 
-  .city-scene-building {
+  .city-iso-building {
     transition: none;
   }
 }
@@ -1716,12 +1664,12 @@ input {
   }
 
   .city-scene-canvas {
-    min-height: 420px;
+    min-height: 520px;
   }
 
   .city-map-board {
-    height: 500px;
-    transform: scale(0.82);
+    height: 490px;
+    transform: scale(0.72);
     transform-origin: left top;
   }
 
