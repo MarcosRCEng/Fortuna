@@ -14,6 +14,8 @@ import { CityOverlayBadge } from "./CityOverlayBadge.js";
 import { CityRoadLayer } from "./CityRoadLayer.js";
 import { IsoTile } from "./IsoTile.js";
 
+export const SHOW_CITY_DEBUG_GRID = false;
+
 export function CityMap({
   buildings,
   selectedBuildingId,
@@ -42,20 +44,33 @@ export function CityMap({
   );
 
   return (
-    <div className="city-map-board">
+    <div
+      className={`city-map-board${SHOW_CITY_DEBUG_GRID ? " city-map-board-debug" : ""}`}
+    >
       <div className="city-layer city-background-layer" aria-hidden="true">
         <div className="city-skyline" />
       </div>
       <CityGroundPlane />
       <div className="city-layer city-terrain-layer" aria-hidden="true">
         {terrainTiles.map((tile) => (
-          <IsoTile key={tile.id} tile={tile} />
+          <IsoTile
+            key={tile.id}
+            tile={tile}
+            showDebugAsset={SHOW_CITY_DEBUG_GRID}
+          />
         ))}
       </div>
-      <CityRoadLayer tiles={cityGridTiles} />
+      <CityRoadLayer
+        tiles={cityGridTiles}
+        showDebugAsset={SHOW_CITY_DEBUG_GRID}
+      />
       <div className="city-layer city-plaza-layer" aria-hidden="true">
         {plazaTiles.map((tile) => (
-          <IsoTile key={tile.id} tile={tile} />
+          <IsoTile
+            key={tile.id}
+            tile={tile}
+            showDebugAsset={SHOW_CITY_DEBUG_GRID}
+          />
         ))}
       </div>
       <CityBuildingShadowLayer buildings={gridBuildings} />
