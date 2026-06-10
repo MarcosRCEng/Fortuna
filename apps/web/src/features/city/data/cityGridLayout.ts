@@ -8,12 +8,17 @@ import {
   type CityTerrainAssetKey,
 } from "./cityAssets.js";
 import {
+  resolveCityBuildingVisualState,
+  type CityBuildingConstructionState,
+} from "./cityBuildingVisualState.js";
+import {
   getFootprintBottomCenter,
   isWithinGrid,
   sortByIsoDepth,
   type IsoGridConfig,
   type IsoGridPoint,
 } from "./isoMath.js";
+import type { CityVisualStage } from "../types/city-render.types.js";
 
 export const CITY_MAP_CONFIG: IsoGridConfig = {
   width: 11,
@@ -49,6 +54,8 @@ export type CityGridBuilding = IsoGridPoint & {
   sizeY: number;
   level: number;
   status: CityBuildingViewModel["status"];
+  visualStage: CityVisualStage;
+  constructionState: CityBuildingConstructionState;
   asset: string;
   renderWidth: number;
   anchorX: number;
@@ -109,16 +116,28 @@ const roadCoordinates = [
 ] as const;
 
 const plazaCoordinates = [
+  [1, 3],
+  [2, 3],
   [4, 1],
   [5, 1],
+  [6, 2],
   [6, 3],
+  [0, 4],
+  [0, 5],
   [4, 5],
   [5, 5],
   [7, 5],
+  [7, 6],
+  [7, 8],
+  [7, 9],
+  [7, 1],
+  [7, 2],
+  [9, 3],
 ] as const;
 
 const roadSet = new Set(roadCoordinates.map(([gridX, gridY]) => createGridKey(gridX, gridY)));
 const plazaSet = new Set(plazaCoordinates.map(([gridX, gridY]) => createGridKey(gridX, gridY)));
+const urbanAccessSet = new Set([...roadSet, ...plazaSet]);
 
 const roadDirections: Array<{
   direction: CityRoadDirection;
@@ -169,7 +188,10 @@ export function createCityGridBuildings(
       }
 
       const anchor = getFootprintBottomCenter(definition, CITY_MAP_CONFIG);
-      const visualLevel = Math.max(1, viewModel.level);
+      const visualState = resolveCityBuildingVisualState({
+        level: viewModel.level,
+        status: viewModel.status,
+      });
 
       return {
         id: definition.id,
@@ -178,9 +200,15 @@ export function createCityGridBuildings(
         gridY: definition.gridY,
         sizeX: definition.sizeX,
         sizeY: definition.sizeY,
-        level: visualLevel,
+        level: viewModel.level,
         status: viewModel.status,
-        asset: getCityBuildingAssetPath(definition.id, visualLevel),
+        visualStage: visualState.visualStage,
+        constructionState: visualState.constructionState,
+        asset: getCityBuildingAssetPath(
+          definition.id,
+          viewModel.level,
+          viewModel.status,
+        ),
         renderWidth: definition.renderWidth,
         anchorX: definition.anchorX,
         anchorY: definition.anchorY,
@@ -234,8 +262,18 @@ export function getRoadVariantForTile(
   return resolveRoadTile(connections);
 }
 
+export function getBuildingUrbanAccessPoints(
+  building: Pick<CityGridBuilding, "gridX" | "gridY" | "sizeX" | "sizeY">,
+): IsoGridPoint[] {
+  return getBuildingConnectedUrbanAccessPoints(
+    building,
+    getConnectedUrbanNetworkSet(),
+  );
+}
+
 export function validateCityGridLayout(): string[] {
   const errors: string[] = [];
+  const connectedUrbanNetwork = getConnectedUrbanNetworkSet();
 
   for (const building of Object.values(cityBuildingVisualRegistry)) {
     for (const point of getBuildingFootprint(building)) {
@@ -245,12 +283,33 @@ export function validateCityGridLayout(): string[] {
       if (roadSet.has(createGridKey(point.gridX, point.gridY))) {
         errors.push(`${building.id} sobrepoe rua em ${point.gridX}:${point.gridY}`);
       }
+      if (plazaSet.has(createGridKey(point.gridX, point.gridY))) {
+        errors.push(`${building.id} sobrepoe acesso urbano em ${point.gridX}:${point.gridY}`);
+      }
+    }
+
+    if (getBuildingConnectedUrbanAccessPoints(building, connectedUrbanNetwork).length === 0) {
+      errors.push(`${building.id} sem acesso urbano conectado`);
     }
   }
 
   for (const [gridX, gridY] of roadCoordinates) {
     if (!isWithinGrid({ gridX, gridY }, CITY_MAP_CONFIG)) {
       errors.push(`Rua fora da grade em ${gridX}:${gridY}`);
+    }
+  }
+
+  for (const [gridX, gridY] of plazaCoordinates) {
+    const key = createGridKey(gridX, gridY);
+
+    if (!isWithinGrid({ gridX, gridY }, CITY_MAP_CONFIG)) {
+      errors.push(`Praca/caminho fora da grade em ${gridX}:${gridY}`);
+    }
+    if (roadSet.has(key)) {
+      errors.push(`Praca/caminho sobrepoe rua em ${gridX}:${gridY}`);
+    }
+    if (!connectedUrbanNetwork.has(key)) {
+      errors.push(`Praca/caminho desconectado em ${gridX}:${gridY}`);
     }
   }
 
@@ -316,6 +375,67 @@ function getRoadConnections(gridX: number, gridY: number): CityRoadDirection[] {
   return roadDirections.filter(({ direction, deltaX, deltaY }) =>
     roadSet.has(createGridKey(gridX + deltaX, gridY + deltaY)),
   ).map(({ direction }) => direction);
+}
+
+function getBuildingConnectedUrbanAccessPoints(
+  building: Pick<CityGridBuilding, "gridX" | "gridY" | "sizeX" | "sizeY">,
+  connectedUrbanNetwork: Set<string>,
+): IsoGridPoint[] {
+  const footprint = getBuildingFootprint(building);
+  const footprintKeys = new Set(
+    footprint.map((point) => createGridKey(point.gridX, point.gridY)),
+  );
+  const accessByKey = new Map<string, IsoGridPoint>();
+
+  for (const point of footprint) {
+    for (const { deltaX, deltaY } of roadDirections) {
+      const accessPoint = { gridX: point.gridX + deltaX, gridY: point.gridY + deltaY };
+      const key = createGridKey(accessPoint.gridX, accessPoint.gridY);
+
+      if (
+        !footprintKeys.has(key) &&
+        isWithinGrid(accessPoint, CITY_MAP_CONFIG) &&
+        connectedUrbanNetwork.has(key)
+      ) {
+        accessByKey.set(key, accessPoint);
+      }
+    }
+  }
+
+  return [...accessByKey.values()];
+}
+
+function getConnectedUrbanNetworkSet() {
+  const [startGridX, startGridY] = roadCoordinates[0];
+  const visited = new Set<string>();
+  const queue: IsoGridPoint[] = [{ gridX: startGridX, gridY: startGridY }];
+
+  while (queue.length > 0) {
+    const point = queue.shift();
+
+    if (!point) {
+      continue;
+    }
+
+    const key = createGridKey(point.gridX, point.gridY);
+
+    if (visited.has(key) || !urbanAccessSet.has(key)) {
+      continue;
+    }
+
+    visited.add(key);
+
+    for (const { deltaX, deltaY } of roadDirections) {
+      const nextPoint = { gridX: point.gridX + deltaX, gridY: point.gridY + deltaY };
+      const nextKey = createGridKey(nextPoint.gridX, nextPoint.gridY);
+
+      if (urbanAccessSet.has(nextKey) && !visited.has(nextKey)) {
+        queue.push(nextPoint);
+      }
+    }
+  }
+
+  return visited;
 }
 
 function resolveRoadTile(connections: CityRoadDirection[]): CityRoadTile {

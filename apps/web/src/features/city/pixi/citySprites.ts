@@ -12,6 +12,7 @@ import {
   CITY_BUILDING_ASSET_BASE_PATH,
   CITY_BUILDING_ASSET_MANIFEST_SET,
 } from "./cityAssetManifest.js";
+import { getCityVisualStageFromLevel } from "../data/cityBuildingVisualState.js";
 
 const PLACEHOLDER_BASE_PATH = "/assets/city/placeholders";
 
@@ -42,19 +43,7 @@ export const CITY_BUILDING_PLACEHOLDER_SPRITES: CityBuildingSpriteRegistry =
   }, {} as CityBuildingSpriteRegistry);
 
 export function getVisualStageFromLevel(level: number): CityVisualStage {
-  if (level <= 0) {
-    return 0;
-  }
-
-  if (level <= 2) {
-    return 1;
-  }
-
-  if (level <= 4) {
-    return 2;
-  }
-
-  return 3;
+  return getCityVisualStageFromLevel(level);
 }
 
 export function getVisualAssetStageFromLevel(level: number): CityVisualStage {

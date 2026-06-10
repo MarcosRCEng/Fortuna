@@ -18,7 +18,7 @@ export function IsoBuilding({
   return (
     <button
       type="button"
-      className={`city-iso-building city-iso-building-${building.status}`}
+      className={`city-iso-building city-iso-building-${building.status} city-iso-building-stage-${building.visualStage} city-iso-building-construction-${building.constructionState}`}
       style={{
         left: building.screenX,
         top: building.screenY,
