@@ -5,8 +5,14 @@ import {
   cityGridTiles,
   createCityGridBuildings,
   type CityGridBuilding,
+  type CityGridTile,
 } from "../data/cityGridLayout.js";
-import { isoToScreen, sortByIsoDepth } from "../data/isoMath.js";
+import {
+  formatIsoSvgPoints,
+  getAnchoredFootprintDiamondPoints,
+  sortByIsoDepth,
+  type IsoScreenPoint,
+} from "../data/isoMath.js";
 import { CityBuildingLayer } from "./CityBuildingLayer.js";
 import { CityDecorationLayer } from "./CityDecorationLayer.js";
 import { CityGroundPlane } from "./CityGroundPlane.js";
@@ -15,6 +21,7 @@ import { CityRoadLayer } from "./CityRoadLayer.js";
 import { IsoTile } from "./IsoTile.js";
 
 export const SHOW_CITY_DEBUG_GRID = false;
+const BUILDING_SHADOW_OFFSET_Y = -6;
 
 export function CityMap({
   buildings,
@@ -25,13 +32,14 @@ export function CityMap({
   selectedBuildingId?: string;
   onBuildingClick: (building: CityBuildingViewModel) => void;
 }) {
-  const gridBuildings = useMemo(() => createCityGridBuildings(buildings), [buildings]);
+  const gridBuildings = useMemo(
+    () => createCityGridBuildings(buildings),
+    [buildings],
+  );
   const terrainTiles = useMemo(
     () =>
       sortByIsoDepth(
-        cityGridTiles.filter(
-          (tile) => tile.type === "grass" || tile.type === "empty_lot",
-        ),
+        cityGridTiles.filter((tile) => shouldRenderTerrainTile(tile)),
       ),
     [],
   );
@@ -95,7 +103,11 @@ export function CityMap({
   );
 }
 
-function CityBuildingShadowLayer({ buildings }: { buildings: CityGridBuilding[] }) {
+function CityBuildingShadowLayer({
+  buildings,
+}: {
+  buildings: CityGridBuilding[];
+}) {
   return (
     <div className="city-layer city-building-shadow-layer" aria-hidden="true">
       {buildings.map((building) => (
@@ -104,7 +116,7 @@ function CityBuildingShadowLayer({ buildings }: { buildings: CityGridBuilding[] 
           className={`city-building-shadow city-building-shadow-stage-${building.visualStage}`}
           style={{
             left: building.screenX,
-            top: building.screenY - 6,
+            top: building.screenY + BUILDING_SHADOW_OFFSET_Y,
             width:
               CITY_MAP_CONFIG.tileWidth *
               Math.max(1.2, (building.sizeX + building.sizeY) * 0.64) *
@@ -130,6 +142,8 @@ function CitySelectionOverlay({ building }: { building?: CityGridBuilding }) {
     return null;
   }
 
+  const footprintPoints = getSelectionFootprintPoints(building);
+
   return (
     <svg
       className="city-layer city-selection-layer"
@@ -139,41 +153,41 @@ function CitySelectionOverlay({ building }: { building?: CityGridBuilding }) {
     >
       <polygon
         className="city-selection-footprint-glow"
-        points={getFootprintPolygonPoints(building)}
+        points={footprintPoints}
       />
       <polygon
         className="city-selection-footprint"
-        points={getFootprintPolygonPoints(building)}
+        points={footprintPoints}
       />
     </svg>
   );
 }
 
-function getFootprintPolygonPoints(building: CityGridBuilding) {
-  const north = isoToScreen(
-    { gridX: building.gridX, gridY: building.gridY },
-    CITY_MAP_CONFIG,
-  );
-  const east = isoToScreen(
-    { gridX: building.gridX + building.sizeX - 1, gridY: building.gridY },
-    CITY_MAP_CONFIG,
-  );
-  const south = isoToScreen(
-    {
-      gridX: building.gridX + building.sizeX - 1,
-      gridY: building.gridY + building.sizeY - 1,
-    },
-    CITY_MAP_CONFIG,
-  );
-  const west = isoToScreen(
-    { gridX: building.gridX, gridY: building.gridY + building.sizeY - 1 },
-    CITY_MAP_CONFIG,
-  );
+function shouldRenderTerrainTile(tile: CityGridTile) {
+  if (tile.type === "empty_lot") {
+    return true;
+  }
 
-  return [
-    `${north.x},${north.y - CITY_MAP_CONFIG.tileHeight / 2}`,
-    `${east.x + CITY_MAP_CONFIG.tileWidth / 2},${east.y}`,
-    `${south.x},${south.y + CITY_MAP_CONFIG.tileHeight / 2}`,
-    `${west.x - CITY_MAP_CONFIG.tileWidth / 2},${west.y}`,
-  ].join(" ");
+  return tile.type === "grass" && !isNorthwestRimTile(tile);
+}
+
+function isNorthwestRimTile(tile: CityGridTile) {
+  return tile.gridX === 0 || tile.gridY === 0;
+}
+
+function getSelectionFootprintPoints(building: CityGridBuilding) {
+  return formatIsoSvgPoints(
+    getAnchoredFootprintDiamondPoints(
+      building,
+      CITY_MAP_CONFIG,
+      getBuildingBaseAnchor(building),
+    ),
+  );
+}
+
+function getBuildingBaseAnchor(building: CityGridBuilding): IsoScreenPoint {
+  return {
+    x: building.screenX,
+    y: building.screenY,
+  };
 }
