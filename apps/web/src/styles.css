@@ -902,7 +902,7 @@ input {
 .city-selection-layer {
   overflow: visible;
   pointer-events: none;
-  z-index: 80;
+  z-index: 48;
 }
 
 .city-iso-tile {
@@ -1145,8 +1145,18 @@ input {
 }
 
 .city-iso-building-locked .city-iso-building-asset {
-  filter: saturate(0.86);
-  opacity: 0.9;
+  filter: saturate(0.62) contrast(0.92);
+  opacity: 0.72;
+}
+
+.city-iso-building-stage-0 {
+  height: 142px;
+}
+
+.city-iso-building-stage-0 .city-iso-building-asset {
+  bottom: 8px;
+  max-height: 104px;
+  width: 78%;
 }
 
 .city-iso-building-started .city-iso-building-asset {
@@ -1167,6 +1177,10 @@ input {
   filter: blur(5px);
   position: absolute;
   transform: translate(-50%, -50%);
+}
+
+.city-building-shadow-stage-0 {
+  opacity: 0.48;
 }
 
 .city-building-label {
@@ -1259,11 +1273,30 @@ input {
   display: block;
 }
 
+.city-selection-footprint,
+.city-selection-footprint-glow {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.city-selection-footprint-glow {
+  fill: rgba(176, 221, 226, 0.18);
+  filter: blur(1.5px);
+  stroke: rgba(84, 145, 160, 0.2);
+  stroke-width: 10;
+}
+
 .city-selection-footprint {
+  fill: rgba(235, 249, 250, 0.24);
+  stroke: rgba(52, 112, 132, 0.72);
+  stroke-width: 2.5;
+}
+
+.city-map-board-debug .city-selection-footprint {
   fill: rgba(255, 255, 255, 0.18);
   stroke: #365f91;
   stroke-dasharray: 8 7;
-  stroke-linejoin: round;
   stroke-width: 3;
 }
 

@@ -1,4 +1,6 @@
-import type { CityBuildingType } from "../city.types.js";
+import type { CityBuildingStatus, CityBuildingType } from "../city.types.js";
+import type { CityVisualStage } from "../types/city-render.types.js";
+import { resolveCityBuildingVisualState } from "./cityBuildingVisualState.js";
 
 export const CITY_TERRAIN_ASSET_BASE_PATH = "/assets/city/terrain";
 export const CITY_DECORATION_ASSET_BASE_PATH = "/assets/city/decorations";
@@ -158,25 +160,21 @@ export const cityBuildingVisualRegistry: Record<
   }),
 };
 
-export function getBuildingAssetStage(level: number): 1 | 2 | 3 {
-  if (level <= 1) {
-    return 1;
-  }
-
-  if (level === 2) {
-    return 2;
-  }
-
-  return 3;
+export function getBuildingAssetStage(
+  level: number,
+  status?: CityBuildingStatus,
+): CityVisualStage {
+  return resolveCityBuildingVisualState({ level, status }).visualStage;
 }
 
 export function getCityBuildingAssetPath(
   buildingId: CityBuildingType,
   level: number,
+  status?: CityBuildingStatus,
 ) {
   const definition = cityBuildingVisualRegistry[buildingId];
 
-  return `${CITY_BUILDING_ASSET_BASE_PATH}/${definition.assetPrefix}_stage_${getBuildingAssetStage(level)}.png`;
+  return `${CITY_BUILDING_ASSET_BASE_PATH}/${definition.assetPrefix}_stage_${getBuildingAssetStage(level, status)}.png`;
 }
 
 function createBuildingVisual(

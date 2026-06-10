@@ -72,9 +72,9 @@ describe("city sprite registry", () => {
   it.each([
     [0, 0],
     [1, 1],
-    [2, 1],
-    [3, 2],
-    [4, 2],
+    [2, 2],
+    [3, 3],
+    [4, 3],
     [5, 3],
   ] as const)("maps level %i to visual stage %i", (level, expectedStage) => {
     expect(getVisualStageFromLevel(level)).toBe(expectedStage);
@@ -83,9 +83,9 @@ describe("city sprite registry", () => {
   it.each([
     [0, 0.11],
     [1, 0.14],
-    [2, 0.14],
-    [3, 0.17],
-    [4, 0.17],
+    [2, 0.17],
+    [3, 0.19],
+    [4, 0.19],
     [5, 0.19],
   ] as const)("maps level %i to sprite scale %f", (level, expectedScale) => {
     expect(getBuildingSpriteScale(level)).toBe(expectedScale);
@@ -94,9 +94,9 @@ describe("city sprite registry", () => {
   it.each([
     [0, "Stage 0/3", "Bloqueado"],
     [1, "Stage 1/3", "Primeiros passos"],
-    [2, "Stage 1/3", "Primeiros passos"],
-    [3, "Stage 2/3", "Em crescimento"],
-    [4, "Stage 2/3", "Em crescimento"],
+    [2, "Stage 2/3", "Em crescimento"],
+    [3, "Stage 3/3", "Maduro"],
+    [4, "Stage 3/3", "Maduro"],
     [5, "Stage 3/3", "Maduro"],
   ] as const)(
     "maps level %i to display stage %s and badge %s",

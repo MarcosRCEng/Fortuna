@@ -101,22 +101,28 @@ function CityBuildingShadowLayer({ buildings }: { buildings: CityGridBuilding[] 
       {buildings.map((building) => (
         <span
           key={building.id}
-          className="city-building-shadow"
+          className={`city-building-shadow city-building-shadow-stage-${building.visualStage}`}
           style={{
             left: building.screenX,
             top: building.screenY - 6,
             width:
               CITY_MAP_CONFIG.tileWidth *
-              Math.max(1.2, (building.sizeX + building.sizeY) * 0.64),
+              Math.max(1.2, (building.sizeX + building.sizeY) * 0.64) *
+              getBuildingShadowScale(building.visualStage),
             height:
               CITY_MAP_CONFIG.tileHeight *
-              Math.max(0.68, (building.sizeX + building.sizeY) * 0.24),
+              Math.max(0.68, (building.sizeX + building.sizeY) * 0.24) *
+              getBuildingShadowScale(building.visualStage),
             zIndex: 90 + building.gridX + building.gridY,
           }}
         />
       ))}
     </div>
   );
+}
+
+function getBuildingShadowScale(visualStage: CityGridBuilding["visualStage"]) {
+  return visualStage === 0 ? 0.64 : 1;
 }
 
 function CitySelectionOverlay({ building }: { building?: CityGridBuilding }) {
@@ -131,6 +137,10 @@ function CitySelectionOverlay({ building }: { building?: CityGridBuilding }) {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
+      <polygon
+        className="city-selection-footprint-glow"
+        points={getFootprintPolygonPoints(building)}
+      />
       <polygon
         className="city-selection-footprint"
         points={getFootprintPolygonPoints(building)}

@@ -5,6 +5,7 @@ import {
   CITY_MAP_CONFIG,
   cityGridTiles,
   createCityGridBuildings,
+  getBuildingUrbanAccessPoints,
   getRoadVariantForTile,
   validateCityGridLayout,
 } from "./cityGridLayout.js";
@@ -45,20 +46,25 @@ describe("city grid layout", () => {
     );
   });
 
-  it("keeps mandatory level-one visual buildings on the initial city map", () => {
+  it("renders locked level-zero buildings as reserved foundations", () => {
     const gridBuildings = createCityGridBuildings(deriveCityBuildings(emptyInput));
-    const byId = new Map(gridBuildings.map((building) => [building.id, building]));
 
-    for (const buildingId of [
-      "financial_hall",
-      "mentor_tower",
-      "income_park",
-      "reserve_bank",
-      "financial_school",
-      "city_exchange",
-    ] as const) {
-      expect(byId.get(buildingId)?.level).toBe(1);
-      expect(byId.get(buildingId)?.asset).toContain("stage_1.png");
+    for (const building of gridBuildings) {
+      expect(building.level).toBe(0);
+      expect(building.status).toBe("locked");
+      expect(building.visualStage).toBe(0);
+      expect(building.constructionState).toBe("locked");
+      expect(building.asset).toContain("stage_0.png");
+    }
+  });
+
+  it("connects every visible building footprint to the urban network", () => {
+    const gridBuildings = createCityGridBuildings(deriveCityBuildings(emptyInput));
+
+    for (const building of gridBuildings) {
+      const accessPoints = getBuildingUrbanAccessPoints(building);
+
+      expect(accessPoints.length).toBeGreaterThan(0);
     }
   });
 
