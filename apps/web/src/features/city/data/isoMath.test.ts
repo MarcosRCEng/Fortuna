@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { isoToScreen, sortByIsoDepth } from "./isoMath.js";
+import {
+  formatIsoSvgPoints,
+  getAnchoredFootprintDiamondPoints,
+  getFootprintBottomCenter,
+  isoToScreen,
+  sortByIsoDepth,
+} from "./isoMath.js";
 
 describe("isoMath", () => {
   it("projects grid coordinates using the isometric formula", () => {
     const screen = isoToScreen(
       { gridX: 4, gridY: 2 },
-      { width: 8, height: 8, tileWidth: 100, tileHeight: 50, originX: 300, originY: 80 },
+      {
+        width: 8,
+        height: 8,
+        tileWidth: 100,
+        tileHeight: 50,
+        originX: 300,
+        originY: 80,
+      },
     );
 
     expect(screen).toEqual({
@@ -28,5 +41,28 @@ describe("isoMath", () => {
       "same-tile-building",
       "front",
     ]);
+  });
+
+  it("anchors footprint diamonds to the visual building base", () => {
+    const config = {
+      width: 8,
+      height: 8,
+      tileWidth: 100,
+      tileHeight: 50,
+      originX: 300,
+      originY: 80,
+    };
+    const footprint = { gridX: 4, gridY: 2, sizeX: 2, sizeY: 2 };
+    const baseAnchor = getFootprintBottomCenter(footprint, config);
+    const points = getAnchoredFootprintDiamondPoints(
+      footprint,
+      config,
+      baseAnchor,
+    );
+
+    expect(points[2]).toEqual(baseAnchor);
+    expect(formatIsoSvgPoints(points)).toBe(
+      "375,192.5 475,242.5 375,292.5 275,242.5",
+    );
   });
 });
