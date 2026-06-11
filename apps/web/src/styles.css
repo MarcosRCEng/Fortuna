@@ -1357,6 +1357,26 @@ input {
   text-decoration: none;
 }
 
+.city-scene-fallback {
+  align-content: center;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(242, 247, 245, 0.9)),
+    #f7f9fc;
+  border: 1px dashed #b9c9c4;
+  border-radius: 8px;
+  color: #435064;
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  min-height: 260px;
+  padding: 28px;
+}
+
+.city-scene-fallback p {
+  line-height: 1.5;
+  margin: 0;
+  max-width: 640px;
+}
 .city-scene-fallback h2 {
   margin: 0;
 }
