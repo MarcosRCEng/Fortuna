@@ -1,8 +1,4 @@
 import type { CityBuildingViewModel } from "./city.types.js";
-import {
-  getCityBuildingMaturityBadgeLabel,
-  getCityBuildingStageLabel,
-} from "./pixi/citySprites.js";
 
 export function CityBuildingCard({
   building,
@@ -16,20 +12,41 @@ export function CityBuildingCard({
           {building.icon}
         </span>
         <span className={`city-card-status city-card-status-${building.status}`}>
-          {getCityBuildingMaturityBadgeLabel(building.level)}
+          {getBuildingStatusLabel(building.status)}
         </span>
       </div>
+
       <div>
         <h2>{building.name}</h2>
-        <strong>
-          {getCityBuildingStageLabel(building.level)} · {building.district}
-        </strong>
+        <strong>{building.district}</strong>
       </div>
+
       <p>{building.description}</p>
+
+      <dl className="city-card-meta">
+        <div>
+          <dt>Categoria</dt>
+          <dd>{building.purpose}</dd>
+        </div>
+        <div>
+          <dt>Nivel</dt>
+          <dd>
+            Nivel {building.level}/{building.maxLevel}
+          </dd>
+        </div>
+        <div>
+          <dt>Acesso</dt>
+          <dd>{building.status === "locked" ? "Bloqueado" : "Desbloqueado"}</dd>
+        </div>
+      </dl>
+
       <div className="city-progress" aria-label={`Progresso ${building.progressPercent}%`}>
         <span style={{ width: `${building.progressPercent}%` }} />
       </div>
-      <span className="city-progress-label">{building.progressPercent}% ate o proximo marco</span>
+      <span className="city-progress-label">
+        {building.progressPercent}% do progresso conceitual
+      </span>
+
       <div className="city-card-section">
         <span>Motivo</span>
         <p>{building.reason}</p>
@@ -42,7 +59,30 @@ export function CityBuildingCard({
         <span>Proxima acao educativa</span>
         <p>{building.nextAction}</p>
       </div>
+
+      {building.hasAction && building.route ? (
+        <a className="button button-secondary city-card-action" href={building.route}>
+          {building.actionLabel ?? "Abrir area relacionada"}
+        </a>
+      ) : null}
+
       <p className="city-educational-message">{building.educationalMessage}</p>
     </article>
   );
+}
+
+function getBuildingStatusLabel(status: CityBuildingViewModel["status"]): string {
+  if (status === "locked") {
+    return "Bloqueado";
+  }
+
+  if (status === "started") {
+    return "Primeiros passos";
+  }
+
+  if (status === "growing") {
+    return "Em desenvolvimento";
+  }
+
+  return "Consolidado";
 }

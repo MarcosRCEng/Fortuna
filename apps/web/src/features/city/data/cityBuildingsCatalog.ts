@@ -34,7 +34,7 @@ export const cityBuildingsCatalog: CityBuildingCatalogItem[] = [
   },
   {
     id: "reserve_bank",
-    title: "Banco da Reserva",
+    title: "Banco de Reserva",
     shortLabel: "Reserva",
     district: "Distrito Seguro",
     purpose: "Reserva de emergencia, liquidez e seguranca.",
@@ -86,7 +86,7 @@ export const cityBuildingsCatalog: CityBuildingCatalogItem[] = [
   },
   {
     id: "income_park",
-    title: "Parque dos Rendimentos",
+    title: "Parque de Rendimentos",
     shortLabel: "Rendimentos",
     district: "Praca dos Fluxos",
     purpose: "Renda passiva simulada, proventos e acompanhamento.",
