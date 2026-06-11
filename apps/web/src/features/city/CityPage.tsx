@@ -4,6 +4,8 @@ import type { PlayerMission } from "../../services/missionApi.js";
 import type { PlayerSummary } from "../../types/player.js";
 import type { Transaction } from "../../types/transaction.js";
 import type { Portfolio, PortfolioAllocation } from "../../types/wallet.js";
+import { featureFlags } from "../../config/featureFlags.js";
+import { CityCardsExperience } from "./CityCardsExperience.js";
 import { CityBuildingsGrid } from "./CityBuildingsGrid.js";
 import { CitySummary } from "./CitySummary.js";
 import { deriveCityBuildings } from "./city.rules.js";
@@ -32,24 +34,28 @@ export function CityPage({
     () =>
       createCityInput({
         summary,
+        cityState,
         portfolio,
         allocation,
         transactions,
         missions,
       }),
-    [summary, portfolio, allocation, transactions, missions],
+    [summary, cityState, portfolio, allocation, transactions, missions],
   );
   const buildings = useMemo(() => deriveCityBuildings(input), [input]);
-  const cityLevel = Math.max(
-    0,
-    Math.round(
-      buildings.reduce((sum, building) => sum + building.level, 0) / buildings.length,
-    ),
-  );
+  const cityLevel = cityState?.level ?? deriveConceptualCityLevel(buildings);
   const diversificationCount = [
     input.availableBalanceCents > 0,
     ...input.allocationByClass.map((item) => item.valueCents > 0),
   ].filter(Boolean).length;
+  const totalMissionsCount = Math.max(
+    input.totalMissionsCount,
+    input.completedMissionsCount,
+  );
+  const inProgressMissionsCount = missions.filter(
+    (mission) => mission.status === "IN_PROGRESS",
+  ).length;
+  const isIsometricCityEnabled = featureFlags.enableIsometricCity;
 
   return (
     <>
@@ -65,34 +71,60 @@ export function CityPage({
         <span className="city-maturity-badge">Maturidade financeira em construcao</span>
       </header>
 
-      <CitySummary
-        cityLevel={cityState?.level ?? cityLevel}
-        totalEquityCents={input.totalEquityCents}
-        completedMissionsCount={input.completedMissionsCount}
-        totalMissionsCount={input.totalMissionsCount}
-        diversificationCount={diversificationCount}
-        collectedIncomeCents={input.collectedIncomeCents}
-      />
+      {isIsometricCityEnabled ? (
+        <>
+          <CitySummary
+            cityLevel={cityLevel}
+            totalEquityCents={input.totalEquityCents}
+            completedMissionsCount={input.completedMissionsCount}
+            totalMissionsCount={totalMissionsCount}
+            diversificationCount={diversificationCount}
+            collectedIncomeCents={input.collectedIncomeCents}
+          />
 
-      <CityScene buildings={buildings} onBuildingClick={setSelectedBuilding} />
+          <CityScene buildings={buildings} onBuildingClick={setSelectedBuilding} />
 
-      <section className="panel city-guidance">
-        <div>
-          <span className="section-kicker">Leitura educativa</span>
-          <h2>Construcoes como sinais de maturidade</h2>
-          <p>
-            Os cards abaixo nao prometem ganhos. Eles traduzem dados da jornada
-            em sinais visuais sobre liquidez, risco, conhecimento e consistencia.
-          </p>
-        </div>
-      </section>
+          <section className="panel city-guidance">
+            <div>
+              <span className="section-kicker">Leitura educativa</span>
+              <h2>Construcoes como sinais de maturidade</h2>
+              <p>
+                Os cards abaixo traduzem dados da jornada em sinais visuais sobre
+                liquidez, risco, conhecimento e consistencia.
+              </p>
+            </div>
+          </section>
 
-      <CityBuildingsGrid buildings={buildings} />
+          <CityBuildingsGrid buildings={buildings} />
 
-      {selectedBuilding ? (
-        <CityBuildingDetailsModal
-          building={selectedBuilding}
-          onClose={() => setSelectedBuilding(null)}
+          {selectedBuilding ? (
+            <CityBuildingDetailsModal
+              building={selectedBuilding}
+              onClose={() => setSelectedBuilding(null)}
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {!isIsometricCityEnabled ? (
+        <CityCardsExperience
+          summary={summary}
+          input={input}
+          buildings={buildings}
+          missions={missions}
+          stats={{
+            cityLevel,
+            playerLevel: safeWhole(summary?.level ?? cityLevel),
+            playerProgressPercent: safePercent(summary?.progressPercent),
+            availableBalanceCents: input.availableBalanceCents,
+            totalEquityCents: input.totalEquityCents,
+            assetsCount: input.positionsCount,
+            completedMissionsCount: input.completedMissionsCount,
+            totalMissionsCount,
+            inProgressMissionsCount,
+            collectibleIncomeCents: input.collectibleIncomeCents,
+            diversificationCount,
+          }}
         />
       ) : null}
     </>
@@ -101,12 +133,14 @@ export function CityPage({
 
 function createCityInput({
   summary,
+  cityState,
   portfolio,
   allocation,
   transactions,
   missions,
 }: {
   summary?: PlayerSummary;
+  cityState?: CityStateResponse;
   portfolio?: Portfolio;
   allocation?: PortfolioAllocation;
   transactions: Transaction[];
@@ -125,7 +159,10 @@ function createCityInput({
     .reduce((sum, transaction) => sum + safeCents(transaction.amountCents), 0);
 
   return {
-    totalEquityCents: safeCents(summary?.totalEquityCents),
+    totalEquityCents: Math.max(
+      safeCents(summary?.totalEquityCents),
+      safeCents(cityState?.totalPatrimonyCents),
+    ),
     availableBalanceCents: safeCents(summary?.availableCashCents),
     allocationByClass: (allocation?.byAssetType ?? []).map((item) => ({
       assetClass: item.assetType ?? "UNKNOWN",
@@ -133,20 +170,41 @@ function createCityInput({
       valueCents: safeCents(item.valueCents),
     })),
     positionsCount: portfolio?.positions.length ?? 0,
-    completedMissionsCount,
+    completedMissionsCount: Math.max(
+      completedMissionsCount,
+      safeWhole(cityState?.completedMissionsCount),
+    ),
     totalMissionsCount,
     collectedIncomeCents: Math.max(
       safeCents(summary?.totalIncomeCollectedCents),
       collectedIncomeFromTransactions,
     ),
-    collectibleIncomeCents: safeCents(summary?.collectibleIncomeCents ?? 0),
+    collectibleIncomeCents: Math.max(
+      safeCents(summary?.collectibleIncomeCents ?? 0),
+      safeCents(cityState?.collectableIncomeCents),
+    ),
     mentorMessagesCount: summary?.mentorMessage ? 1 : 0,
     hasConcentrationWarning: largestPositionPercentage >= 75,
     largestPositionPercentage,
   };
 }
 
+function deriveConceptualCityLevel(buildings: CityBuildingViewModel[]): number {
+  if (buildings.length === 0) {
+    return 0;
+  }
+
+  const averageBuildingLevel =
+    buildings.reduce((sum, building) => sum + building.level, 0) / buildings.length;
+
+  return Math.max(0, Math.min(5, Math.round((averageBuildingLevel / 3) * 5)));
+}
+
 function safeCents(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+function safeWhole(value: number | null | undefined): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
 }
 
