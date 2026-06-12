@@ -8,10 +8,12 @@ import { featureFlags } from "../../config/featureFlags.js";
 import { CityCardsExperience } from "./CityCardsExperience.js";
 import { CityBuildingsGrid } from "./CityBuildingsGrid.js";
 import { CitySummary } from "./CitySummary.js";
+import { createCityEducationalTips } from "./cityEducationalTips.js";
 import { deriveCityBuildings } from "./city.rules.js";
 import type { DeriveCityInput } from "./city.types.js";
 import type { CityBuildingViewModel } from "./city.types.js";
 import { CityBuildingDetailsModal } from "./components/CityBuildingDetailsModal.js";
+import { CityEducationalTips } from "./components/CityEducationalTips.js";
 import { CityScene } from "./components/CityScene.js";
 
 export function CityPage({
@@ -29,7 +31,8 @@ export function CityPage({
   transactions: Transaction[];
   missions: PlayerMission[];
 }) {
-  const [selectedBuilding, setSelectedBuilding] = useState<CityBuildingViewModel | null>(null);
+  const [selectedBuilding, setSelectedBuilding] =
+    useState<CityBuildingViewModel | null>(null);
   const input = useMemo(
     () =>
       createCityInput({
@@ -43,6 +46,10 @@ export function CityPage({
     [summary, cityState, portfolio, allocation, transactions, missions],
   );
   const buildings = useMemo(() => deriveCityBuildings(input), [input]);
+  const educationalTips = useMemo(
+    () => createCityEducationalTips({ input, missions, transactions }),
+    [input, missions, transactions],
+  );
   const cityLevel = cityState?.level ?? deriveConceptualCityLevel(buildings);
   const diversificationCount = [
     input.availableBalanceCents > 0,
@@ -68,7 +75,9 @@ export function CityPage({
             de aprendizado, organizacao, diversificacao e acompanhamento.
           </p>
         </div>
-        <span className="city-maturity-badge">Maturidade financeira em construcao</span>
+        <span className="city-maturity-badge">
+          Maturidade financeira em construcao
+        </span>
       </header>
 
       {isIsometricCityEnabled ? (
@@ -82,15 +91,20 @@ export function CityPage({
             collectedIncomeCents={input.collectedIncomeCents}
           />
 
-          <CityScene buildings={buildings} onBuildingClick={setSelectedBuilding} />
+          <CityEducationalTips tips={educationalTips} />
+
+          <CityScene
+            buildings={buildings}
+            onBuildingClick={setSelectedBuilding}
+          />
 
           <section className="panel city-guidance">
             <div>
               <span className="section-kicker">Leitura educativa</span>
               <h2>Construcoes como sinais de maturidade</h2>
               <p>
-                Os cards abaixo traduzem dados da jornada em sinais visuais sobre
-                liquidez, risco, conhecimento e consistencia.
+                Os cards abaixo traduzem dados da jornada em sinais visuais
+                sobre liquidez, risco, conhecimento e consistencia.
               </p>
             </div>
           </section>
@@ -111,7 +125,7 @@ export function CityPage({
           summary={summary}
           input={input}
           buildings={buildings}
-          missions={missions}
+          educationalTips={educationalTips}
           stats={{
             cityLevel,
             playerLevel: safeWhole(summary?.level ?? cityLevel),
@@ -155,7 +169,11 @@ function createCityInput({
     ...((allocation?.byAsset ?? []).map((item) => item.percentage) ?? []),
   );
   const collectedIncomeFromTransactions = transactions
-    .filter((transaction) => transaction.type === "INCOME" || transaction.type === "INCOME_COLLECTED")
+    .filter(
+      (transaction) =>
+        transaction.type === "INCOME" ||
+        transaction.type === "INCOME_COLLECTED",
+    )
     .reduce((sum, transaction) => sum + safeCents(transaction.amountCents), 0);
 
   return {
@@ -195,17 +213,22 @@ function deriveConceptualCityLevel(buildings: CityBuildingViewModel[]): number {
   }
 
   const averageBuildingLevel =
-    buildings.reduce((sum, building) => sum + building.level, 0) / buildings.length;
+    buildings.reduce((sum, building) => sum + building.level, 0) /
+    buildings.length;
 
   return Math.max(0, Math.min(5, Math.round((averageBuildingLevel / 3) * 5)));
 }
 
 function safeCents(value: number | null | undefined): number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : 0;
 }
 
 function safeWhole(value: number | null | undefined): number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : 0;
 }
 
 function safePercent(value: number | undefined): number {
