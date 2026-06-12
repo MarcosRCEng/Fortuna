@@ -854,6 +854,128 @@ input {
   width: auto;
 }
 
+.city-educational-tips {
+  background: #ffffff;
+  border: 1px solid #dfe6ef;
+  border-left: 4px solid #b9dcc8;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(23, 32, 47, 0.04);
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.city-educational-tips-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.city-educational-tips-heading h2,
+.city-educational-tip h3 {
+  margin: 0;
+}
+
+.city-educational-tips-heading p,
+.city-educational-tip p,
+.city-educational-tips-empty p {
+  color: #536078;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.city-educational-tip-count {
+  background: #edf5f1;
+  border: 1px solid #c8ded3;
+  border-radius: 999px;
+  color: #244c3a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.city-educational-tip-list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.city-educational-tips-compact .city-educational-tip-list {
+  grid-template-columns: 1fr;
+}
+
+.city-educational-tip {
+  border: 1px solid #e2e9f2;
+  border-radius: 8px;
+  border-top: 4px solid #cbd9ed;
+  display: grid;
+  gap: 10px;
+  min-height: 210px;
+  padding: 14px;
+}
+
+.city-educational-tip-success {
+  border-top-color: #b9dcc8;
+}
+
+.city-educational-tip-warning {
+  border-top-color: #f2c9ac;
+}
+
+.city-educational-tip-topline {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.city-educational-tip-topline span,
+.city-educational-tip-topline small {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+  padding: 4px 7px;
+}
+
+.city-educational-tip-topline span {
+  background: #eef4fb;
+  color: #365f91;
+}
+
+.city-educational-tip-topline small {
+  background: #f7f9fc;
+  color: #647084;
+}
+
+.city-educational-tip-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.city-educational-tip-actions .button,
+.city-educational-tips-empty .button {
+  margin-top: 0;
+  text-align: center;
+  text-decoration: none;
+  width: auto;
+}
+
+.city-educational-tips-empty {
+  align-items: center;
+  background: #f7f9fc;
+  border: 1px dashed #cfd7e3;
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
 .city-concept-list {
   display: grid;
   gap: 14px;
@@ -2064,8 +2186,16 @@ input {
   }
 
   .city-next-steps .button,
-  .city-card-action {
+  .city-card-action,
+  .city-educational-tip-actions .button,
+  .city-educational-tips-empty .button {
     width: 100%;
+  }
+
+  .city-educational-tips-heading,
+  .city-educational-tips-empty {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .city-scene-panel {
