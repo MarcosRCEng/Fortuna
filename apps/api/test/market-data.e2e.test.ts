@@ -20,14 +20,29 @@ describe("Market Data API", () => {
   let app: INestApplication;
   let baseUrl: string;
   let originalEnv: NodeJS.ProcessEnv;
+  let originalFetch: typeof fetch;
 
   beforeEach(async () => {
     originalEnv = { ...process.env };
+    originalFetch = globalThis.fetch;
     process.env.MARKET_DATA_PROVIDER = "brapi";
     process.env.MARKET_DATA_ALLOW_REAL_DATA = "false";
     process.env.BRAPI_MAX_SYMBOLS_PER_REQUEST = "2";
     process.env.BRAPI_CACHE_TTL_SECONDS = "900";
+    process.env.MARKET_CATALOG_CACHE_TTL_SECONDS = "900";
+    process.env.MARKET_CATALOG_MAX_PAGE_SIZE = "50";
+    process.env.MARKET_CATALOG_PROVIDER_CONCURRENCY = "3";
 
+    await startApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    globalThis.fetch = originalFetch;
+    process.env = originalEnv;
+  });
+
+  async function startApp(): Promise<void> {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -38,12 +53,7 @@ describe("Market Data API", () => {
     const port =
       typeof address === "object" && address !== null ? address.port : 0;
     baseUrl = `http://127.0.0.1:${port}`;
-  });
-
-  afterEach(async () => {
-    await app.close();
-    process.env = originalEnv;
-  });
+  }
 
   it("lists allowed market assets", async () => {
     const response = await readJson<{
@@ -266,7 +276,17 @@ describe("Market Data API", () => {
         realDataEnabled: boolean;
         hasBrapiToken: boolean;
         cacheTtlSeconds: number;
+        catalogCacheTtlSeconds: number;
+        catalogMaxPageSize: number;
+        catalogProviderConcurrency: number;
         allowedSymbols: string[];
+        capabilities: {
+          listedCatalog: boolean;
+          basicQuotes: boolean;
+          detailedFiiData: boolean;
+          treasury: boolean;
+          analystConsensus: false;
+        };
         lastSuccessfulFetchAt: string | null;
         status: string;
       };
@@ -278,9 +298,107 @@ describe("Market Data API", () => {
       realDataEnabled: false,
       hasBrapiToken: false,
       cacheTtlSeconds: 900,
+      catalogCacheTtlSeconds: 900,
+      catalogMaxPageSize: 50,
+      catalogProviderConcurrency: 3,
       allowedSymbols: ["PETR4", "VALE3", "ITUB4", "MGLU3"],
+      capabilities: {
+        listedCatalog: true,
+        basicQuotes: true,
+        detailedFiiData: false,
+        treasury: false,
+        analystConsensus: false,
+      },
       lastSuccessfulFetchAt: null,
       status: "mock_only",
     });
   });
+
+  it("returns /market/catalog from the simulated brapi adapter and status exposes free capabilities", async () => {
+    await app.close();
+    process.env.MARKET_DATA_ALLOW_REAL_DATA = "true";
+    process.env.BRAPI_API_TOKEN = "test-token";
+    globalThis.fetch = mockBrapiFetch(originalFetch, {
+      results: [
+        {
+          stock: "XPTO3",
+          name: "XPTO ON",
+          subType: "stock",
+          sector: "Tecnologia",
+          close: 12.34,
+          change: 1.2,
+          volume: 12345,
+          market_cap: 10_000_000,
+        },
+      ],
+    });
+    await startApp();
+
+    const catalog = await readJson<{
+      items: Array<{ symbol: string; priceCents: number }>;
+      source: string;
+    }>(await fetch(`${baseUrl}/market/catalog?search=XPTO&pageSize=10`));
+    const status = await readJson<{
+      data: {
+        capabilities: {
+          listedCatalog: boolean;
+          basicQuotes: boolean;
+          detailedFiiData: boolean;
+          treasury: boolean;
+          analystConsensus: false;
+        };
+      };
+    }>(await fetch(`${baseUrl}/market/status`));
+
+    expect(catalog.status).toBe(200);
+    expect(catalog.body.source).toBe("BRAPI");
+    expect(catalog.body.items).toEqual([
+      expect.objectContaining({ symbol: "XPTO3", priceCents: 1234 }),
+    ]);
+    expect(status.body.data.capabilities).toEqual({
+      listedCatalog: true,
+      basicQuotes: true,
+      detailedFiiData: false,
+      treasury: false,
+      analystConsensus: false,
+    });
+  });
+
+  it("keeps /market/catalog functional when the simulated brapi adapter is unavailable", async () => {
+    await app.close();
+    process.env.MARKET_DATA_ALLOW_REAL_DATA = "true";
+    process.env.BRAPI_API_TOKEN = "test-token";
+    globalThis.fetch = mockBrapiFetch(originalFetch, undefined, 500);
+    await startApp();
+
+    const response = await readJson<{
+      items: Array<{ symbol: string }>;
+      source: string;
+    }>(await fetch(`${baseUrl}/market/catalog?search=ITUB4&pageSize=10`));
+
+    expect(response.status).toBe(200);
+    expect(response.body.source).toBe("MOCK");
+    expect(response.body.items).toEqual([
+      expect.objectContaining({ symbol: "ITUB4" }),
+    ]);
+  });
 });
+
+function mockBrapiFetch(
+  originalFetch: typeof fetch,
+  payload: unknown,
+  status = 200,
+): typeof fetch {
+  return ((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith("https://brapi.dev/api/quote/list")) {
+      return Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        statusText: status === 200 ? "OK" : "Server Error",
+        json: () => Promise.resolve(payload),
+      } as Response);
+    }
+    return originalFetch(input, init);
+  }) as typeof fetch;
+}

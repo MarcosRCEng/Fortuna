@@ -11,6 +11,7 @@ import type {
   MarketDataProviderName,
   MarketHistoryInterval,
   MarketHistoryRange,
+  MarketProviderCapabilities,
   MarketProviderStatus as MvpMarketProviderStatus,
   MarketQuote as MvpMarketQuote,
 } from "@fortuna/domain";
@@ -45,6 +46,17 @@ type BrapiQuoteResponse = {
 type BrapiCatalogResponse = {
   results?: BrapiCatalogEntry[];
   stocks?: BrapiCatalogEntry[];
+};
+
+type BrapiCatalogParams = {
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  limit?: number;
+  page?: number;
+  sector?: string;
+  type?: string;
+  subType?: string;
 };
 
 type BrapiQuote = {
@@ -126,7 +138,7 @@ const ALLOWED_MARKET_ASSETS: MarketAsset[] = [
 const VALID_RANGES = new Set<MarketHistoryRange>(["1mo", "3mo", "6mo", "1y"]);
 const VALID_INTERVALS = new Set<MarketHistoryInterval>(["1d"]);
 const MIN_CATALOG_PAGE_SIZE = 1;
-const MAX_CATALOG_PAGE_SIZE = 100;
+const CATALOG_CACHE_CONTRACT_VERSION = "v2";
 const DEFAULT_CATALOG_SORT_BY: MarketCatalogSortBy = "name";
 const DEFAULT_CATALOG_SORT_ORDER: MarketCatalogSortOrder = "asc";
 const VALID_CATALOG_SORT_BY = new Set<MarketCatalogSortBy>([
@@ -152,6 +164,27 @@ const FILTERABLE_MARKET_ASSET_TYPES = new Set<MarketAssetType>([
   "BDR",
   "TREASURY",
 ]);
+
+const BRAPI_CATALOG_SORT_BY: Record<MarketCatalogSortBy, string> = {
+  name: "name",
+  price: "close",
+  changePercent: "change",
+  volume: "volume",
+  marketCap: "market_cap",
+};
+
+const BRAPI_CATALOG_SUB_TYPES: Partial<Record<MarketAssetType, string>> = {
+  STOCK: "stock",
+  UNIT: "unit",
+  FII: "fii",
+  ETF: "etf",
+  FI_INFRA: "fi-infra",
+  FI_AGRO: "fi-agro",
+  FIP: "fip",
+  FIDC: "fidc",
+  BDR: "bdr",
+  TREASURY: "treasury",
+};
 
 const MOCK_CATALOG_ITEMS: MarketCatalogItem[] = [
   {
@@ -343,9 +376,15 @@ export class MvpMarketDataService {
 
   async getCatalog(query: MarketCatalogQuery): Promise<MarketCatalogPage> {
     const normalizedQuery = this.normalizeCatalogQuery(query);
-    const cacheKey = `market:${this.activeProviderName()}:catalog:${JSON.stringify(normalizedQuery)}`;
-    const cached = this.getCached<MarketCatalogPage>(cacheKey);
+    const cacheKey = this.buildCatalogCacheKey(normalizedQuery);
+    const cached = this.getCached<MarketCatalogPage>(cacheKey, {
+      includeExpired: false,
+    });
     if (cached) {
+      this.logMarketOperation("catalog", "cache_hit", {
+        cacheHit: true,
+        itemCount: cached.items.length,
+      });
       return {
         ...cached,
         source: "CACHE",
@@ -353,6 +392,7 @@ export class MvpMarketDataService {
       };
     }
 
+    this.logMarketOperation("catalog", "cache_miss", { cacheHit: false });
     const page = await this.withMockFallback(
       "catalog",
       () => this.fetchBrapiCatalog(normalizedQuery),
@@ -368,8 +408,12 @@ export class MvpMarketDataService {
         page: normalizedQuery.page,
         pageSize: normalizedQuery.pageSize,
       },
+      () =>
+        this.getCached<MarketCatalogPage>(cacheKey, { includeExpired: true }),
     );
-    this.setCached(cacheKey, page);
+    if (page.source !== "CACHE") {
+      this.setCached(cacheKey, page, this.config.catalog.cacheTtlSeconds);
+    }
     return page;
   }
 
@@ -425,6 +469,10 @@ export class MvpMarketDataService {
       realDataEnabled,
       hasToken,
       cacheTtlSeconds: this.config.brapi.cacheTtlSeconds,
+      catalogCacheTtlSeconds: this.config.catalog.cacheTtlSeconds,
+      catalogMaxPageSize: this.config.catalog.maxPageSize,
+      catalogProviderConcurrency: this.config.catalog.providerConcurrency,
+      capabilities: this.getCapabilities(),
       lastSuccessfulFetchAt: this.lastSuccessfulFetchAt,
       status: this.resolveStatus(realDataEnabled, hasToken),
     };
@@ -434,22 +482,65 @@ export class MvpMarketDataService {
     return this.allowedAssets().map((asset) => asset.symbol);
   }
 
+  private buildCatalogCacheKey(query: MarketCatalogQuery): string {
+    const cacheShape = {
+      contract: CATALOG_CACHE_CONTRACT_VERSION,
+      search: query.search?.trim().toLocaleLowerCase("pt-BR") ?? "",
+      types: query.assetTypes ?? [],
+      sectors:
+        query.sectors?.map((sector) =>
+          sector.trim().toLocaleLowerCase("pt-BR"),
+        ) ?? [],
+      sortBy: query.sortBy ?? DEFAULT_CATALOG_SORT_BY,
+      sortOrder: query.sortOrder ?? DEFAULT_CATALOG_SORT_ORDER,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
+    return `market:catalog:${CATALOG_CACHE_CONTRACT_VERSION}:${JSON.stringify(cacheShape)}`;
+  }
+
+  private getCapabilities(): MarketProviderCapabilities {
+    return {
+      listedCatalog: this.config.capabilities.listedCatalog,
+      basicQuotes: this.config.capabilities.basicQuotes,
+      detailedFiiData: this.config.capabilities.detailedFiiData,
+      treasury: this.config.capabilities.treasury,
+      analystConsensus: false,
+    };
+  }
+
   private async withMockFallback<T>(
     action: string,
     realLoader: () => Promise<T>,
     mockLoader: () => T,
     context: Record<string, unknown>,
+    staleLoader?: () => T | undefined,
   ): Promise<T> {
     if (!this.canUseRealData()) {
       return mockLoader();
     }
 
+    const startedAt = this.clock().getTime();
     try {
       const value = await realLoader();
       this.lastSuccessfulFetchAt = this.clock().toISOString();
+      this.logMarketOperation(action, "success", {
+        durationMs: this.clock().getTime() - startedAt,
+        itemCount: inferItemCount(value),
+        cacheHit: false,
+      });
       return value;
     } catch (error) {
       this.lastFallbackAt = this.clock().toISOString();
+      const stale = staleLoader?.();
+      if (stale) {
+        this.logMarketOperation(action, "stale_cache", {
+          durationMs: this.clock().getTime() - startedAt,
+          itemCount: inferItemCount(stale),
+          cacheHit: true,
+        });
+        return markCatalogCacheSource(stale);
+      }
       this.logger?.warn("Market data fallback used", {
         module: "market_data",
         action: "market_data_fallback_used",
@@ -462,8 +553,29 @@ export class MvpMarketDataService {
           ...context,
         },
       });
+      this.logMarketOperation(action, "fallback", {
+        durationMs: this.clock().getTime() - startedAt,
+        cacheHit: false,
+      });
       return mockLoader();
     }
+  }
+
+  private logMarketOperation(
+    operation: string,
+    result: string,
+    context: Record<string, unknown> = {},
+  ): void {
+    this.logger?.info("Market data operation", {
+      module: "market_data",
+      action: "market_data_operation",
+      context: {
+        provider: this.activeProviderName(),
+        operation,
+        result,
+        ...context,
+      },
+    });
   }
 
   private async fetchBrapiQuotes(symbols: string[]): Promise<MvpMarketQuote[]> {
@@ -503,13 +615,47 @@ export class MvpMarketDataService {
   private async fetchBrapiCatalog(
     query: MarketCatalogQuery,
   ): Promise<MarketCatalogPage> {
-    const url = new URL(
-      `${this.config.brapi.baseUrl.replace(/\/+$/, "")}/quote/list`,
+    const requestedSubTypes = this.toBrapiCatalogSubTypes(query.assetTypes);
+    const baseParams = this.toBrapiCatalogParams(query);
+    const rawItems =
+      requestedSubTypes.length > 1
+        ? (
+            await mapWithConcurrency(
+              requestedSubTypes,
+              this.config.catalog.providerConcurrency,
+              (subType) =>
+                this.fetchBrapiCatalogEntries({
+                  ...baseParams,
+                  subType,
+                  page: 1,
+                  limit: this.externalCatalogLimit(query),
+                }),
+            )
+          ).flat()
+        : await this.fetchBrapiCatalogEntries({
+            ...baseParams,
+            subType: requestedSubTypes[0],
+            page: 1,
+            limit: this.externalCatalogLimit(query),
+          });
+    const items = dedupeCatalogItemsBySymbol(
+      rawItems
+        .map((item) => this.mapBrapiCatalogItem(item))
+        .filter((item) => item !== undefined),
     );
-    if (query.search) {
-      url.searchParams.set("search", query.search);
-    }
+    return this.buildCatalogPage(
+      items,
+      query,
+      "BRAPI",
+      true,
+      this.clock().toISOString(),
+    );
+  }
 
+  private async fetchBrapiCatalogEntries(
+    params: BrapiCatalogParams,
+  ): Promise<BrapiCatalogEntry[]> {
+    const url = this.buildBrapiCatalogUrl(params);
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
@@ -527,21 +673,17 @@ export class MvpMarketDataService {
         throw new BrapiHttpError(response.status, response.statusText);
       }
       const payload = (await response.json()) as BrapiCatalogResponse;
-      const rawItems = Array.isArray(payload.results)
-        ? payload.results
-        : Array.isArray(payload.stocks)
-          ? payload.stocks
-          : [];
-      const items = rawItems
-        .map((item) => this.mapBrapiCatalogItem(item))
-        .filter((item) => item !== undefined);
-      return this.buildCatalogPage(
-        items,
-        query,
-        "BRAPI",
-        true,
-        this.clock().toISOString(),
-      );
+      if (
+        !payload ||
+        (payload.results !== undefined && !Array.isArray(payload.results)) ||
+        (payload.stocks !== undefined && !Array.isArray(payload.stocks)) ||
+        (payload.results === undefined && payload.stocks === undefined)
+      ) {
+        throw new InvalidBrapiResponseError(
+          "brapi catalog response is incomplete.",
+        );
+      }
+      return Array.isArray(payload.results) ? payload.results : payload.stocks!;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new BrapiTimeoutError();
@@ -550,6 +692,48 @@ export class MvpMarketDataService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private buildBrapiCatalogUrl(params: BrapiCatalogParams): URL {
+    const url = new URL(
+      `${this.config.brapi.baseUrl.replace(/\/+$/, "")}/quote/list`,
+    );
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== "") {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url;
+  }
+
+  private toBrapiCatalogParams(query: MarketCatalogQuery): BrapiCatalogParams {
+    return {
+      search: query.search,
+      sortBy: BRAPI_CATALOG_SORT_BY[query.sortBy ?? DEFAULT_CATALOG_SORT_BY],
+      sortOrder: query.sortOrder ?? DEFAULT_CATALOG_SORT_ORDER,
+      limit: this.externalCatalogLimit(query),
+      page: 1,
+      sector: query.sectors?.length === 1 ? query.sectors[0] : undefined,
+    };
+  }
+
+  private toBrapiCatalogSubTypes(
+    assetTypes: MarketAssetType[] | undefined,
+  ): string[] {
+    if (!assetTypes || assetTypes.length === 0) {
+      return [];
+    }
+    return assetTypes
+      .filter(
+        (assetType) =>
+          assetType !== "TREASURY" || this.getCapabilities().treasury,
+      )
+      .map((assetType) => BRAPI_CATALOG_SUB_TYPES[assetType])
+      .filter((subType) => subType !== undefined);
+  }
+
+  private externalCatalogLimit(query: MarketCatalogQuery): number {
+    return Math.max(1, query.page * query.pageSize);
   }
 
   private async fetchBrapiPayload(
@@ -829,10 +1013,10 @@ export class MvpMarketDataService {
     if (
       !Number.isSafeInteger(query.pageSize) ||
       query.pageSize < MIN_CATALOG_PAGE_SIZE ||
-      query.pageSize > MAX_CATALOG_PAGE_SIZE
+      query.pageSize > this.config.catalog.maxPageSize
     ) {
       throw new MarketValidationError(
-        `pageSize must be an integer between ${MIN_CATALOG_PAGE_SIZE} and ${MAX_CATALOG_PAGE_SIZE}.`,
+        `pageSize must be an integer between ${MIN_CATALOG_PAGE_SIZE} and ${this.config.catalog.maxPageSize}.`,
       );
     }
     if (
@@ -862,7 +1046,7 @@ export class MvpMarketDataService {
       search: normalizeOptionalText(query.search),
       assetTypes:
         query.assetTypes && query.assetTypes.length > 0
-          ? [...new Set(query.assetTypes)]
+          ? [...new Set(query.assetTypes)].sort()
           : undefined,
       sectors:
         query.sectors && query.sectors.length > 0
@@ -870,7 +1054,9 @@ export class MvpMarketDataService {
               ...new Set(
                 query.sectors.map((sector) => sector.trim()).filter(Boolean),
               ),
-            ]
+            ].sort((left, right) =>
+              left.toUpperCase().localeCompare(right.toUpperCase()),
+            )
           : undefined,
       sortBy: query.sortBy ?? DEFAULT_CATALOG_SORT_BY,
       sortOrder: query.sortOrder ?? DEFAULT_CATALOG_SORT_ORDER,
@@ -944,19 +1130,28 @@ export class MvpMarketDataService {
     }
   }
 
-  private getCached<T>(key: string): T | undefined {
+  private getCached<T>(
+    key: string,
+    options: { includeExpired?: boolean } = {},
+  ): T | undefined {
     const entry = this.cache.get(key);
-    if (!entry || entry.expiresAt <= this.clock().getTime()) {
+    if (
+      !entry ||
+      (!options.includeExpired && entry.expiresAt <= this.clock().getTime())
+    ) {
       return undefined;
     }
     return entry.value as T;
   }
 
-  private setCached<T>(key: string, value: T): void {
+  private setCached<T>(
+    key: string,
+    value: T,
+    ttlSeconds = this.config.brapi.cacheTtlSeconds,
+  ): void {
     this.cache.set(key, {
       value,
-      expiresAt:
-        this.clock().getTime() + this.config.brapi.cacheTtlSeconds * 1000,
+      expiresAt: this.clock().getTime() + ttlSeconds * 1000,
     });
   }
 
@@ -1154,6 +1349,79 @@ function compareCatalogValues(
     return left.localeCompare(right);
   }
   return Number(left) - Number(right);
+}
+
+function dedupeCatalogItemsBySymbol(
+  items: MarketCatalogItem[],
+): MarketCatalogItem[] {
+  const seen = new Set<string>();
+  const deduped: MarketCatalogItem[] = [];
+  for (const item of items) {
+    if (!seen.has(item.symbol)) {
+      seen.add(item.symbol);
+      deduped.push(item);
+    }
+  }
+  return deduped;
+}
+
+function inferItemCount(value: unknown): number | undefined {
+  if (Array.isArray(value)) {
+    return value.length;
+  }
+  if (
+    value &&
+    typeof value === "object" &&
+    "items" in value &&
+    Array.isArray((value as { items?: unknown }).items)
+  ) {
+    return (value as { items: unknown[] }).items.length;
+  }
+  return undefined;
+}
+
+function markCatalogCacheSource<T>(value: T): T {
+  if (
+    value &&
+    typeof value === "object" &&
+    "source" in value &&
+    "items" in value
+  ) {
+    return {
+      ...value,
+      source: "CACHE",
+      delayed: true,
+      items: Array.isArray((value as { items?: unknown }).items)
+        ? (value as { items: unknown[] }).items.map((item) =>
+            item && typeof item === "object" ? { ...item } : item,
+          )
+        : [],
+    } as T;
+  }
+  return value;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const limit = Math.max(1, Math.trunc(concurrency));
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]!);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
 }
 
 function normalizeMarketTime(

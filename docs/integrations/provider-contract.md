@@ -64,3 +64,24 @@ O provider deve trabalhar com estruturas equivalentes a:
 - `MarketDataProviderStatus`.
 
 Valores monetários devem ser representados em centavos inteiros sempre que fizer sentido no domínio do Fortuna.
+
+## Catalogo e capacidades
+
+O catalogo de mercado exposto por `/market/catalog` usa formato canonico do
+Fortuna (`MarketCatalogPage`) e origem explicita `BRAPI`, `CACHE` ou `MOCK`.
+O provider externo nao deve vazar payload bruto para controllers ou telas.
+
+`GET /market/status` tambem deve expor capacidades ativas sem credenciais:
+
+```ts
+{
+  listedCatalog: true,
+  basicQuotes: true,
+  detailedFiiData: false,
+  treasury: false,
+  analystConsensus: false
+}
+```
+
+No plano gratuito da brapi, capacidades Pro devem ser definidas por
+configuracao explicita e permanecer desabilitadas.

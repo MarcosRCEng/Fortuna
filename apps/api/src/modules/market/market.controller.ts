@@ -26,7 +26,6 @@ import {
   AssetHistoryPointResponseDto,
   AssetResponseDto,
   ExpectedYieldResponseDto,
-  MarketProviderStatusResponseDto,
   MarketQuoteResponseDto,
   MarketRefreshResponseDto,
   RefreshMarketPricesResponseDto,
@@ -44,6 +43,7 @@ import type {
   MarketCatalogPage,
   MarketCatalogSortBy,
   MarketCatalogSortOrder,
+  MarketProviderCapabilities,
   MarketAsset,
   MarketHistoryInterval,
   MarketHistoryRange,
@@ -186,6 +186,63 @@ class MarketCatalogPageResponseDto implements MarketCatalogPage {
   fetchedAt!: string;
 }
 
+class MarketProviderCapabilitiesResponseDto implements MarketProviderCapabilities {
+  @ApiProperty({ example: true })
+  listedCatalog!: boolean;
+
+  @ApiProperty({ example: true })
+  basicQuotes!: boolean;
+
+  @ApiProperty({ example: false })
+  detailedFiiData!: boolean;
+
+  @ApiProperty({ example: false })
+  treasury!: boolean;
+
+  @ApiProperty({ example: false })
+  analystConsensus!: false;
+}
+
+class MarketStatusDataResponseDto {
+  @ApiProperty({ enum: ["brapi", "mock", "cache"], example: "brapi" })
+  provider!: "brapi" | "mock" | "cache";
+
+  @ApiProperty({ example: false })
+  realDataEnabled!: boolean;
+
+  @ApiProperty({ example: false })
+  hasBrapiToken!: boolean;
+
+  @ApiProperty({ example: 900 })
+  cacheTtlSeconds!: number;
+
+  @ApiProperty({ example: 900 })
+  catalogCacheTtlSeconds!: number;
+
+  @ApiProperty({ example: 50 })
+  catalogMaxPageSize!: number;
+
+  @ApiProperty({ example: 3 })
+  catalogProviderConcurrency!: number;
+
+  @ApiProperty({ example: ["PETR4", "VALE3", "ITUB4", "MGLU3"] })
+  allowedSymbols!: string[];
+
+  @ApiProperty({ type: MarketProviderCapabilitiesResponseDto })
+  capabilities!: MarketProviderCapabilitiesResponseDto;
+
+  @ApiProperty({ example: null, nullable: true })
+  lastSuccessfulFetchAt!: string | null;
+
+  @ApiProperty({ enum: ["ok", "degraded", "mock_only"], example: "mock_only" })
+  status!: "ok" | "degraded" | "mock_only";
+}
+
+class MarketStatusResponseDto {
+  @ApiProperty({ type: MarketStatusDataResponseDto })
+  data!: MarketStatusDataResponseDto;
+}
+
 type MarketAssetsResponse = {
   data: MarketAsset[];
 };
@@ -215,7 +272,11 @@ type MarketStatusResponse = {
     realDataEnabled: boolean;
     hasBrapiToken: boolean;
     cacheTtlSeconds: number;
+    catalogCacheTtlSeconds: number;
+    catalogMaxPageSize: number;
+    catalogProviderConcurrency: number;
     allowedSymbols: string[];
+    capabilities: MarketProviderCapabilities;
     lastSuccessfulFetchAt: string | null;
     status: "ok" | "degraded" | "mock_only";
   };
@@ -367,7 +428,7 @@ export class MarketController {
     description:
       "Informa provider configurado, flag de dados reais, presenca de token, cache, allowlist e estado geral.",
   })
-  @ApiOkResponse({ type: MarketProviderStatusResponseDto })
+  @ApiOkResponse({ type: MarketStatusResponseDto })
   getStatus(): MarketStatusResponse {
     const status = this.marketData.getStatus();
     return {
@@ -376,7 +437,11 @@ export class MarketController {
         realDataEnabled: status.realDataEnabled,
         hasBrapiToken: status.hasToken,
         cacheTtlSeconds: status.cacheTtlSeconds,
+        catalogCacheTtlSeconds: status.catalogCacheTtlSeconds,
+        catalogMaxPageSize: status.catalogMaxPageSize,
+        catalogProviderConcurrency: status.catalogProviderConcurrency,
         allowedSymbols: this.marketData.getAllowedSymbols(),
+        capabilities: status.capabilities,
         lastSuccessfulFetchAt: status.lastSuccessfulFetchAt ?? null,
         status: status.status,
       },
