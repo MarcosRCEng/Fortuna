@@ -14,18 +14,22 @@ import {
   type WalletRepository,
 } from "@fortuna/application";
 import {
+  Asset,
   AssetSymbol,
+  AssetType,
   WATCHLIST_SORT_FIELDS,
   WATCHLIST_VISIBLE_GROUPS,
-  type Asset,
   type MarketAssetGroup,
+  type MarketAssetType,
   type PlayerWatchlistPreferences,
   type WatchlistSortBy,
   type WatchlistSortOrder,
   type Wallet,
+  RiskLevel,
 } from "@fortuna/domain";
 import {
   createMarketDataProvider,
+  MvpMarketDataService,
   PinoLogger,
   PrismaAssetRepository,
   PrismaMarketPriceProvider,
@@ -57,6 +61,45 @@ class MarketDataAssetRepository implements AssetRepository {
   }
 }
 
+class MarketCatalogAssetRepository implements AssetRepository {
+  constructor(private readonly catalog: MvpMarketDataService) {}
+
+  async findBySymbol(symbol: AssetSymbol): Promise<Asset | undefined> {
+    const page = await this.catalog.getCatalog({
+      search: symbol.value,
+      page: 1,
+      pageSize: 10,
+    });
+    const item = page.items.find((candidate) => candidate.symbol === symbol.value);
+    if (!item || item.type === "UNKNOWN" || item.type === "TREASURY") {
+      return undefined;
+    }
+    return new Asset(
+      item.symbol,
+      symbol,
+      item.name,
+      toDomainAssetType(item.type),
+      RiskLevel.MEDIUM,
+      true,
+      item.sector,
+    );
+  }
+}
+
+class FallbackAssetRepository implements AssetRepository {
+  constructor(
+    private readonly primary: AssetRepository,
+    private readonly fallback: AssetRepository,
+  ) {}
+
+  async findBySymbol(symbol: AssetSymbol): Promise<Asset | undefined> {
+    return (
+      (await this.primary.findBySymbol(symbol)) ??
+      (await this.fallback.findBySymbol(symbol))
+    );
+  }
+}
+
 class EmptyWalletRepository implements WalletRepository {
   async findByPlayerId(_playerId: string): Promise<Wallet | undefined> {
     return undefined;
@@ -70,7 +113,12 @@ export class WatchlistApiService {
   static withPrisma(prisma: PrismaService): WatchlistApiService {
     return new WatchlistApiService({
       watchlists: new PrismaPlayerWatchlistRepository(prisma),
-      assets: new PrismaAssetRepository(prisma),
+      assets: new FallbackAssetRepository(
+        new PrismaAssetRepository(prisma),
+        new MarketCatalogAssetRepository(
+          new MvpMarketDataService({ logger: new PinoLogger() }),
+        ),
+      ),
       wallets: new PrismaWalletRepository(prisma),
       prices: new PrismaMarketPriceProvider(prisma),
     });
@@ -92,7 +140,12 @@ export class WatchlistApiService {
     this.dependencies =
       dependencies ?? {
         watchlists: new InMemoryPlayerWatchlistRepository(),
-        assets: new MarketDataAssetRepository(marketData),
+        assets: new FallbackAssetRepository(
+          new MarketDataAssetRepository(marketData),
+          new MarketCatalogAssetRepository(
+            new MvpMarketDataService({ logger: new PinoLogger() }),
+          ),
+        ),
         wallets: new EmptyWalletRepository(),
         prices: marketData,
       };
@@ -242,4 +295,14 @@ export class WatchlistApiService {
     this.nextId += 1;
     return `${prefix}-${this.nextId}`;
   }
+}
+
+function toDomainAssetType(type: MarketAssetType): AssetType {
+  if (type === "FII") {
+    return AssetType.FII;
+  }
+  if (type === "TREASURY") {
+    return AssetType.TREASURY;
+  }
+  return AssetType.STOCK;
 }
