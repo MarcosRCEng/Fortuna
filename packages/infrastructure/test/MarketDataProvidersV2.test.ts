@@ -128,7 +128,7 @@ describe("MarketDataProvider v2 architecture", () => {
         {
           symbol: "PETR4",
           name: "Petrobras PN",
-          assetType: "stock",
+          assetType: "STOCK",
           currency: "BRL",
           priceInCents: 3842,
           regularMarketChangePercent: 0,
@@ -140,7 +140,7 @@ describe("MarketDataProvider v2 architecture", () => {
         {
           symbol: "VALE3",
           name: "Vale ON",
-          assetType: "stock",
+          assetType: "STOCK",
           currency: "BRL",
           priceInCents: 6210,
           regularMarketChangePercent: 0,

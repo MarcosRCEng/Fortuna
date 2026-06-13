@@ -1,6 +1,13 @@
 import type {
   HistoricalPrice,
   MarketAsset,
+  MarketAssetGroup,
+  MarketAssetType,
+  MarketCatalogItem,
+  MarketCatalogPage,
+  MarketCatalogQuery,
+  MarketCatalogSortBy,
+  MarketCatalogSortOrder,
   MarketDataProviderName,
   MarketHistoryInterval,
   MarketHistoryRange,
@@ -35,10 +42,19 @@ type BrapiQuoteResponse = {
   results?: BrapiQuote[];
 };
 
+type BrapiCatalogResponse = {
+  results?: BrapiCatalogEntry[];
+  stocks?: BrapiCatalogEntry[];
+};
+
 type BrapiQuote = {
   symbol?: string;
   shortName?: string;
   longName?: string;
+  subType?: string;
+  sector?: string;
+  logourl?: string;
+  logoUrl?: string;
   currency?: string;
   regularMarketPrice?: number;
   regularMarketPreviousClose?: number;
@@ -57,6 +73,27 @@ type BrapiHistoricalPoint = {
   volume?: number;
 };
 
+type BrapiCatalogEntry = {
+  symbol?: string;
+  stock?: string;
+  name?: string;
+  shortName?: string;
+  longName?: string;
+  subType?: string;
+  sector?: string;
+  currency?: string;
+  close?: number;
+  regularMarketPrice?: number;
+  change?: number;
+  changePercent?: number;
+  regularMarketChangePercent?: number;
+  volume?: number;
+  marketCap?: number;
+  market_cap?: number;
+  logoUrl?: string;
+  logourl?: string;
+};
+
 export interface MvpMarketDataServiceOptions {
   config?: MarketDataConfig;
   fetch?: FetchLike;
@@ -68,26 +105,221 @@ const ALLOWED_MARKET_ASSETS: MarketAsset[] = [
   {
     symbol: "PETR4",
     name: "Petrobras PN",
-    assetType: "stock",
+    assetType: "STOCK",
     currency: "BRL",
   },
-  { symbol: "VALE3", name: "Vale ON", assetType: "stock", currency: "BRL" },
+  { symbol: "VALE3", name: "Vale ON", assetType: "STOCK", currency: "BRL" },
   {
     symbol: "ITUB4",
     name: "Itau Unibanco PN",
-    assetType: "stock",
+    assetType: "STOCK",
     currency: "BRL",
   },
   {
     symbol: "MGLU3",
     name: "Magazine Luiza ON",
-    assetType: "stock",
+    assetType: "STOCK",
     currency: "BRL",
   },
 ];
 
 const VALID_RANGES = new Set<MarketHistoryRange>(["1mo", "3mo", "6mo", "1y"]);
 const VALID_INTERVALS = new Set<MarketHistoryInterval>(["1d"]);
+const MIN_CATALOG_PAGE_SIZE = 1;
+const MAX_CATALOG_PAGE_SIZE = 100;
+const DEFAULT_CATALOG_SORT_BY: MarketCatalogSortBy = "name";
+const DEFAULT_CATALOG_SORT_ORDER: MarketCatalogSortOrder = "asc";
+const VALID_CATALOG_SORT_BY = new Set<MarketCatalogSortBy>([
+  "name",
+  "price",
+  "changePercent",
+  "volume",
+  "marketCap",
+]);
+const VALID_CATALOG_SORT_ORDER = new Set<MarketCatalogSortOrder>([
+  "asc",
+  "desc",
+]);
+const FILTERABLE_MARKET_ASSET_TYPES = new Set<MarketAssetType>([
+  "STOCK",
+  "UNIT",
+  "FII",
+  "ETF",
+  "FI_INFRA",
+  "FI_AGRO",
+  "FIP",
+  "FIDC",
+  "BDR",
+  "TREASURY",
+]);
+
+const MOCK_CATALOG_ITEMS: MarketCatalogItem[] = [
+  {
+    symbol: "ITUB4",
+    name: "Itau Unibanco PN",
+    type: "STOCK",
+    group: "EQUITIES",
+    sector: "Financeiro",
+    priceCents: 3425,
+    changePercent: 1.24,
+    volume: 22_500_000,
+    marketCapCents: 320_000_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: true,
+  },
+  {
+    symbol: "PETR4",
+    name: "Petrobras PN",
+    type: "STOCK",
+    group: "EQUITIES",
+    sector: "Energia",
+    priceCents: 3842,
+    changePercent: -0.42,
+    volume: 31_000_000,
+    marketCapCents: 510_000_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: true,
+  },
+  {
+    symbol: "VALE3",
+    name: "Vale ON",
+    type: "STOCK",
+    group: "EQUITIES",
+    sector: "Materiais Basicos",
+    priceCents: 6210,
+    changePercent: 0.38,
+    volume: 18_900_000,
+    marketCapCents: 280_000_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: true,
+  },
+  {
+    symbol: "MGLU3",
+    name: "Magazine Luiza ON",
+    type: "STOCK",
+    group: "EQUITIES",
+    sector: "Consumo",
+    priceCents: 185,
+    changePercent: -1.15,
+    volume: 14_600_000,
+    marketCapCents: 1_300_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: true,
+  },
+  {
+    symbol: "KLBN11",
+    name: "Klabin Unit",
+    type: "UNIT",
+    group: "EQUITIES",
+    sector: "Papel e Celulose",
+    priceCents: 2176,
+    changePercent: 0.12,
+    volume: 4_100_000,
+    marketCapCents: 25_000_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "HGLG11",
+    name: "CSHG Logistica FII",
+    type: "FII",
+    group: "REAL_ESTATE_FUNDS",
+    sector: "Logistica",
+    priceCents: 16250,
+    changePercent: 0.08,
+    volume: 940_000,
+    marketCapCents: 5_200_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "BOVA11",
+    name: "iShares Ibovespa ETF",
+    type: "ETF",
+    group: "EXCHANGE_TRADED_FUNDS",
+    sector: "Indice",
+    priceCents: 12840,
+    changePercent: 0.91,
+    volume: 7_850_000,
+    marketCapCents: 16_000_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "IFRA11",
+    name: "Fundo Infraestrutura Fortuna",
+    type: "FI_INFRA",
+    group: "OTHER_LISTED_FUNDS",
+    sector: "Infraestrutura",
+    priceCents: 10940,
+    changePercent: -0.11,
+    volume: 210_000,
+    marketCapCents: 920_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "RURA11",
+    name: "Fundo Agro Fortuna",
+    type: "FI_AGRO",
+    group: "OTHER_LISTED_FUNDS",
+    sector: "Agronegocio",
+    priceCents: 9840,
+    changePercent: 0.22,
+    volume: 185_000,
+    marketCapCents: 740_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "PEVC11",
+    name: "Fundo Participacoes Fortuna",
+    type: "FIP",
+    group: "OTHER_LISTED_FUNDS",
+    sector: "Participacoes",
+    priceCents: 7450,
+    changePercent: -0.35,
+    volume: 54_000,
+    marketCapCents: 410_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "CRDC11",
+    name: "Fundo Direitos Creditorios Fortuna",
+    type: "FIDC",
+    group: "OTHER_LISTED_FUNDS",
+    sector: "Credito",
+    priceCents: 10120,
+    changePercent: 0.05,
+    volume: 82_000,
+    marketCapCents: 680_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "AURA33",
+    name: "Aura Minerals BDR",
+    type: "BDR",
+    group: "EQUITIES",
+    sector: "BDR",
+    priceCents: 3055,
+    changePercent: 1.72,
+    volume: 320_000,
+    marketCapCents: 2_200_000_000_00,
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+  {
+    symbol: "TS2029",
+    name: "Tesouro Selic 2029",
+    type: "TREASURY",
+    group: "FIXED_INCOME",
+    sector: "Tesouro Direto",
+    currency: "BRL",
+    tradableInFortuna: false,
+  },
+];
 
 export class MvpMarketDataService {
   private readonly config: MarketDataConfig;
@@ -107,6 +339,38 @@ export class MvpMarketDataService {
 
   listAssets(): MarketAsset[] {
     return this.allowedAssets();
+  }
+
+  async getCatalog(query: MarketCatalogQuery): Promise<MarketCatalogPage> {
+    const normalizedQuery = this.normalizeCatalogQuery(query);
+    const cacheKey = `market:${this.activeProviderName()}:catalog:${JSON.stringify(normalizedQuery)}`;
+    const cached = this.getCached<MarketCatalogPage>(cacheKey);
+    if (cached) {
+      return {
+        ...cached,
+        source: "CACHE",
+        items: cached.items.map((item) => ({ ...item })),
+      };
+    }
+
+    const page = await this.withMockFallback(
+      "catalog",
+      () => this.fetchBrapiCatalog(normalizedQuery),
+      () =>
+        this.buildCatalogPage(
+          MOCK_CATALOG_ITEMS,
+          normalizedQuery,
+          "MOCK",
+          false,
+          this.clock().toISOString(),
+        ),
+      {
+        page: normalizedQuery.page,
+        pageSize: normalizedQuery.pageSize,
+      },
+    );
+    this.setCached(cacheKey, page);
+    return page;
   }
 
   async getQuotes(symbols: string[]): Promise<MvpMarketQuote[]> {
@@ -236,6 +500,58 @@ export class MvpMarketDataService {
     return history;
   }
 
+  private async fetchBrapiCatalog(
+    query: MarketCatalogQuery,
+  ): Promise<MarketCatalogPage> {
+    const url = new URL(
+      `${this.config.brapi.baseUrl.replace(/\/+$/, "")}/quote/list`,
+    );
+    if (query.search) {
+      url.searchParams.set("search", query.search);
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      this.config.brapi.timeoutMs,
+    );
+
+    try {
+      const response = await this.fetchImpl(url, {
+        headers: this.config.brapi.apiToken
+          ? { Authorization: `Bearer ${this.config.brapi.apiToken}` }
+          : {},
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new BrapiHttpError(response.status, response.statusText);
+      }
+      const payload = (await response.json()) as BrapiCatalogResponse;
+      const rawItems = Array.isArray(payload.results)
+        ? payload.results
+        : Array.isArray(payload.stocks)
+          ? payload.stocks
+          : [];
+      const items = rawItems
+        .map((item) => this.mapBrapiCatalogItem(item))
+        .filter((item) => item !== undefined);
+      return this.buildCatalogPage(
+        items,
+        query,
+        "BRAPI",
+        true,
+        this.clock().toISOString(),
+      );
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new BrapiTimeoutError();
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   private async fetchBrapiPayload(
     symbols: string[],
     params: Record<string, string | undefined> = {},
@@ -282,6 +598,10 @@ export class MvpMarketDataService {
     }
     const symbol = quote.symbol.trim().toUpperCase();
     const asset = this.assetFor(symbol);
+    const assetType = mapBrapiSubTypeToMarketAssetType(
+      quote.subType,
+      this.logger,
+    );
     const priceInCents = toCents(quote.regularMarketPrice);
     const previousClose =
       quote.regularMarketPreviousClose === undefined
@@ -292,6 +612,7 @@ export class MvpMarketDataService {
       ...asset,
       symbol,
       name: quote.longName ?? quote.shortName ?? asset.name,
+      assetType: assetType === "UNKNOWN" ? asset.assetType : assetType,
       currency: quote.currency === "USD" ? "USD" : asset.currency,
       priceInCents,
       regularMarketChangePercent: quote.regularMarketChangePercent ?? 0,
@@ -306,6 +627,33 @@ export class MvpMarketDataService {
       provider: "brapi",
       isRealData: true,
       isDelayed: true,
+    };
+  }
+
+  private mapBrapiCatalogItem(
+    item: BrapiCatalogEntry,
+  ): MarketCatalogItem | undefined {
+    const rawSymbol = item.symbol ?? item.stock;
+    if (!rawSymbol) {
+      return undefined;
+    }
+    const symbol = normalizeMarketSymbol(rawSymbol);
+    const type = mapBrapiSubTypeToMarketAssetType(item.subType, this.logger);
+    const price = item.regularMarketPrice ?? item.close;
+    const marketCap = item.marketCap ?? item.market_cap;
+    return {
+      symbol,
+      name: item.longName ?? item.shortName ?? item.name ?? symbol,
+      type,
+      group: marketAssetGroupForType(type),
+      sector: normalizeOptionalText(item.sector),
+      priceCents: toOptionalCents(price),
+      changePercent: item.regularMarketChangePercent ?? item.changePercent,
+      volume: item.volume,
+      marketCapCents: toOptionalCents(marketCap),
+      logoUrl: item.logoUrl ?? item.logourl,
+      currency: "BRL",
+      tradableInFortuna: this.isTradableInFortuna(symbol, type),
     };
   }
 
@@ -389,6 +737,146 @@ export class MvpMarketDataService {
       });
     }
     return points;
+  }
+
+  private buildCatalogPage(
+    items: MarketCatalogItem[],
+    query: MarketCatalogQuery,
+    source: MarketCatalogPage["source"],
+    delayed: boolean,
+    fetchedAt: string,
+  ): MarketCatalogPage {
+    const filtered = this.sortCatalogItems(
+      this.filterCatalogItems(items, query),
+      query.sortBy ?? DEFAULT_CATALOG_SORT_BY,
+      query.sortOrder ?? DEFAULT_CATALOG_SORT_ORDER,
+    );
+    const totalItems = filtered.length;
+    const totalPages =
+      totalItems === 0 ? 0 : Math.ceil(totalItems / query.pageSize);
+    const start = (query.page - 1) * query.pageSize;
+    const pageItems = filtered.slice(start, start + query.pageSize);
+
+    return {
+      items: pageItems.map((item) => ({ ...item })),
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages,
+      hasNextPage: query.page < totalPages,
+      source,
+      delayed,
+      fetchedAt,
+    };
+  }
+
+  private filterCatalogItems(
+    items: MarketCatalogItem[],
+    query: MarketCatalogQuery,
+  ): MarketCatalogItem[] {
+    const search = query.search?.trim().toUpperCase();
+    const types = query.assetTypes ? new Set(query.assetTypes) : undefined;
+    const sectors = query.sectors
+      ? new Set(query.sectors.map((sector) => sector.toUpperCase()))
+      : undefined;
+
+    return items.filter((item) => {
+      const matchesSearch =
+        !search ||
+        item.symbol.toUpperCase().includes(search) ||
+        item.name.toUpperCase().includes(search);
+      const matchesType = !types || types.has(item.type);
+      const matchesSector =
+        !sectors ||
+        (item.sector !== undefined &&
+          sectors.has(item.sector.trim().toUpperCase()));
+      return matchesSearch && matchesType && matchesSector;
+    });
+  }
+
+  private sortCatalogItems(
+    items: MarketCatalogItem[],
+    sortBy: MarketCatalogSortBy,
+    sortOrder: MarketCatalogSortOrder,
+  ): MarketCatalogItem[] {
+    const direction = sortOrder === "asc" ? 1 : -1;
+    return [...items].sort((left, right) => {
+      const leftValue = catalogSortValue(left, sortBy);
+      const rightValue = catalogSortValue(right, sortBy);
+      if (leftValue === undefined && rightValue === undefined) {
+        return left.symbol.localeCompare(right.symbol);
+      }
+      if (leftValue === undefined) {
+        return 1;
+      }
+      if (rightValue === undefined) {
+        return -1;
+      }
+      const comparison = compareCatalogValues(leftValue, rightValue);
+      if (comparison !== 0) {
+        return comparison * direction;
+      }
+      return left.symbol.localeCompare(right.symbol);
+    });
+  }
+
+  private normalizeCatalogQuery(query: MarketCatalogQuery): MarketCatalogQuery {
+    if (!Number.isSafeInteger(query.page) || query.page < 1) {
+      throw new MarketValidationError(
+        "page must be an integer greater than or equal to 1.",
+      );
+    }
+    if (
+      !Number.isSafeInteger(query.pageSize) ||
+      query.pageSize < MIN_CATALOG_PAGE_SIZE ||
+      query.pageSize > MAX_CATALOG_PAGE_SIZE
+    ) {
+      throw new MarketValidationError(
+        `pageSize must be an integer between ${MIN_CATALOG_PAGE_SIZE} and ${MAX_CATALOG_PAGE_SIZE}.`,
+      );
+    }
+    if (
+      query.sortBy !== undefined &&
+      !VALID_CATALOG_SORT_BY.has(query.sortBy)
+    ) {
+      throw new MarketValidationError(
+        "sortBy must be one of: name, price, changePercent, volume, marketCap.",
+      );
+    }
+    if (
+      query.sortOrder !== undefined &&
+      !VALID_CATALOG_SORT_ORDER.has(query.sortOrder)
+    ) {
+      throw new MarketValidationError("sortOrder must be asc or desc.");
+    }
+    const invalidType = query.assetTypes?.find(
+      (assetType) => !FILTERABLE_MARKET_ASSET_TYPES.has(assetType),
+    );
+    if (invalidType) {
+      throw new MarketValidationError(
+        `Unknown market asset type: ${invalidType}.`,
+      );
+    }
+
+    return {
+      search: normalizeOptionalText(query.search),
+      assetTypes:
+        query.assetTypes && query.assetTypes.length > 0
+          ? [...new Set(query.assetTypes)]
+          : undefined,
+      sectors:
+        query.sectors && query.sectors.length > 0
+          ? [
+              ...new Set(
+                query.sectors.map((sector) => sector.trim()).filter(Boolean),
+              ),
+            ]
+          : undefined,
+      sortBy: query.sortBy ?? DEFAULT_CATALOG_SORT_BY,
+      sortOrder: query.sortOrder ?? DEFAULT_CATALOG_SORT_ORDER,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
   }
 
   private mockCloseInCents(symbol: string, date: Date): number {
@@ -514,6 +1002,13 @@ export class MvpMarketDataService {
     return asset;
   }
 
+  private isTradableInFortuna(symbol: string, type: MarketAssetType): boolean {
+    if (type === "UNKNOWN" || type === "TREASURY") {
+      return false;
+    }
+    return this.getAllowedSymbols().includes(symbol);
+  }
+
   private hash(input: string): number {
     let hash = 2_166_136_261;
     for (let index = 0; index < input.length; index += 1) {
@@ -557,6 +1052,108 @@ class InvalidBrapiResponseError extends Error {
 
 export function toCents(value: number): number {
   return Math.max(1, Math.round(value * 100));
+}
+
+export function toOptionalCents(value: number | undefined): number | undefined {
+  return value === undefined ? undefined : Math.max(0, Math.round(value * 100));
+}
+
+export function normalizeMarketSymbol(symbol: string): string {
+  return symbol.trim().toUpperCase();
+}
+
+export function mapBrapiSubTypeToMarketAssetType(
+  subType: string | undefined,
+  logger?: LoggerPort,
+): MarketAssetType {
+  const normalized = subType?.trim().toLowerCase();
+  switch (normalized) {
+    case "stock":
+      return "STOCK";
+    case "unit":
+      return "UNIT";
+    case "fii":
+      return "FII";
+    case "etf":
+      return "ETF";
+    case "fi-infra":
+      return "FI_INFRA";
+    case "fi-agro":
+      return "FI_AGRO";
+    case "fip":
+      return "FIP";
+    case "fidc":
+      return "FIDC";
+    case "bdr":
+      return "BDR";
+    default:
+      logger?.warn("Unknown brapi asset subtype", {
+        module: "market_data",
+        action: "market_data_unknown_brapi_subtype",
+        context: {
+          provider: "brapi",
+          hasSubType: normalized !== undefined && normalized.length > 0,
+        },
+      });
+      return "UNKNOWN";
+  }
+}
+
+export function marketAssetGroupForType(
+  type: MarketAssetType,
+): MarketAssetGroup {
+  switch (type) {
+    case "STOCK":
+    case "UNIT":
+    case "BDR":
+      return "EQUITIES";
+    case "FII":
+      return "REAL_ESTATE_FUNDS";
+    case "ETF":
+      return "EXCHANGE_TRADED_FUNDS";
+    case "FI_INFRA":
+    case "FI_AGRO":
+    case "FIP":
+    case "FIDC":
+      return "OTHER_LISTED_FUNDS";
+    case "TREASURY":
+      return "FIXED_INCOME";
+    case "UNKNOWN":
+      return "UNKNOWN";
+  }
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
+function catalogSortValue(
+  item: MarketCatalogItem,
+  sortBy: MarketCatalogSortBy,
+): string | number | undefined {
+  switch (sortBy) {
+    case "name":
+      return item.name;
+    case "price":
+      return item.priceCents;
+    case "changePercent":
+      return item.changePercent;
+    case "volume":
+      return item.volume;
+    case "marketCap":
+      return item.marketCapCents;
+  }
+}
+
+function compareCatalogValues(
+  left: string | number,
+  right: string | number,
+): number {
+  if (typeof left === "string" && typeof right === "string") {
+    return left.localeCompare(right);
+  }
+  return Number(left) - Number(right);
 }
 
 function normalizeMarketTime(

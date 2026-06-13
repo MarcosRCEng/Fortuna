@@ -76,6 +76,7 @@ A integração deve respeitar a seguinte política:
 - Não exibir dados como se fossem tempo real garantido.
 - Exibir disclaimer quando dados reais estiverem habilitados.
 - Registrar provider, horário da consulta e status da origem dos dados quando aplicável.
+
 # Credenciais brapi no MVP
 
 O token da brapi e uma credencial de integracao, nao uma identidade de usuario. O e-mail autenticado pelo Google identifica o usuario no Fortuna; o token brapi deve ficar somente no backend.
@@ -93,3 +94,19 @@ BRAPI_MAX_SYMBOLS_PER_REQUEST=1
 ```
 
 Nao exponha `BRAPI_API_TOKEN` no frontend e nao grave esse token em `localStorage`. O modelo `UserBrapiCredential` existe para uma sprint futura com token por usuario criptografado no backend.
+
+## Mapeamento de tipos do catalogo
+
+O Fortuna usa uma taxonomia canonica interna e nao expoe o payload bruto da brapi. Quando a brapi informar `subType`, o mapeamento deve ser:
+
+- `stock` -> `STOCK`;
+- `unit` -> `UNIT`;
+- `fii` -> `FII`;
+- `etf` -> `ETF`;
+- `fi-infra` -> `FI_INFRA`;
+- `fi-agro` -> `FI_AGRO`;
+- `fip` -> `FIP`;
+- `fidc` -> `FIDC`;
+- `bdr` -> `BDR`.
+
+Quando `subType` estiver ausente ou desconhecido, a resposta interna usa `UNKNOWN` e registra aviso estruturado sem token, payload bruto ou dados sensiveis. Quando `subType` valido estiver presente, o tipo nao deve ser inferido pelo sufixo do ticker.

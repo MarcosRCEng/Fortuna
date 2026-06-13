@@ -11,11 +11,15 @@ import {
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiProperty,
+  ApiPropertyOptional,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { PlayerApiService } from "../player/player-api.service.js";
 import {
   ApiErrorDto,
@@ -35,11 +39,152 @@ import {
 } from "@fortuna/infrastructure";
 import type {
   HistoricalPrice,
+  MarketAssetType,
+  MarketCatalogItem,
+  MarketCatalogPage,
+  MarketCatalogSortBy,
+  MarketCatalogSortOrder,
   MarketAsset,
   MarketHistoryInterval,
   MarketHistoryRange,
   MarketQuote,
 } from "@fortuna/domain";
+
+const CATALOG_TYPE_FILTER_VALUES: Exclude<MarketAssetType, "UNKNOWN">[] = [
+  "STOCK",
+  "UNIT",
+  "FII",
+  "ETF",
+  "FI_INFRA",
+  "FI_AGRO",
+  "FIP",
+  "FIDC",
+  "BDR",
+  "TREASURY",
+];
+const CATALOG_SORT_BY_VALUES: MarketCatalogSortBy[] = [
+  "name",
+  "price",
+  "changePercent",
+  "volume",
+  "marketCap",
+];
+const CATALOG_SORT_ORDER_VALUES: MarketCatalogSortOrder[] = ["asc", "desc"];
+
+class MarketCatalogQueryDto {
+  @ApiPropertyOptional({ example: "ITUB4" })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    example: "STOCK,FII",
+    description: "Tipos canonicos separados por virgula.",
+  })
+  @IsOptional()
+  @IsString()
+  types?: string;
+
+  @ApiPropertyOptional({
+    example: "Financeiro,Logistica",
+    description: "Setores separados por virgula.",
+  })
+  @IsOptional()
+  @IsString()
+  sectors?: string;
+
+  @ApiPropertyOptional({ enum: CATALOG_SORT_BY_VALUES, example: "name" })
+  @IsOptional()
+  @IsIn(CATALOG_SORT_BY_VALUES)
+  sortBy?: MarketCatalogSortBy;
+
+  @ApiPropertyOptional({ enum: CATALOG_SORT_ORDER_VALUES, example: "asc" })
+  @IsOptional()
+  @IsIn(CATALOG_SORT_ORDER_VALUES)
+  sortOrder?: MarketCatalogSortOrder;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 20;
+}
+
+class MarketCatalogItemResponseDto implements MarketCatalogItem {
+  @ApiProperty({ example: "ITUB4" })
+  symbol!: string;
+
+  @ApiProperty({ example: "Itau Unibanco PN" })
+  name!: string;
+
+  @ApiProperty({ enum: [...CATALOG_TYPE_FILTER_VALUES, "UNKNOWN"] })
+  type!: MarketAssetType;
+
+  @ApiProperty({ example: "EQUITIES" })
+  group!: MarketCatalogItem["group"];
+
+  @ApiPropertyOptional({ example: "Financeiro" })
+  sector?: string;
+
+  @ApiPropertyOptional({ example: 3425 })
+  priceCents?: number;
+
+  @ApiPropertyOptional({ example: 1.24 })
+  changePercent?: number;
+
+  @ApiPropertyOptional({ example: 22500000 })
+  volume?: number;
+
+  @ApiPropertyOptional({ example: 32000000000000 })
+  marketCapCents?: number;
+
+  @ApiPropertyOptional({ example: "https://example.com/logo.png" })
+  logoUrl?: string;
+
+  @ApiProperty({ example: "BRL" })
+  currency!: "BRL";
+
+  @ApiProperty({ example: true })
+  tradableInFortuna!: boolean;
+}
+
+class MarketCatalogPageResponseDto implements MarketCatalogPage {
+  @ApiProperty({ type: MarketCatalogItemResponseDto, isArray: true })
+  items!: MarketCatalogItemResponseDto[];
+
+  @ApiProperty({ example: 1 })
+  page!: number;
+
+  @ApiProperty({ example: 20 })
+  pageSize!: number;
+
+  @ApiProperty({ example: 42 })
+  totalItems!: number;
+
+  @ApiProperty({ example: 3 })
+  totalPages!: number;
+
+  @ApiProperty({ example: true })
+  hasNextPage!: boolean;
+
+  @ApiProperty({ enum: ["BRAPI", "MOCK", "CACHE"], example: "MOCK" })
+  source!: MarketCatalogPage["source"];
+
+  @ApiProperty({ example: false })
+  delayed!: boolean;
+
+  @ApiProperty({ example: "2026-05-28T18:00:00.000Z" })
+  fetchedAt!: string;
+}
 
 type MarketAssetsResponse = {
   data: MarketAsset[];
@@ -93,6 +238,30 @@ export class MarketController {
   })
   async listMarketAssets(): Promise<MarketAssetsResponse> {
     return { data: this.marketData.listAssets() };
+  }
+
+  @Get("catalog")
+  @ApiOperation({
+    summary: "Listar catalogo canonico e paginado de mercado.",
+    description:
+      "Retorna ativos normalizados por tipo canonico, sem expor o contrato bruto da brapi.",
+  })
+  @ApiOkResponse({ type: MarketCatalogPageResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async getMarketCatalog(
+    @Query() query: MarketCatalogQueryDto,
+  ): Promise<MarketCatalogPage> {
+    return this.handleMarketRequest(() =>
+      this.marketData.getCatalog({
+        search: query.search,
+        assetTypes: parseCatalogAssetTypes(query.types),
+        sectors: parseCommaSeparatedValues(query.sectors),
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+        page: parseCatalogInteger(query.page, "page", 1, 1),
+        pageSize: parseCatalogInteger(query.pageSize, "pageSize", 20, 1, 100),
+      }),
+    );
   }
 
   @Get("quotes")
@@ -254,4 +423,58 @@ export class MarketController {
       throw error;
     }
   }
+}
+
+function parseCatalogAssetTypes(
+  value: string | undefined,
+): MarketAssetType[] | undefined {
+  const values = parseCommaSeparatedValues(value);
+  if (!values) {
+    return undefined;
+  }
+  const invalidType = values.find(
+    (item) =>
+      !CATALOG_TYPE_FILTER_VALUES.includes(
+        item as (typeof CATALOG_TYPE_FILTER_VALUES)[number],
+      ),
+  );
+  if (invalidType) {
+    throw new MarketValidationError(
+      `Unknown market asset type: ${invalidType}.`,
+    );
+  }
+  return values as MarketAssetType[];
+}
+
+function parseCommaSeparatedValues(
+  value: string | undefined,
+): string[] | undefined {
+  const values = value
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+  return values && values.length > 0 ? [...new Set(values)] : undefined;
+}
+
+function parseCatalogInteger(
+  value: number | string | undefined,
+  fieldName: string,
+  fallback: number,
+  min: number,
+  max = Number.MAX_SAFE_INTEGER,
+): number {
+  if (value === undefined || value === "") {
+    return fallback;
+  }
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < min || parsed > max) {
+    const range =
+      max === Number.MAX_SAFE_INTEGER
+        ? `greater than or equal to ${min}`
+        : `between ${min} and ${max}`;
+    throw new MarketValidationError(
+      `${fieldName} must be an integer ${range}.`,
+    );
+  }
+  return parsed;
 }

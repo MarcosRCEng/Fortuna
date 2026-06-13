@@ -1,13 +1,36 @@
 export type MarketAssetType =
-  | "stock"
-  | "fii"
-  | "etf"
-  | "bdr"
-  | "index"
-  | "crypto"
-  | "unknown";
+  | "STOCK"
+  | "UNIT"
+  | "FII"
+  | "ETF"
+  | "FI_INFRA"
+  | "FI_AGRO"
+  | "FIP"
+  | "FIDC"
+  | "BDR"
+  | "TREASURY"
+  | "UNKNOWN";
+
+export type MarketAssetGroup =
+  | "EQUITIES"
+  | "REAL_ESTATE_FUNDS"
+  | "EXCHANGE_TRADED_FUNDS"
+  | "OTHER_LISTED_FUNDS"
+  | "FIXED_INCOME"
+  | "UNKNOWN";
 
 export type MarketDataProviderName = "brapi" | "mock" | "cache";
+
+export type MarketCatalogSortBy =
+  | "name"
+  | "price"
+  | "changePercent"
+  | "volume"
+  | "marketCap";
+
+export type MarketCatalogSortOrder = "asc" | "desc";
+
+export type MarketCatalogSource = "BRAPI" | "MOCK" | "CACHE";
 
 export type MarketAsset = {
   symbol: string;
@@ -25,6 +48,43 @@ export type MarketQuote = MarketAsset & {
   provider: MarketDataProviderName;
   isRealData: boolean;
   isDelayed: boolean;
+};
+
+export type MarketCatalogQuery = {
+  search?: string;
+  assetTypes?: MarketAssetType[];
+  sectors?: string[];
+  sortBy?: MarketCatalogSortBy;
+  sortOrder?: MarketCatalogSortOrder;
+  page: number;
+  pageSize: number;
+};
+
+export type MarketCatalogItem = {
+  symbol: string;
+  name: string;
+  type: MarketAssetType;
+  group: MarketAssetGroup;
+  sector?: string;
+  priceCents?: number;
+  changePercent?: number;
+  volume?: number;
+  marketCapCents?: number;
+  logoUrl?: string;
+  currency: "BRL";
+  tradableInFortuna: boolean;
+};
+
+export type MarketCatalogPage = {
+  items: MarketCatalogItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  source: MarketCatalogSource;
+  delayed: boolean;
+  fetchedAt: string;
 };
 
 export type HistoricalPrice = {
