@@ -9,10 +9,26 @@ export interface BrapiConfig {
   allowedSymbols: string[];
 }
 
+export interface MarketCatalogConfig {
+  cacheTtlSeconds: number;
+  maxPageSize: number;
+  providerConcurrency: number;
+}
+
+export interface MarketProviderCapabilitiesConfig {
+  listedCatalog: boolean;
+  basicQuotes: boolean;
+  detailedFiiData: boolean;
+  treasury: boolean;
+  analystConsensus: false;
+}
+
 export interface MarketDataConfig {
   provider: MarketDataProviderType;
   allowRealData: boolean;
   brapi: BrapiConfig;
+  catalog: MarketCatalogConfig;
+  capabilities: MarketProviderCapabilitiesConfig;
 }
 
 export interface MarketDataConfigLoadResult {
@@ -31,6 +47,18 @@ const DEFAULT_MARKET_DATA_CONFIG: MarketDataConfig = {
     cacheTtlSeconds: 900,
     maxSymbolsPerRequest: 1,
     allowedSymbols: ["PETR4", "VALE3", "ITUB4", "MGLU3"],
+  },
+  catalog: {
+    cacheTtlSeconds: 900,
+    maxPageSize: 50,
+    providerConcurrency: 3,
+  },
+  capabilities: {
+    listedCatalog: true,
+    basicQuotes: true,
+    detailedFiiData: false,
+    treasury: false,
+    analystConsensus: false,
   },
 };
 
@@ -76,12 +104,38 @@ export function readMarketDataConfig(
     "BRAPI_MAX_SYMBOLS_PER_REQUEST",
     errors,
   );
+  const catalogCacheTtlSeconds = parsePositiveInteger(
+    env.MARKET_CATALOG_CACHE_TTL_SECONDS,
+    DEFAULT_MARKET_DATA_CONFIG.catalog.cacheTtlSeconds,
+    "MARKET_CATALOG_CACHE_TTL_SECONDS",
+    errors,
+  );
+  const catalogMaxPageSize = parsePositiveInteger(
+    env.MARKET_CATALOG_MAX_PAGE_SIZE,
+    DEFAULT_MARKET_DATA_CONFIG.catalog.maxPageSize,
+    "MARKET_CATALOG_MAX_PAGE_SIZE",
+    errors,
+  );
+  const catalogProviderConcurrency = parsePositiveInteger(
+    env.MARKET_CATALOG_PROVIDER_CONCURRENCY,
+    DEFAULT_MARKET_DATA_CONFIG.catalog.providerConcurrency,
+    "MARKET_CATALOG_PROVIDER_CONCURRENCY",
+    errors,
+  );
   const allowedSymbols = parseAllowedSymbols(
     env.MARKET_DATA_ALLOWED_SYMBOLS,
     DEFAULT_MARKET_DATA_CONFIG.brapi.allowedSymbols,
     errors,
   );
   const apiToken = env.BRAPI_API_TOKEN?.trim() || undefined;
+  const detailedFiiData = parseBoolean(
+    env.BRAPI_CAPABILITY_FII_PRO,
+    DEFAULT_MARKET_DATA_CONFIG.capabilities.detailedFiiData,
+  );
+  const treasury = parseBoolean(
+    env.BRAPI_CAPABILITY_TREASURY_PRO,
+    DEFAULT_MARKET_DATA_CONFIG.capabilities.treasury,
+  );
 
   if (parsedCacheTtlSeconds < MIN_CACHE_TTL_SECONDS) {
     warnings.push(
@@ -108,6 +162,18 @@ export function readMarketDataConfig(
         cacheTtlSeconds,
         maxSymbolsPerRequest,
         allowedSymbols,
+      },
+      catalog: {
+        cacheTtlSeconds: catalogCacheTtlSeconds,
+        maxPageSize: catalogMaxPageSize,
+        providerConcurrency: catalogProviderConcurrency,
+      },
+      capabilities: {
+        listedCatalog: true,
+        basicQuotes: true,
+        detailedFiiData,
+        treasury,
+        analystConsensus: false,
       },
     },
     requestedProvider,
@@ -138,6 +204,21 @@ export function validateMarketDataConfig(config: MarketDataConfig): string[] {
   validatePositiveInteger(
     config.brapi.maxSymbolsPerRequest,
     "BRAPI_MAX_SYMBOLS_PER_REQUEST",
+    errors,
+  );
+  validatePositiveInteger(
+    config.catalog.cacheTtlSeconds,
+    "MARKET_CATALOG_CACHE_TTL_SECONDS",
+    errors,
+  );
+  validatePositiveInteger(
+    config.catalog.maxPageSize,
+    "MARKET_CATALOG_MAX_PAGE_SIZE",
+    errors,
+  );
+  validatePositiveInteger(
+    config.catalog.providerConcurrency,
+    "MARKET_CATALOG_PROVIDER_CONCURRENCY",
     errors,
   );
   if (config.brapi.cacheTtlSeconds < MIN_CACHE_TTL_SECONDS) {

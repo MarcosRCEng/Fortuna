@@ -71,3 +71,37 @@ As respostas devem deixar claro se os dados são:
 - Não chamar provider externo em loop descontrolado.
 - Não depender exclusivamente de dados reais para o jogo funcionar.
 - Não bloquear compra/venda simulada apenas porque a API externa falhou, salvo regra de negócio específica futura.
+
+## Catalogo gratuito brapi
+
+O catalogo listado usa configuracao de cache propria:
+
+```env
+MARKET_CATALOG_CACHE_TTL_SECONDS=900
+MARKET_CATALOG_MAX_PAGE_SIZE=50
+MARKET_CATALOG_PROVIDER_CONCURRENCY=3
+```
+
+`BRAPI_CACHE_TTL_SECONDS` cobre cotacoes individuais e historico. O catalogo
+listado usa `MARKET_CATALOG_CACHE_TTL_SECONDS`, para permitir ajuste separado
+do endpoint amplo `GET /api/quote/list`.
+
+## Chave de cache do catalogo
+
+A chave do catalogo e normalizada e versionada. Ela considera:
+
+- texto de pesquisa normalizado;
+- tipos canonicos ordenados;
+- setores ordenados;
+- ordenacao canonica;
+- pagina;
+- tamanho da pagina;
+- versao do contrato.
+
+Filtros equivalentes em ordens diferentes devem gerar a mesma chave. O token da
+brapi nunca entra na chave. Chaves de catalogo usam prefixo proprio e nao se
+misturam com chaves de cotacoes individuais.
+
+Para catalogo, cache expirado pode ser usado como stale fallback quando a brapi
+falhar temporariamente. A origem da resposta deve ser `CACHE` nesse caso. Sem
+cache disponivel, o endpoint retorna `MOCK`.

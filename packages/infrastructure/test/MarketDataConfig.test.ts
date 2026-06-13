@@ -166,6 +166,45 @@ describe("Market data configuration", () => {
     expect(result.errors).toContain("BRAPI_BASE_URL must be a valid URL.");
     expect(validateMarketDataConfig(result.config)).toEqual([]);
   });
+
+  it("reads market catalog cache, page size, concurrency and free capabilities", () => {
+    const result = readMarketDataConfig({
+      MARKET_CATALOG_CACHE_TTL_SECONDS: "1200",
+      MARKET_CATALOG_MAX_PAGE_SIZE: "30",
+      MARKET_CATALOG_PROVIDER_CONCURRENCY: "2",
+      BRAPI_CAPABILITY_FII_PRO: "false",
+      BRAPI_CAPABILITY_TREASURY_PRO: "false",
+    });
+
+    expect(result.config.catalog).toEqual({
+      cacheTtlSeconds: 1200,
+      maxPageSize: 30,
+      providerConcurrency: 2,
+    });
+    expect(result.config.capabilities).toEqual({
+      listedCatalog: true,
+      basicQuotes: true,
+      detailedFiiData: false,
+      treasury: false,
+      analystConsensus: false,
+    });
+  });
+
+  it("rejects invalid catalog resilience configuration", () => {
+    const result = readMarketDataConfig({
+      MARKET_CATALOG_CACHE_TTL_SECONDS: "zero",
+      MARKET_CATALOG_MAX_PAGE_SIZE: "0",
+      MARKET_CATALOG_PROVIDER_CONCURRENCY: "-1",
+    });
+
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        "MARKET_CATALOG_CACHE_TTL_SECONDS must be a positive integer.",
+        "MARKET_CATALOG_MAX_PAGE_SIZE must be a positive integer.",
+        "MARKET_CATALOG_PROVIDER_CONCURRENCY must be a positive integer.",
+      ]),
+    );
+  });
 });
 
 function expectInvalidConfigFallsBack(env: NodeJS.ProcessEnv): void {

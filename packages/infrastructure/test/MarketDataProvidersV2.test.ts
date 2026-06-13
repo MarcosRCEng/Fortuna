@@ -22,6 +22,18 @@ const baseConfig: MarketDataConfig = {
     maxSymbolsPerRequest: 2,
     allowedSymbols: ["PETR4", "VALE3", "ITUB4", "MGLU3"],
   },
+  catalog: {
+    cacheTtlSeconds: 900,
+    maxPageSize: 50,
+    providerConcurrency: 3,
+  },
+  capabilities: {
+    listedCatalog: true,
+    basicQuotes: true,
+    detailedFiiData: false,
+    treasury: false,
+    analystConsensus: false,
+  },
 };
 
 const brapiPayload = {

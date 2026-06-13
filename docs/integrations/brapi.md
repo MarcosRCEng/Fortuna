@@ -13,6 +13,11 @@ BRAPI_BASE_URL=https://brapi.dev/api
 BRAPI_API_TOKEN=
 BRAPI_TIMEOUT_MS=5000
 BRAPI_CACHE_TTL_SECONDS=900
+MARKET_CATALOG_CACHE_TTL_SECONDS=900
+MARKET_CATALOG_MAX_PAGE_SIZE=50
+MARKET_CATALOG_PROVIDER_CONCURRENCY=3
+BRAPI_CAPABILITY_FII_PRO=false
+BRAPI_CAPABILITY_TREASURY_PRO=false
 ```
 
 Também podem existir variáveis relacionadas ao provider geral:
@@ -25,16 +30,18 @@ BRAPI_MAX_SYMBOLS_PER_REQUEST=1
 
 ## Endpoint usado
 
-Endpoint principal:
+Endpoints principais:
 
 ```txt
 GET /api/quote/{tickers}
+GET /api/quote/list
 ```
 
 Exemplo conceitual:
 
 ```txt
 GET https://brapi.dev/api/quote/PETR4
+GET https://brapi.dev/api/quote/list?search=PETR4
 ```
 
 ## Parâmetros usados
@@ -43,6 +50,24 @@ Parâmetros previstos:
 
 - `range`;
 - `interval`.
+
+Para catalogo listado gratuito, o Fortuna converte filtros canonicos para
+parametros permitidos da brapi. Controllers nunca repassam query strings
+arbitrarias diretamente. Parametros enviados ao `quote/list`:
+
+- `search`;
+- `sortBy`;
+- `sortOrder`;
+- `limit`;
+- `page`;
+- `sector`;
+- `subType`.
+
+Quando ha um unico tipo canonico, uma consulta externa e feita com o `subType`
+correspondente. Quando ha multiplos tipos, o Fortuna consulta cada `subType`
+com limite configurado por `MARKET_CATALOG_PROVIDER_CONCURRENCY`, combina os
+resultados, remove duplicados por simbolo, aplica ordenacao canonica e pagina a
+resposta final.
 
 Parâmetros que devem ficar documentados como uso posterior:
 
@@ -91,6 +116,11 @@ BRAPI_API_TOKEN=
 BRAPI_TIMEOUT_MS=5000
 BRAPI_CACHE_TTL_SECONDS=900
 BRAPI_MAX_SYMBOLS_PER_REQUEST=1
+MARKET_CATALOG_CACHE_TTL_SECONDS=900
+MARKET_CATALOG_MAX_PAGE_SIZE=50
+MARKET_CATALOG_PROVIDER_CONCURRENCY=3
+BRAPI_CAPABILITY_FII_PRO=false
+BRAPI_CAPABILITY_TREASURY_PRO=false
 ```
 
 Nao exponha `BRAPI_API_TOKEN` no frontend e nao grave esse token em `localStorage`. O modelo `UserBrapiCredential` existe para uma sprint futura com token por usuario criptografado no backend.
@@ -110,3 +140,32 @@ O Fortuna usa uma taxonomia canonica interna e nao expoe o payload bruto da brap
 - `bdr` -> `BDR`.
 
 Quando `subType` estiver ausente ou desconhecido, a resposta interna usa `UNKNOWN` e registra aviso estruturado sem token, payload bruto ou dados sensiveis. Quando `subType` valido estiver presente, o tipo nao deve ser inferido pelo sufixo do ticker.
+
+## Capacidades do plano gratuito
+
+As capacidades do provider sao configuradas explicitamente, sem tentativa
+aleatoria de endpoints Pro:
+
+```ts
+{
+  listedCatalog: true,
+  basicQuotes: true,
+  detailedFiiData: false,
+  treasury: false,
+  analystConsensus: false
+}
+```
+
+`GET /market/status` expoe essas capacidades sem revelar credenciais. As flags
+`BRAPI_CAPABILITY_FII_PRO` e `BRAPI_CAPABILITY_TREASURY_PRO` devem permanecer
+`false` no plano gratuito.
+
+## Recursos por plano
+
+| Recurso Fortuna                           | Plano gratuito brapi | Configuracao                          |
+| ----------------------------------------- | -------------------- | ------------------------------------- |
+| Catalogo listado (`/api/quote/list`)      | Disponivel           | `listedCatalog: true`                 |
+| Cotacoes basicas (`/api/quote/{tickers}`) | Disponivel           | `basicQuotes: true`                   |
+| Dados detalhados de FII                   | Indisponivel         | `BRAPI_CAPABILITY_FII_PRO=false`      |
+| Tesouro real                              | Indisponivel         | `BRAPI_CAPABILITY_TREASURY_PRO=false` |
+| Consenso de analistas                     | Fora do escopo       | `analystConsensus: false`             |

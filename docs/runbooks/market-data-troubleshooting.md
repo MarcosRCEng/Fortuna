@@ -28,6 +28,17 @@ Verificar:
 - se houve timeout;
 - se a aplicação caiu no fallback esperado.
 
+### Catalogo brapi vazio ou incompleto
+
+Verificar:
+
+- `MARKET_CATALOG_MAX_PAGE_SIZE`;
+- `MARKET_CATALOG_PROVIDER_CONCURRENCY`;
+- filtro canonico enviado para `/market/catalog`;
+- mapeamento de tipo para `subType` da brapi;
+- se `MARKET_DATA_ALLOW_REAL_DATA=false` esta forçando mock;
+- se `BRAPI_CAPABILITY_TREASURY_PRO=false` esta desabilitando dados reais de Tesouro.
+
 ### Dados antigos aparecem
 
 Verificar:
@@ -96,6 +107,8 @@ Logs podem conter:
 - símbolo consultado;
 - tempo de resposta;
 - indicação de cache/fallback;
+- operacao (`catalog`, `quotes`, `history`);
+- quantidade de itens retornados;
 - correlation id.
 
 Logs não devem conter:

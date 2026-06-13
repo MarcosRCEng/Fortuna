@@ -20,6 +20,18 @@ const baseConfig: MarketDataConfig = {
     maxSymbolsPerRequest: 2,
     allowedSymbols: ["PETR4", "VALE3", "ITUB4", "MGLU3"],
   },
+  catalog: {
+    cacheTtlSeconds: 900,
+    maxPageSize: 50,
+    providerConcurrency: 3,
+  },
+  capabilities: {
+    listedCatalog: true,
+    basicQuotes: true,
+    detailedFiiData: false,
+    treasury: false,
+    analystConsensus: false,
+  },
 };
 
 const brapiPayload = {
@@ -463,6 +475,245 @@ describe("MvpMarketDataService", () => {
     expect(first.items[0]?.priceCents).toBeUndefined();
     expect(second.source).toBe("CACHE");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("builds brapi catalog URL from canonical filters and keeps token only in headers", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      okResponse({
+        results: [
+          {
+            stock: "HGLG11",
+            name: "CSHG Logistica FII",
+            subType: "fii",
+            sector: "Logistica",
+            close: 162.5,
+          },
+        ],
+      }),
+    );
+    const service = new MvpMarketDataService({
+      config: baseConfig,
+      fetch: fetchMock,
+    });
+
+    await service.getCatalog({
+      search: "logistica",
+      assetTypes: ["FII"],
+      sectors: ["Logistica"],
+      sortBy: "price",
+      sortOrder: "desc",
+      page: 2,
+      pageSize: 10,
+    });
+
+    const url = fetchMock.mock.calls[0]?.[0] as URL;
+    expect(url.pathname).toBe("/api/quote/list");
+    expect(url.searchParams.get("search")).toBe("logistica");
+    expect(url.searchParams.get("sortBy")).toBe("close");
+    expect(url.searchParams.get("sortOrder")).toBe("desc");
+    expect(url.searchParams.get("limit")).toBe("20");
+    expect(url.searchParams.get("page")).toBe("1");
+    expect(url.searchParams.get("sector")).toBe("Logistica");
+    expect(url.searchParams.get("subType")).toBe("fii");
+    expect(url.toString()).not.toContain("token");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: { Authorization: "Bearer token" },
+    });
+  });
+
+  it("uses a stable catalog cache key for equivalent filter orders", async () => {
+    const fetchMock = vi.fn((input: string | URL) => {
+      const url = new URL(String(input));
+      return Promise.resolve(
+        okResponse({
+          results: [
+            {
+              stock:
+                url.searchParams.get("subType") === "fii" ? "HGLG11" : "PETR4",
+              name: "Ativo",
+              subType: url.searchParams.get("subType") ?? "stock",
+            },
+          ],
+        }),
+      );
+    });
+    const service = new MvpMarketDataService({
+      config: baseConfig,
+      fetch: fetchMock,
+    });
+
+    const first = await service.getCatalog({
+      assetTypes: ["FII", "STOCK"],
+      sectors: ["Logistica", "Energia"],
+      page: 1,
+      pageSize: 20,
+    });
+    const second = await service.getCatalog({
+      assetTypes: ["STOCK", "FII"],
+      sectors: ["Energia", "Logistica"],
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(first.source).toBe("BRAPI");
+    expect(second.source).toBe("CACHE");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fans out multiple catalog types with dedupe, canonical sort and coherent pagination", async () => {
+    const fetchMock = vi.fn((input: string | URL) => {
+      const subType = new URL(String(input)).searchParams.get("subType");
+      if (subType === "fii") {
+        return Promise.resolve(
+          okResponse({
+            results: [
+              {
+                stock: "HGLG11",
+                name: "CSHG Logistica FII",
+                subType: "fii",
+                close: 162.5,
+              },
+              {
+                stock: "PETR4",
+                name: "Duplicate Petrobras",
+                subType: "stock",
+                close: 38.5,
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(
+        okResponse({
+          results: [
+            {
+              stock: "PETR4",
+              name: "Petrobras PN",
+              subType: "stock",
+              close: 38.42,
+            },
+            {
+              stock: "MGLU3",
+              name: "Magazine Luiza ON",
+              subType: "stock",
+              close: 1.85,
+            },
+          ],
+        }),
+      );
+    });
+    const service = new MvpMarketDataService({
+      config: baseConfig,
+      fetch: fetchMock,
+    });
+
+    const page = await service.getCatalog({
+      assetTypes: ["FII", "STOCK"],
+      sortBy: "price",
+      sortOrder: "asc",
+      page: 1,
+      pageSize: 2,
+    });
+
+    expect(page).toMatchObject({
+      source: "BRAPI",
+      totalItems: 3,
+      totalPages: 2,
+      hasNextPage: true,
+    });
+    expect(page.items.map((item) => item.symbol)).toEqual(["MGLU3", "PETR4"]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("respects the configured catalog provider concurrency", async () => {
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      activeRequests += 1;
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeRequests -= 1;
+      const subType = new URL(String(input)).searchParams.get("subType");
+      return okResponse({
+        results: [
+          {
+            stock: `${subType?.replace(/\W/g, "").toUpperCase()}11`,
+            name: subType,
+            subType,
+          },
+        ],
+      });
+    });
+    const service = new MvpMarketDataService({
+      config: {
+        ...baseConfig,
+        catalog: { ...baseConfig.catalog, providerConcurrency: 2 },
+      },
+      fetch: fetchMock,
+    });
+
+    await service.getCatalog({
+      assetTypes: ["STOCK", "FII", "ETF", "BDR", "FIDC"],
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(maxActiveRequests).toBeLessThanOrEqual(2);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("falls back on incomplete catalog JSON and uses stale cache when available", async () => {
+    const firstClock = new Date("2026-05-28T18:00:00.000Z");
+    let now = firstClock;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        okResponse({
+          results: [
+            {
+              stock: "PETR4",
+              name: "Petrobras PN",
+              subType: "stock",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(okResponse({ unexpected: [] }));
+    const service = new MvpMarketDataService({
+      config: {
+        ...baseConfig,
+        catalog: { ...baseConfig.catalog, cacheTtlSeconds: 1 },
+      },
+      fetch: fetchMock,
+      clock: () => now,
+    });
+
+    const fresh = await service.getCatalog({ page: 1, pageSize: 20 });
+    now = new Date(firstClock.getTime() + 2_000);
+    const stale = await service.getCatalog({ page: 1, pageSize: 20 });
+
+    expect(fresh.source).toBe("BRAPI");
+    expect(stale).toMatchObject({ source: "CACHE", delayed: true });
+
+    const noCacheService = new MvpMarketDataService({
+      config: baseConfig,
+      fetch: vi.fn().mockResolvedValue(okResponse({ unexpected: [] })),
+    });
+    await expect(
+      noCacheService.getCatalog({ page: 1, pageSize: 20 }),
+    ).resolves.toMatchObject({ source: "MOCK" });
+  });
+
+  it("reports free brapi capabilities from explicit configuration", () => {
+    const service = new MvpMarketDataService({ config: baseConfig });
+
+    expect(service.getStatus().capabilities).toEqual({
+      listedCatalog: true,
+      basicQuotes: true,
+      detailedFiiData: false,
+      treasury: false,
+      analystConsensus: false,
+    });
   });
 });
 
