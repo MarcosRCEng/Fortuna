@@ -156,7 +156,11 @@ export class MockMarketDataProvider implements MarketDataProvider {
       regularMarketChangePercent:
         previousClose <= 0
           ? 0
-          : Number((((priceInCents - previousClose) / previousClose) * 100).toFixed(2)),
+          : Number(
+              (((priceInCents - previousClose) / previousClose) * 100).toFixed(
+                2,
+              ),
+            ),
       regularMarketChangeInCents: priceInCents - previousClose,
       regularMarketPreviousCloseInCents: previousClose,
       marketTime: this.clock().toISOString(),
@@ -231,9 +235,13 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
       interval: input.interval ?? "1d",
     });
     const points = payload.results?.[0]?.historicalDataPrice ?? [];
-    const history = points.map((point) => this.mapHistoricalPoint(normalized, point));
+    const history = points.map((point) =>
+      this.mapHistoricalPoint(normalized, point),
+    );
     if (history.length === 0) {
-      throw new InvalidMarketDataResponseError("brapi returned no historical prices.");
+      throw new InvalidMarketDataResponseError(
+        "brapi returned no historical prices.",
+      );
     }
     this.lastSuccessfulRequestAt = this.clock().toISOString();
     return history;
@@ -270,7 +278,9 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new MarketDataProviderRequestError(`brapi HTTP ${response.status}.`);
+        throw new MarketDataProviderRequestError(
+          `brapi HTTP ${response.status}.`,
+        );
       }
       return (await response.json()) as BrapiQuoteResponse;
     } catch (error) {
@@ -300,7 +310,9 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     if (!this.token) {
       throw new MarketDataProviderRequestError("BRAPI_API_TOKEN is required.");
     }
-    const allowed = new Set(this.allowedSymbols.map((item) => item.toUpperCase()));
+    const allowed = new Set(
+      this.allowedSymbols.map((item) => item.toUpperCase()),
+    );
     const blocked = symbols.find((symbol) => !allowed.has(symbol));
     if (blocked) {
       throw new MarketValidationError(
@@ -341,9 +353,14 @@ export class BrapiMarketDataProvider implements MarketDataProvider {
     };
   }
 
-  private mapHistoricalPoint(symbol: string, point: BrapiHistoricalPoint): HistoricalPrice {
+  private mapHistoricalPoint(
+    symbol: string,
+    point: BrapiHistoricalPoint,
+  ): HistoricalPrice {
     if (point.close === undefined || point.date === undefined) {
-      throw new InvalidMarketDataResponseError("brapi historical point is incomplete.");
+      throw new InvalidMarketDataResponseError(
+        "brapi historical point is incomplete.",
+      );
     }
     return {
       symbol,
@@ -432,8 +449,9 @@ export class FallbackMarketDataProvider implements MarketDataProvider {
   ) {}
 
   getQuote(symbol: string): Promise<MarketQuote> {
-    return this.withFallback(() => this.primary.getQuote(symbol), () =>
-      this.fallback.getQuote(symbol),
+    return this.withFallback(
+      () => this.primary.getQuote(symbol),
+      () => this.fallback.getQuote(symbol),
     );
   }
 
@@ -522,8 +540,10 @@ export class AuditedMarketDataProvider implements MarketDataProvider {
     symbol: string,
     input: HistoricalPriceInput,
   ): Promise<HistoricalPrice[]> {
-    return this.audit("HistoricalPricesRequested", [normalizeSymbol(symbol)], () =>
-      this.inner.getHistoricalPrices(symbol, input),
+    return this.audit(
+      "HistoricalPricesRequested",
+      [normalizeSymbol(symbol)],
+      () => this.inner.getHistoricalPrices(symbol, input),
     );
   }
 
@@ -531,11 +551,9 @@ export class AuditedMarketDataProvider implements MarketDataProvider {
     return this.inner.getProviderStatus();
   }
 
-  private async audit<T extends MarketQuote | MarketQuote[] | HistoricalPrice[]>(
-    eventType: string,
-    symbols: string[],
-    call: () => Promise<T>,
-  ): Promise<T> {
+  private async audit<
+    T extends MarketQuote | MarketQuote[] | HistoricalPrice[],
+  >(eventType: string, symbols: string[], call: () => Promise<T>): Promise<T> {
     const startedAt = this.clock().getTime();
     try {
       const result = await call();
@@ -615,7 +633,9 @@ export class MarketDataService {
   private normalizeAndValidateSymbols(symbols: string[]): string[] {
     const normalized = normalizeSymbols(symbols);
     if (normalized.length === 0) {
-      throw new MarketValidationError("symbols must be a non-empty comma-separated list.");
+      throw new MarketValidationError(
+        "symbols must be a non-empty comma-separated list.",
+      );
     }
     const allowed = new Set(this.getAllowedSymbols());
     const blocked = normalized.find((symbol) => !allowed.has(symbol));
@@ -653,7 +673,11 @@ export function createComposedMarketDataService(
         )
       : mock;
   return new MarketDataService(
-    new AuditedMarketDataProvider(active, options.auditLogger ?? options.logger, options.clock),
+    new AuditedMarketDataProvider(
+      active,
+      options.auditLogger ?? options.logger,
+      options.clock,
+    ),
     config,
   );
 }
@@ -680,14 +704,31 @@ class InvalidMarketDataResponseError extends Error {
 }
 
 const ALLOWED_MARKET_ASSETS: MarketAsset[] = [
-  { symbol: "PETR4", name: "Petrobras PN", assetType: "stock", currency: "BRL" },
-  { symbol: "VALE3", name: "Vale ON", assetType: "stock", currency: "BRL" },
-  { symbol: "ITUB4", name: "Itau Unibanco PN", assetType: "stock", currency: "BRL" },
-  { symbol: "MGLU3", name: "Magazine Luiza ON", assetType: "stock", currency: "BRL" },
+  {
+    symbol: "PETR4",
+    name: "Petrobras PN",
+    assetType: "STOCK",
+    currency: "BRL",
+  },
+  { symbol: "VALE3", name: "Vale ON", assetType: "STOCK", currency: "BRL" },
+  {
+    symbol: "ITUB4",
+    name: "Itau Unibanco PN",
+    assetType: "STOCK",
+    currency: "BRL",
+  },
+  {
+    symbol: "MGLU3",
+    name: "Magazine Luiza ON",
+    assetType: "STOCK",
+    currency: "BRL",
+  },
 ];
 
 function allowedAssets(config: MarketDataConfig): MarketAsset[] {
-  const allowed = new Set(config.brapi.allowedSymbols.map((symbol) => symbol.toUpperCase()));
+  const allowed = new Set(
+    config.brapi.allowedSymbols.map((symbol) => symbol.toUpperCase()),
+  );
   return ALLOWED_MARKET_ASSETS.filter((asset) => allowed.has(asset.symbol));
 }
 
@@ -705,13 +746,10 @@ function assetFor(symbol: string): MarketAsset {
 }
 
 function classifyAssetType(symbol: string): MarketAssetType {
-  if (symbol.startsWith("^")) {
-    return "index";
-  }
   if (symbol.endsWith("11")) {
-    return "fii";
+    return "FII";
   }
-  return "stock";
+  return "STOCK";
 }
 
 export function normalizeSymbols(symbols: string[]): string[] {
@@ -728,18 +766,24 @@ export function normalizeSymbols(symbols: string[]): string[] {
 function normalizeSymbol(symbol: string): string {
   const normalized = symbol.trim().toUpperCase();
   if (/\s/.test(normalized)) {
-    throw new MarketValidationError("symbol must not contain internal whitespace.");
+    throw new MarketValidationError(
+      "symbol must not contain internal whitespace.",
+    );
   }
   return normalized;
 }
 
 function assertValidRange(range: string): asserts range is MarketHistoryRange {
   if (!["1d", "5d", "1mo", "3mo", "6mo", "1y", "5y", "max"].includes(range)) {
-    throw new MarketValidationError("range must be one of: 1d, 5d, 1mo, 3mo, 6mo, 1y, 5y, max.");
+    throw new MarketValidationError(
+      "range must be one of: 1d, 5d, 1mo, 3mo, 6mo, 1y, 5y, max.",
+    );
   }
 }
 
-function assertValidInterval(interval: string): asserts interval is MarketHistoryInterval {
+function assertValidInterval(
+  interval: string,
+): asserts interval is MarketHistoryInterval {
   if (!["1d", "1wk", "1mo"].includes(interval)) {
     throw new MarketValidationError("interval must be one of: 1d, 1wk, 1mo.");
   }
@@ -759,10 +803,16 @@ function mockCloseInCents(symbol: string, date: Date): number {
     }[symbol] ?? 1000;
   const day = startOfUtcDay(date).toISOString().slice(0, 10);
   const centeredBps = (hash(`fortuna:${symbol}:${day}`) % 401) - 200;
-  return Math.max(1, Math.trunc((base * (10_000 + centeredBps) + 5_000) / 10_000));
+  return Math.max(
+    1,
+    Math.trunc((base * (10_000 + centeredBps) + 5_000) / 10_000),
+  );
 }
 
-function normalizeMarketTime(value: string | number | undefined, fallback: Date): string {
+function normalizeMarketTime(
+  value: string | number | undefined,
+  fallback: Date,
+): string {
   if (typeof value === "number") {
     return new Date(value * 1000).toISOString();
   }
@@ -815,7 +865,9 @@ function addDays(date: Date, days: number): Date {
 }
 
 function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }
 
 function hash(input: string): number {

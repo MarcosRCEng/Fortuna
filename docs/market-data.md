@@ -14,8 +14,34 @@ Dados de mercado usados apenas para fins educativos e de simulacao. Nao constitu
 - TTL minimo: 900 segundos.
 - Dados reais somente quando `MARKET_DATA_PROVIDER=brapi`, `MARKET_DATA_ALLOW_REAL_DATA=true` e `BRAPI_API_TOKEN` estiver configurado.
 - Fallback para mock em erro, timeout, token ausente, bloqueio, rate limit, resposta invalida ou indisponibilidade.
-- Allowlist pequena de ativos.
+- Allowlist pequena para cotacoes legadas e contrato paginado de catalogo amplo.
 - Sem websocket, intraday, polling agressivo, carteira real, corretora ou recomendacao financeira.
+
+## Taxonomia canonica do catalogo
+
+Tipos individuais:
+
+- `STOCK`: acao.
+- `UNIT`: unit.
+- `FII`: fundo imobiliario.
+- `ETF`: ETF.
+- `FI_INFRA`: fundo de infraestrutura.
+- `FI_AGRO`: fundo do agronegocio.
+- `FIP`: fundo de participacoes.
+- `FIDC`: fundo de direitos creditorios.
+- `BDR`: BDR.
+- `TREASURY`: Tesouro Direto, reservado para provider futuro.
+- `UNKNOWN`: resposta externa ainda nao reconhecida; nao e aceito como filtro.
+
+Grupos de apresentacao:
+
+- `EQUITIES`: `STOCK`, `UNIT` e `BDR`.
+- `REAL_ESTATE_FUNDS`: `FII`.
+- `EXCHANGE_TRADED_FUNDS`: `ETF`.
+- `OTHER_LISTED_FUNDS`: `FI_INFRA`, `FI_AGRO`, `FIP` e `FIDC`.
+- `FIXED_INCOME`: `TREASURY`.
+
+O grupo nunca substitui o tipo individual do ativo.
 
 ## Variaveis de Ambiente
 
@@ -39,25 +65,25 @@ MARKET_DATA_ALLOWED_SYMBOLS=PETR4,VALE3,ITUB4,MGLU3
   {
     "symbol": "PETR4",
     "name": "Petrobras PN",
-    "assetType": "stock",
+    "assetType": "STOCK",
     "currency": "BRL"
   },
   {
     "symbol": "VALE3",
     "name": "Vale ON",
-    "assetType": "stock",
+    "assetType": "STOCK",
     "currency": "BRL"
   },
   {
     "symbol": "ITUB4",
     "name": "Itau Unibanco PN",
-    "assetType": "stock",
+    "assetType": "STOCK",
     "currency": "BRL"
   },
   {
     "symbol": "MGLU3",
     "name": "Magazine Luiza ON",
-    "assetType": "stock",
+    "assetType": "STOCK",
     "currency": "BRL"
   }
 ]
@@ -75,12 +101,62 @@ Retorna a allowlist local do MVP.
     {
       "symbol": "PETR4",
       "name": "Petrobras PN",
-      "assetType": "stock",
+      "assetType": "STOCK",
       "currency": "BRL"
     }
   ]
 }
 ```
+
+### `GET /market/catalog`
+
+Retorna o catalogo canonico, pesquisavel e paginado. Parametros:
+
+- `search`: busca por ticker ou nome.
+- `types`: tipos canonicos separados por virgula, exceto `UNKNOWN`.
+- `sectors`: setores separados por virgula.
+- `sortBy`: `name`, `price`, `changePercent`, `volume` ou `marketCap`.
+- `sortOrder`: `asc` ou `desc`.
+- `page`: inteiro maior ou igual a 1.
+- `pageSize`: inteiro entre 1 e 100.
+
+Exemplo:
+
+```http
+GET /market/catalog?types=STOCK,FII&sortBy=changePercent&sortOrder=desc
+```
+
+Resposta:
+
+```json
+{
+  "items": [
+    {
+      "symbol": "ITUB4",
+      "name": "Itau Unibanco PN",
+      "type": "STOCK",
+      "group": "EQUITIES",
+      "sector": "Financeiro",
+      "priceCents": 3425,
+      "changePercent": 1.24,
+      "volume": 22500000,
+      "marketCapCents": 32000000000000,
+      "currency": "BRL",
+      "tradableInFortuna": true
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalItems": 5,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "source": "MOCK",
+  "delayed": false,
+  "fetchedAt": "2026-05-28T18:00:00.000Z"
+}
+```
+
+Itens sem preco informado pelo provider omitem `priceCents`. Valores monetarios seguem em centavos inteiros. O contrato nunca retorna o payload bruto da brapi.
 
 ### `GET /market/quotes?symbols=PETR4,VALE3`
 
@@ -92,7 +168,7 @@ Retorna cotacoes atuais para simbolos permitidos. `symbols` e obrigatorio, separ
     {
       "symbol": "PETR4",
       "name": "Petrobras PN",
-      "assetType": "stock",
+      "assetType": "STOCK",
       "currency": "BRL",
       "priceInCents": 3842,
       "regularMarketChangePercent": 1.25,

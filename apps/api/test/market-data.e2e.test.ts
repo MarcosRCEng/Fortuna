@@ -124,6 +124,141 @@ describe("Market Data API", () => {
     });
   });
 
+  it("returns a paginated market catalog and searches by ticker", async () => {
+    const response = await readJson<{
+      items: Array<{
+        symbol: string;
+        type: string;
+        group: string;
+        priceCents?: number;
+        currency: string;
+      }>;
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      source: string;
+      delayed: boolean;
+    }>(
+      await fetch(`${baseUrl}/market/catalog?search=ITUB4&page=1&pageSize=20`),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      source: "MOCK",
+      delayed: false,
+    });
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        symbol: "ITUB4",
+        type: "STOCK",
+        group: "EQUITIES",
+        currency: "BRL",
+      }),
+    ]);
+    expect(Number.isInteger(response.body.items[0]?.priceCents)).toBe(true);
+  });
+
+  it("searches the market catalog by name", async () => {
+    const response = await readJson<{
+      items: Array<{ symbol: string; name: string }>;
+    }>(await fetch(`${baseUrl}/market/catalog?search=logistica`));
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        symbol: "HGLG11",
+        name: "CSHG Logistica FII",
+      }),
+    ]);
+  });
+
+  it("filters the market catalog by one type, multiple types and sector", async () => {
+    const oneType = await readJson<{ items: Array<{ type: string }> }>(
+      await fetch(`${baseUrl}/market/catalog?types=FII`),
+    );
+    const multipleTypes = await readJson<{
+      items: Array<{ symbol: string; type: string }>;
+    }>(
+      await fetch(
+        `${baseUrl}/market/catalog?types=STOCK,FII&sortBy=changePercent&sortOrder=desc`,
+      ),
+    );
+    const sector = await readJson<{ items: Array<{ symbol: string }> }>(
+      await fetch(`${baseUrl}/market/catalog?sectors=Financeiro`),
+    );
+
+    expect(oneType.status).toBe(200);
+    expect(oneType.body.items.map((item) => item.type)).toEqual(["FII"]);
+    expect(multipleTypes.status).toBe(200);
+    expect(multipleTypes.body.items.map((item) => item.type)).toEqual([
+      "STOCK",
+      "STOCK",
+      "FII",
+      "STOCK",
+      "STOCK",
+    ]);
+    expect(sector.status).toBe(200);
+    expect(sector.body.items.map((item) => item.symbol)).toEqual(["ITUB4"]);
+  });
+
+  it("sorts the market catalog ascending and descending", async () => {
+    const ascending = await readJson<{ items: Array<{ symbol: string }> }>(
+      await fetch(
+        `${baseUrl}/market/catalog?sortBy=price&sortOrder=asc&pageSize=20`,
+      ),
+    );
+    const descending = await readJson<{ items: Array<{ symbol: string }> }>(
+      await fetch(
+        `${baseUrl}/market/catalog?sortBy=changePercent&sortOrder=desc&pageSize=20`,
+      ),
+    );
+
+    expect(ascending.status).toBe(200);
+    expect(ascending.body.items[0]?.symbol).toBe("MGLU3");
+    expect(ascending.body.items.at(-1)?.symbol).toBe("TS2029");
+    expect(descending.status).toBe(200);
+    expect(descending.body.items[0]?.symbol).toBe("AURA33");
+  });
+
+  it("returns valid empty market catalog pages", async () => {
+    const response = await readJson<{
+      items: unknown[];
+      page: number;
+      totalItems: number;
+      totalPages: number;
+      hasNextPage: boolean;
+    }>(await fetch(`${baseUrl}/market/catalog?page=99&pageSize=20`));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      items: [],
+      page: 99,
+      totalItems: 13,
+      totalPages: 1,
+      hasNextPage: false,
+    });
+  });
+
+  it("returns 400 for invalid market catalog parameters", async () => {
+    const invalidType = await readJson<{
+      error: { code: string; message: string };
+    }>(await fetch(`${baseUrl}/market/catalog?types=UNKNOWN`));
+    const invalidPage = await readJson<{
+      error: { code: string; message: string };
+    }>(await fetch(`${baseUrl}/market/catalog?page=0`));
+    const invalidSort = await readJson<{
+      error: { code: string; message: string };
+    }>(await fetch(`${baseUrl}/market/catalog?sortBy=ticker`));
+
+    expect(invalidType.status).toBe(400);
+    expect(invalidType.body.error.code).toBe("VALIDATION_ERROR");
+    expect(invalidPage.status).toBe(400);
+    expect(invalidSort.status).toBe(400);
+  });
+
   it("returns market status", async () => {
     const response = await readJson<{
       data: {
