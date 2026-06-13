@@ -120,6 +120,21 @@ describe("Watchlist API E2E", () => {
     expect(removed.body.items.map((item) => item.symbol)).toEqual(["FIISF001"]);
   });
 
+  it("allows favoriting assets that exist only in the broad market catalog", async () => {
+    const response = await request<WatchlistResponse>("/me/watchlist/items", {
+      method: "POST",
+      body: { symbol: "HGLG11" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([
+      expect.objectContaining({
+        symbol: "HGLG11",
+        quoteStatus: expect.any(String),
+      }),
+    ]);
+  });
+
   it("rejects invalid symbols", async () => {
     const response = await request<ApiErrorBody>("/me/watchlist/items", {
       method: "POST",

@@ -392,7 +392,7 @@ export function App() {
     />
   ) : activeScreen === "market" ? (
     <MarketPage
-      assets={assets}
+      portfolio={portfolio}
       refreshing={refreshingMarket}
       submitting={submitting}
       onBuy={openBuy}
