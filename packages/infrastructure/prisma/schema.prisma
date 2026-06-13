@@ -148,6 +148,7 @@ model Player {
   cityState         CityState?
   mentorTipsHistory MentorTipHistory[]
   gameEvents        GameEvent[]
+  watchlist         PlayerWatchlist?
   user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("players")
@@ -397,4 +398,35 @@ model GameEvent {
   @@index([playerId, occurredAt])
   @@index([eventType])
   @@map("game_events")
+}
+
+model PlayerWatchlist {
+  id               String                @id @default(uuid()) @db.VarChar(100)
+  playerId         String                @unique @map("player_id") @db.VarChar(80)
+  visibleGroups    String[]              @map("visible_groups")
+  portfolioOnly    Boolean               @default(false) @map("portfolio_only")
+  sortBy           String                @default("position") @map("sort_by") @db.VarChar(40)
+  sortOrder        String                @default("asc") @map("sort_order") @db.VarChar(10)
+  maxItemsPerGroup Int?                  @map("max_items_per_group")
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  player           Player                @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  items            PlayerWatchlistItem[]
+
+  @@map("player_watchlists")
+}
+
+model PlayerWatchlistItem {
+  id          String          @id @default(uuid()) @db.VarChar(100)
+  watchlistId String          @map("watchlist_id") @db.VarChar(100)
+  symbol      String          @db.VarChar(20)
+  assetType   String          @map("asset_type") @db.VarChar(40)
+  position    Int
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  watchlist   PlayerWatchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, symbol])
+  @@index([watchlistId, position])
+  @@map("player_watchlist_items")
 }

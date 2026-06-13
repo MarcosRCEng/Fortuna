@@ -299,6 +299,58 @@ async function main() {
     },
   });
 
+  const demoWatchlist = await prisma.playerWatchlist.upsert({
+    where: { playerId: demoPlayerId },
+    update: {
+      visibleGroups: ["EQUITIES", "REAL_ESTATE_FUNDS", "FIXED_INCOME"],
+      portfolioOnly: false,
+      sortBy: "position",
+      sortOrder: "asc",
+      maxItemsPerGroup: 20,
+    },
+    create: {
+      id: "watchlist-player-demo",
+      playerId: demoPlayerId,
+      visibleGroups: ["EQUITIES", "REAL_ESTATE_FUNDS", "FIXED_INCOME"],
+      portfolioOnly: false,
+      sortBy: "position",
+      sortOrder: "asc",
+      maxItemsPerGroup: 20,
+    },
+  });
+  const demoWatchlistItems = [
+    { symbol: "AEF001", assetType: "STOCK", position: 0 },
+    { symbol: "FIISF001", assetType: "FII", position: 1 },
+    { symbol: "TSF001", assetType: "TREASURY", position: 2 },
+  ] as const;
+  await prisma.playerWatchlistItem.deleteMany({
+    where: {
+      watchlistId: demoWatchlist.id,
+      symbol: { notIn: demoWatchlistItems.map((item) => item.symbol) },
+    },
+  });
+  for (const item of demoWatchlistItems) {
+    await prisma.playerWatchlistItem.upsert({
+      where: {
+        watchlistId_symbol: {
+          watchlistId: demoWatchlist.id,
+          symbol: item.symbol,
+        },
+      },
+      update: {
+        assetType: item.assetType,
+        position: item.position,
+      },
+      create: {
+        id: `watchlist-player-demo-${item.symbol.toLowerCase()}`,
+        watchlistId: demoWatchlist.id,
+        symbol: item.symbol,
+        assetType: item.assetType,
+        position: item.position,
+      },
+    });
+  }
+
   await prisma.incomeEvent.upsert({
     where: { id: "income-demo-fiisf001" },
     update: {

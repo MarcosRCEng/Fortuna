@@ -14,6 +14,7 @@ import { PlayerModule } from "./modules/player/player.module.js";
 import { ProgressionModule } from "./modules/progression/progression.module.js";
 import { TransactionsModule } from "./modules/transactions/transactions.module.js";
 import { WalletModule } from "./modules/wallet/wallet.module.js";
+import { WatchlistModule } from "./modules/watchlist/watchlist.module.js";
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { WalletModule } from "./modules/wallet/wallet.module.js";
     MissionsModule,
     ProgressionModule,
     MentorModule,
-    PlayerModule
+    PlayerModule,
+    WatchlistModule
   ],
   providers: [
     {
