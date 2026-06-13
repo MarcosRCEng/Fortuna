@@ -19,3 +19,4 @@ export * from "./value-objects/Quantity.js";
 export * from "./value-objects/RiskLevel.js";
 export * from "./wallet/Position.js";
 export * from "./wallet/Wallet.js";
+export * from "./watchlist/PlayerWatchlist.js";
