@@ -1,7 +1,9 @@
 import {
+  EducationalTrendClassification,
   MentorMessage,
   MentorMessageTrigger,
   RiskLevel,
+  type EducationalTrendResult,
   type FinancialEvent,
   type GameEvent,
   type MentorContext,
@@ -34,7 +36,11 @@ export class MentorMessageService {
   }
 
   async evaluateForEvent(
-    event: FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated",
+    event:
+      | FinancialEvent
+      | GameEvent
+      | "PortfolioUpdated"
+      | "GameLoopEvaluated",
     context: MentorContext,
   ): Promise<MentorMessage[]> {
     const candidates = this.evaluateCandidates(event, context);
@@ -44,7 +50,10 @@ export class MentorMessageService {
       (left, right) =>
         severityPriority(right.severity) - severityPriority(left.severity),
     )) {
-      const duplicate = await this.isDuplicate(context.playerId, candidate.trigger);
+      const duplicate = await this.isDuplicate(
+        context.playerId,
+        candidate.trigger,
+      );
       if (duplicate) {
         this.logger?.info("Mentor message deduplicated", {
           module: "mentor",
@@ -100,26 +109,96 @@ export class MentorMessageService {
     await this.repository.markAsRead(playerId, messageId, this.clock.now());
   }
 
+  async recordEducationalTrend(
+    playerId: string,
+    trend: EducationalTrendResult,
+  ): Promise<MentorMessage | null> {
+    const templateEntry = this.educationalTrendTemplate(trend);
+    const duplicate = await this.isDuplicateForRelatedEntity(
+      playerId,
+      templateEntry.template.trigger,
+      trend.symbol,
+    );
+    if (duplicate) {
+      this.logger?.info("Mentor trend message deduplicated", {
+        module: "mentor",
+        action: "mentor_trend_message_deduplicated",
+        context: {
+          playerId,
+          symbol: trend.symbol,
+          trigger: templateEntry.template.trigger,
+        },
+      });
+      return null;
+    }
+
+    const message = await this.repository.create({
+      id: this.idGenerator(),
+      playerId,
+      type: templateEntry.template.type,
+      trigger: templateEntry.template.trigger,
+      title: templateEntry.template.title,
+      message: templateEntry.template.message,
+      educationalConcept: templateEntry.template.educationalConcept,
+      severity: templateEntry.template.severity,
+      relatedEntityType: "asset",
+      relatedEntityId: trend.symbol,
+      metadata: {
+        symbol: trend.symbol,
+        methodologyVersion: trend.methodologyVersion,
+        classification: trend.classification,
+        referenceDate: trend.dataAsOf,
+        templateUsed: templateEntry.key,
+      },
+      createdAt: this.clock.now(),
+    });
+
+    this.logger?.info("Mentor trend message created", {
+      module: "mentor",
+      action: "mentor_trend_message_created",
+      context: {
+        playerId,
+        symbol: trend.symbol,
+        trigger: message.trigger,
+        methodologyVersion: trend.methodologyVersion,
+        classification: trend.classification,
+      },
+    });
+    return message;
+  }
+
   private evaluateCandidates(
-    event: FinancialEvent | GameEvent | "PortfolioUpdated" | "GameLoopEvaluated",
+    event:
+      | FinancialEvent
+      | GameEvent
+      | "PortfolioUpdated"
+      | "GameLoopEvaluated",
     context: MentorContext,
   ): MentorCandidate[] {
     const candidates: MentorCandidate[] = [];
 
     if (this.isAssetBought(event)) {
       if (this.isFirstPurchase(context)) {
-        candidates.push(this.fromTemplate(mentorTemplates.firstPurchase, event));
+        candidates.push(
+          this.fromTemplate(mentorTemplates.firstPurchase, event),
+        );
       }
-      if (this.maxAssetAllocationBasisPoints(context) >= this.concentrationLimit()) {
+      if (
+        this.maxAssetAllocationBasisPoints(context) >= this.concentrationLimit()
+      ) {
         candidates.push(
           this.fromTemplate(mentorTemplates.concentratedPurchase, event, {
-            maxAllocationBasisPoints: this.maxAssetAllocationBasisPoints(context),
+            maxAllocationBasisPoints:
+              this.maxAssetAllocationBasisPoints(context),
           }),
         );
       }
       if (this.isPortfolioWithoutDiversification(context)) {
         candidates.push(
-          this.fromTemplate(mentorTemplates.portfolioWithoutDiversification, event),
+          this.fromTemplate(
+            mentorTemplates.portfolioWithoutDiversification,
+            event,
+          ),
         );
       }
     }
@@ -138,13 +217,18 @@ export class MentorMessageService {
       }
       if (this.isPortfolioWithoutDiversification(context)) {
         candidates.push(
-          this.fromTemplate(mentorTemplates.portfolioWithoutDiversification, event),
+          this.fromTemplate(
+            mentorTemplates.portfolioWithoutDiversification,
+            event,
+          ),
         );
       }
     }
 
     if (this.isIncomeCollected(event) || this.hasAvailableIncome(context)) {
-      candidates.push(this.fromTemplate(mentorTemplates.availableIncome, event));
+      candidates.push(
+        this.fromTemplate(mentorTemplates.availableIncome, event),
+      );
     }
 
     if (this.isMissionCompleted(event)) {
@@ -159,20 +243,29 @@ export class MentorMessageService {
     }
 
     if (this.isRiskyAssetViewed(event)) {
-      candidates.push(this.fromTemplate(mentorTemplates.riskyAssetViewed, event));
+      candidates.push(
+        this.fromTemplate(mentorTemplates.riskyAssetViewed, event),
+      );
     }
 
     if (event === "PortfolioUpdated" || event === "GameLoopEvaluated") {
       if (this.isPortfolioWithoutDiversification(context)) {
         candidates.push(
-          this.fromTemplate(mentorTemplates.portfolioWithoutDiversification, event),
+          this.fromTemplate(
+            mentorTemplates.portfolioWithoutDiversification,
+            event,
+          ),
         );
       }
       if (this.isIdleCashExcess(context)) {
-        candidates.push(this.fromTemplate(mentorTemplates.idleCashExcess, event));
+        candidates.push(
+          this.fromTemplate(mentorTemplates.idleCashExcess, event),
+        );
       }
       if (this.hasAvailableIncome(context)) {
-        candidates.push(this.fromTemplate(mentorTemplates.availableIncome, event));
+        candidates.push(
+          this.fromTemplate(mentorTemplates.availableIncome, event),
+        );
       }
     }
 
@@ -204,6 +297,82 @@ export class MentorMessageService {
       since,
     );
     return recent.length > 0;
+  }
+
+  private async isDuplicateForRelatedEntity(
+    playerId: string,
+    trigger: MentorMessageTrigger,
+    relatedEntityId: string,
+  ): Promise<boolean> {
+    const minutes = this.options.deduplicationWindowMinutes ?? 60;
+    const since = new Date(this.clock.now().getTime() - minutes * 60_000);
+    const recent = await this.repository.findByPlayer(playerId, 50);
+    return recent.some(
+      (message) =>
+        message.trigger === trigger &&
+        message.relatedEntityId === relatedEntityId &&
+        message.createdAt >= since,
+    );
+  }
+
+  private educationalTrendTemplate(trend: EducationalTrendResult): {
+    key: keyof typeof mentorTemplates;
+    template: MentorMessageTemplate;
+  } {
+    const isPositive =
+      trend.classification ===
+        EducationalTrendClassification.MOMENTO_POSITIVO ||
+      trend.classification ===
+        EducationalTrendClassification.MOMENTO_MUITO_POSITIVO;
+    const isNegative =
+      trend.classification ===
+        EducationalTrendClassification.MOMENTO_NEGATIVO ||
+      trend.classification ===
+        EducationalTrendClassification.MOMENTO_MUITO_NEGATIVO;
+    const hasVolatilityAttention = trend.factors.some(
+      (factor) => factor.code === "VOLATILITY" && factor.impact === "NEGATIVE",
+    );
+    const hasConcentrationWarning = trend.warnings.some((warning) =>
+      warning.toLowerCase().includes("concentracao"),
+    );
+
+    if (
+      trend.classification ===
+      EducationalTrendClassification.DADOS_INSUFICIENTES
+    ) {
+      return {
+        key: "educationalTrendInsufficientData",
+        template: mentorTemplates.educationalTrendInsufficientData,
+      };
+    }
+    if (hasConcentrationWarning) {
+      return {
+        key: "educationalTrendConcentration",
+        template: mentorTemplates.educationalTrendConcentration,
+      };
+    }
+    if (isPositive && trend.confidence === "LOW") {
+      return {
+        key: "educationalTrendPositiveLowConfidence",
+        template: mentorTemplates.educationalTrendPositiveLowConfidence,
+      };
+    }
+    if (hasVolatilityAttention) {
+      return {
+        key: "educationalTrendVolatility",
+        template: mentorTemplates.educationalTrendVolatility,
+      };
+    }
+    if (isNegative) {
+      return {
+        key: "educationalTrendAttention",
+        template: mentorTemplates.educationalTrendAttention,
+      };
+    }
+    return {
+      key: "educationalTrendStudyComparison",
+      template: mentorTemplates.educationalTrendStudyComparison,
+    };
   }
 
   private isFirstPurchase(context: MentorContext): boolean {
@@ -351,5 +520,7 @@ export class MentorMessageService {
   }
 }
 
-interface MentorCandidate
-  extends Omit<MentorMessage, "id" | "playerId" | "createdAt" | "readAt"> {}
+interface MentorCandidate extends Omit<
+  MentorMessage,
+  "id" | "playerId" | "createdAt" | "readAt"
+> {}

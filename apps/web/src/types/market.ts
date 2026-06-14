@@ -126,3 +126,37 @@ export type PlayerWatchlist = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type EducationalTrendClassification =
+  | "MOMENTO_MUITO_POSITIVO"
+  | "MOMENTO_POSITIVO"
+  | "MOMENTO_NEUTRO"
+  | "MOMENTO_NEGATIVO"
+  | "MOMENTO_MUITO_NEGATIVO"
+  | "DADOS_INSUFICIENTES";
+
+export type EducationalTrendConfidence = "LOW" | "MEDIUM" | "HIGH";
+export type EducationalTrendImpact = "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+
+export type EducationalTrendFactor = {
+  code: string;
+  label: string;
+  impact: EducationalTrendImpact;
+  explanation: string;
+};
+
+export type EducationalTrend = {
+  symbol: string;
+  classification: EducationalTrendClassification;
+  score: number;
+  confidence: EducationalTrendConfidence;
+  factors: EducationalTrendFactor[];
+  warnings: string[];
+  dataAsOf: string;
+  methodologyVersion: string;
+  disclaimer: string;
+};
+
+export type EducationalTrendList = {
+  items: EducationalTrend[];
+};

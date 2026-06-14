@@ -44,9 +44,9 @@ educativo de diversificacao.
 ## Faixas
 
 - `MOMENTO_MUITO_POSITIVO`: score maior ou igual a `50`.
-- `MOMENTO_POSITIVO`: score entre `25` e `59`.
+- `MOMENTO_POSITIVO`: score entre `25` e `49`.
 - `MOMENTO_NEUTRO`: score entre `-24` e `24`.
-- `MOMENTO_NEGATIVO`: score entre `-59` e `-25`.
+- `MOMENTO_NEGATIVO`: score entre `-49` e `-25`.
 - `MOMENTO_MUITO_NEGATIVO`: score menor ou igual a `-50`.
 - `DADOS_INSUFICIENTES`: preco atual ausente ou historico com menos de 5 pontos.
 
@@ -80,6 +80,27 @@ Exemplo de dados insuficientes:
 - O motor nao usa dados de analistas, metas externas ou scraping.
 - O motor depende da qualidade dos providers, cache e fallback configurados.
 - O resultado e uma leitura educacional do momento dos dados disponiveis.
+
+## UI e Mentor
+
+Na tela de Mercados, o card do Mentor mostra:
+
+- classificacao textual permitida: Muito negativo, Negativo, Neutro, Positivo,
+  Muito positivo ou Dados insuficientes;
+- score em escala visual negativa-neutra-positiva, sempre com texto e marcador;
+- confianca, data dos dados, fatores positivos, neutros e de atencao;
+- alertas de concentracao e dados;
+- explicacao expansivel de metodologia;
+- versao da metodologia e disclaimer.
+
+Na aba Minha lista, tendencias sao carregadas sob demanda para o lote visivel
+limitado pelo backend. Na aba Minha carteira, o card adiciona contexto
+educacional de concentracao e separa tendencia de preco de diversificacao.
+
+O Mentor registra mensagens deterministicas quando tendencias sao consultadas.
+O registro inclui jogador, simbolo, versao da metodologia, classificacao, data
+de referencia e template usado. O registro nao armazena payload bruto do
+provider externo.
 
 ## Glossario
 

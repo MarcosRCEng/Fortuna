@@ -2,14 +2,14 @@
 
 ## Matriz de recursos
 
-| Recurso                       | Gratuito atual | Pro futuro              |
-| ----------------------------- | -------------: | ----------------------: |
-| Catalogo B3                   |          ativo |                   ativo |
-| Cotacao basica                |          ativo |                   ativo |
-| FIIs detalhados               |   desabilitado |               preparado |
-| Tesouro Direto completo       |   desabilitado |               preparado |
+| Recurso                       | Gratuito atual |               Pro futuro |
+| ----------------------------- | -------------: | -----------------------: |
+| Catalogo B3                   |          ativo |                    ativo |
+| Cotacao basica                |          ativo |                    ativo |
+| FIIs detalhados               |   desabilitado |                preparado |
+| Tesouro Direto completo       |   desabilitado |                preparado |
 | Consenso de analistas         |  nao suportado | nao planejado pela brapi |
-| Tendencia educacional Fortuna | sprint seguinte |                   ativo |
+| Tendencia educacional Fortuna |          ativo |                    ativo |
 
 ## Contratos
 
@@ -41,3 +41,13 @@ Nao versionar credenciais reais. Nao usar probing automatico para descobrir plan
 ## Fora do dominio financeiro
 
 Tesouro Direto Pro nesta sprint e somente leitura de catalogo, indicadores e historico. Compra, venda, posicao, saldo e historico financeiro simulados nao foram ampliados para Tesouro.
+
+## Evidencias de desabilitacao
+
+Com as flags padrao `BRAPI_CAPABILITY_FII_PRO=false` e
+`BRAPI_CAPABILITY_TREASURY_PRO=false`, as rotas de detalhes/dividendos de FIIs
+e Tesouro retornam `NOT_AVAILABLE_IN_CURRENT_PLAN`, sem chamar adapters Pro e
+sem habilitar operacoes de compra ou venda fora do suporte financeiro atual.
+
+A Tendencia educacional nao depende dessas capabilities Pro. Ela usa cotacao,
+historico basico, cache/fallback e contexto da carteira simulada.
