@@ -965,6 +965,9 @@ export class MvpMarketDataService {
       : undefined;
 
     return items.filter((item) => {
+      if (item.type === "TREASURY" && !this.getCapabilities().treasury) {
+        return false;
+      }
       const matchesSearch =
         !search ||
         item.symbol.toUpperCase().includes(search) ||
@@ -1281,6 +1284,8 @@ export function mapBrapiSubTypeToMarketAssetType(
       return "FIDC";
     case "bdr":
       return "BDR";
+    case "treasury":
+      return "TREASURY";
     default:
       logger?.warn("Unknown brapi asset subtype", {
         module: "market_data",

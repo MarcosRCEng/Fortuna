@@ -59,6 +59,24 @@ describe("MarketAssetCard", () => {
     expect(html).toContain("disabled=\"\"");
   });
 
+  it("does not render Pro FII indicators in the basic market card", () => {
+    const html = renderCard({
+      symbol: "HGLG11",
+      name: "CSHG Logistica FII",
+      type: "FII",
+      group: "REAL_ESTATE_FUNDS",
+      sector: "Logistica",
+      priceCents: 16250,
+      changePercent: 0.08,
+      currency: "BRL",
+      tradableInFortuna: false,
+    });
+
+    expect(html).not.toContain("P/VP");
+    expect(html).not.toContain("Dividend yield");
+    expect(html).toContain("R$");
+  });
+
   it("renders neutral variation with text, not only color", () => {
     const html = renderCard({
       symbol: "BOVA11",

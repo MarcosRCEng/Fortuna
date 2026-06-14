@@ -4,6 +4,7 @@ import type {
   MarketCatalogItem,
   MarketCatalogSortBy,
   MarketCatalogSortOrder,
+  MarketProviderCapabilities,
   WatchlistItem,
 } from "../types/market.js";
 import type { Asset } from "../types/asset.js";
@@ -18,6 +19,14 @@ export type MarketViewKey =
   | "bdrs"
   | "watchlist"
   | "portfolio";
+
+export const defaultMarketCapabilities: MarketProviderCapabilities = {
+  listedCatalog: true,
+  basicQuotes: true,
+  detailedFiiData: false,
+  treasury: false,
+  analystConsensus: false,
+};
 
 export const listedMarketGroups: MarketAssetGroup[] = [
   "EQUITIES",
@@ -36,6 +45,32 @@ export const groupTypeFilters: Record<MarketViewKey, MarketAssetType[]> = {
   watchlist: [],
   portfolio: [],
 };
+
+export function typeOptionsForCapabilities(
+  capabilities: MarketProviderCapabilities,
+): Array<{ value: "" | MarketAssetType; label: string }> {
+  const options: Array<{ value: "" | MarketAssetType; label: string }> = [
+    { value: "", label: "Todos os tipos" },
+    { value: "STOCK", label: "Acoes" },
+    { value: "UNIT", label: "Units" },
+    { value: "FII", label: "FIIs" },
+    { value: "ETF", label: "ETFs" },
+    { value: "FI_INFRA", label: "FI-Infra" },
+    { value: "FI_AGRO", label: "Fiagro" },
+    { value: "FIP", label: "FIP" },
+    { value: "FIDC", label: "FIDC" },
+    { value: "BDR", label: "BDR" },
+  ];
+  return capabilities.treasury
+    ? [...options, { value: "TREASURY", label: "Tesouro" }]
+    : options;
+}
+
+export function shouldShowTreasuryPreparation(
+  capabilities: MarketProviderCapabilities,
+): boolean {
+  return capabilities.treasury;
+}
 
 export function visibleGroupsForView(view: MarketViewKey): MarketAssetGroup[] {
   switch (view) {

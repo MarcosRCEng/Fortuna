@@ -10,6 +10,7 @@ import { EmptyState } from "../components/EmptyState.js";
 import { ErrorState } from "../components/ErrorState.js";
 import { LoadingState } from "../components/LoadingState.js";
 import { getMarketCatalog } from "../services/marketCatalogApi.js";
+import { getMarketStatus } from "../services/marketStatusApi.js";
 import {
   addWatchlistItem,
   getWatchlist,
@@ -35,7 +36,10 @@ import {
   mapCatalogItemToAsset,
   marketTypeLabel,
   positionToCatalogItem,
+  defaultMarketCapabilities,
+  shouldShowTreasuryPreparation,
   sortPersonalItems,
+  typeOptionsForCapabilities,
   visibleGroupsForView,
   watchlistItemToCatalogItem,
   type MarketViewKey,
@@ -67,18 +71,7 @@ const sectorOptions = [
   "BDR",
 ];
 
-const typeOptions: Array<{ value: "" | MarketAssetType; label: string }> = [
-  { value: "", label: "Todos os tipos" },
-  { value: "STOCK", label: "Acoes" },
-  { value: "UNIT", label: "Units" },
-  { value: "FII", label: "FIIs" },
-  { value: "ETF", label: "ETFs" },
-  { value: "FI_INFRA", label: "FI-Infra" },
-  { value: "FI_AGRO", label: "Fiagro" },
-  { value: "FIP", label: "FIP" },
-  { value: "FIDC", label: "FIDC" },
-  { value: "BDR", label: "BDR" },
-];
+const typeOptions = typeOptionsForCapabilities(defaultMarketCapabilities);
 
 const sortOptions: Array<{ value: MarketCatalogSortBy; label: string }> = [
   { value: "name", label: "Nome" },
@@ -129,6 +122,7 @@ export function MarketPage({
   const [pageSize, setPageSize] = useState(initial.pageSize);
   const [catalog, setCatalog] = useState<MarketCatalogPage>();
   const [watchlist, setWatchlist] = useState<PlayerWatchlist>();
+  const [capabilities, setCapabilities] = useState(defaultMarketCapabilities);
   const [favoriteSymbols, setFavoriteSymbols] = useState<Set<string>>(new Set());
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -136,6 +130,16 @@ export function MarketPage({
   const [watchlistError, setWatchlistError] = useState<string>();
   const [favoriteError, setFavoriteError] = useState<string>();
   const preferencesLoaded = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void getMarketStatus(controller.signal)
+      .then((status) => setCapabilities(status.capabilities))
+      .catch(() => {
+        setCapabilities(defaultMarketCapabilities);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -315,6 +319,7 @@ export function MarketPage({
     : page < personalItems.totalPages;
   const isLoading = catalogLoading || watchlistLoading;
   const isFallback = catalog?.source === "MOCK" || catalog?.source === "CACHE";
+  const availableTypeOptions = typeOptionsForCapabilities(capabilities);
 
   function handleTabChange(nextTab: MarketViewKey) {
     setActiveTab(nextTab);
@@ -430,7 +435,7 @@ export function MarketPage({
               setPage(1);
             }}
           >
-            {typeOptions.map((option) => (
+            {availableTypeOptions.map((option) => (
               <option key={option.value || "all"} value={option.value}>
                 {option.label}
               </option>
@@ -511,10 +516,12 @@ export function MarketPage({
       {favoriteError ? <ErrorState message={favoriteError} /> : null}
       {catalogError ? <ErrorState message={catalogError} /> : null}
 
-      <section className="treasury-coming-soon" aria-label="Tesouro em preparacao">
-        <strong>Tesouro Direto em preparacao</strong>
-        <span>Capability desabilitada. Nenhuma cotacao real ou operacao e exibida aqui.</span>
-      </section>
+      {shouldShowTreasuryPreparation(capabilities) ? (
+        <section className="treasury-coming-soon" aria-label="Tesouro em preparacao">
+          <strong>Tesouro Direto preparado</strong>
+          <span>Catalogo Pro disponivel apenas como leitura, sem operacoes financeiras.</span>
+        </section>
+      ) : null}
 
       {isLoading ? (
         <MarketSkeleton />
