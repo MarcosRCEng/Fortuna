@@ -260,3 +260,18 @@ O fallback retorna dados deterministico-educativos com `provider="mock"` e `isRe
 ## Arquitetura
 
 A descricao completa do contrato `MarketDataProvider`, decorators de cache/fallback/auditoria e limites de simulacao esta em [market-data-architecture.md](./market-data-architecture.md).
+
+## Tendencia educacional
+
+Rotas autenticadas:
+
+- `GET /me/mentor/educational-trends/:symbol`
+- `GET /me/mentor/educational-trends?symbols=ITUB4,HGLG11`
+
+O lote aceita no maximo 5 simbolos por chamada. A UI usa carregamento sob
+demanda no card individual e lote controlado nas abas Minha lista e Minha
+carteira, evitando N+1 amplo e consultas de historico para centenas de ativos.
+
+A resposta sempre informa `methodologyVersion`, `dataAsOf`, `confidence` e
+`disclaimer`. Dados insuficientes retornam classificacao explicita em vez de
+um score direcional inventado.

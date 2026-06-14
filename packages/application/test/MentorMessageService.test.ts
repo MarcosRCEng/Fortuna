@@ -8,9 +8,12 @@ import {
   type Clock,
 } from "../src/index.js";
 import {
+  EDUCATIONAL_TREND_DISCLAIMER,
+  EDUCATIONAL_TREND_METHODOLOGY_VERSION,
   Asset,
   AssetSymbol,
   AssetType,
+  EducationalTrendClassification,
   MentorGameLoopMoment,
   MentorMessageTrigger,
   MoneyCents,
@@ -64,7 +67,10 @@ function bought(totalCents = 70_000): FinancialEvent {
   };
 }
 
-function sold(unitPriceCents: number, averagePriceCents: number): FinancialEvent {
+function sold(
+  unitPriceCents: number,
+  averagePriceCents: number,
+): FinancialEvent {
   return {
     type: "AssetSold",
     playerId,
@@ -229,5 +235,52 @@ describe("MentorMessageService", () => {
         expect(template.message).not.toMatch(pattern);
       }
     }
+  });
+
+  it("registra mensagem deterministica para tendencia educacional", async () => {
+    const { mentor, repository } = service();
+    const message = await mentor.recordEducationalTrend(playerId, {
+      symbol: "ITUB4",
+      classification: EducationalTrendClassification.MOMENTO_POSITIVO,
+      score: 28,
+      confidence: "LOW",
+      factors: [],
+      warnings: [],
+      dataAsOf: now.toISOString(),
+      methodologyVersion: EDUCATIONAL_TREND_METHODOLOGY_VERSION,
+      disclaimer: EDUCATIONAL_TREND_DISCLAIMER,
+    });
+
+    expect(message?.trigger).toBe(
+      MentorMessageTrigger.EDUCATIONAL_TREND_POSITIVE_LOW_CONFIDENCE,
+    );
+    expect(message?.relatedEntityId).toBe("ITUB4");
+    expect(message?.metadata).toMatchObject({
+      symbol: "ITUB4",
+      methodologyVersion: "educational-trend-v1",
+      classification: EducationalTrendClassification.MOMENTO_POSITIVO,
+      templateUsed: "educationalTrendPositiveLowConfidence",
+    });
+
+    await mentor.recordEducationalTrend(playerId, {
+      symbol: "ITUB4",
+      classification: EducationalTrendClassification.MOMENTO_POSITIVO,
+      score: 28,
+      confidence: "LOW",
+      factors: [],
+      warnings: [],
+      dataAsOf: now.toISOString(),
+      methodologyVersion: EDUCATIONAL_TREND_METHODOLOGY_VERSION,
+      disclaimer: EDUCATIONAL_TREND_DISCLAIMER,
+    });
+
+    const messages = await repository.findByPlayer(playerId, 20);
+    expect(
+      messages.filter(
+        (item) =>
+          item.trigger ===
+          MentorMessageTrigger.EDUCATIONAL_TREND_POSITIVE_LOW_CONFIDENCE,
+      ),
+    ).toHaveLength(1);
   });
 });

@@ -42,6 +42,12 @@ export enum MentorMessageTrigger {
   AVAILABLE_INCOME = "available_income",
   MISSION_COMPLETED = "mission_completed",
   RISKY_ASSET_VIEWED = "risky_asset_viewed",
+  EDUCATIONAL_TREND_POSITIVE_LOW_CONFIDENCE = "educational_trend_positive_low_confidence",
+  EDUCATIONAL_TREND_INSUFFICIENT_DATA = "educational_trend_insufficient_data",
+  EDUCATIONAL_TREND_VOLATILITY = "educational_trend_volatility",
+  EDUCATIONAL_TREND_CONCENTRATION = "educational_trend_concentration",
+  EDUCATIONAL_TREND_STUDY_COMPARISON = "educational_trend_study_comparison",
+  EDUCATIONAL_TREND_ATTENTION = "educational_trend_attention",
 }
 
 export enum MentorMessageSeverity {

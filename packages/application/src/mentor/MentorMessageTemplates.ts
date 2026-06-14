@@ -95,6 +95,60 @@ export const mentorTemplates = {
     educationalConcept: "risco",
     severity: MentorMessageSeverity.WARNING,
   },
+  educationalTrendPositiveLowConfidence: {
+    type: MentorMessageType.CONCEPTUAL_EXPLANATION,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_POSITIVE_LOW_CONFIDENCE,
+    title: "Sinal positivo com baixa confianca",
+    message:
+      "A tendencia educacional aparece positiva, mas a confianca esta baixa. Use o resultado para estudar comparaveis, qualidade dos dados e volatilidade antes de tirar conclusoes.",
+    educationalConcept: "tendencia educacional",
+    severity: MentorMessageSeverity.INFO,
+  },
+  educationalTrendInsufficientData: {
+    type: MentorMessageType.EDUCATIONAL_ALERT,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_INSUFFICIENT_DATA,
+    title: "Dados insuficientes",
+    message:
+      "O Mentor nao encontrou historico suficiente para formar a escala. Quando os dados faltam, a resposta correta e explicar a ausencia, nao inventar um sinal.",
+    educationalConcept: "qualidade de dados",
+    severity: MentorMessageSeverity.WARNING,
+  },
+  educationalTrendVolatility: {
+    type: MentorMessageType.RISK_REFLECTION,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_VOLATILITY,
+    title: "Volatilidade em estudo",
+    message:
+      "A volatilidade recente pesa no card. Oscilacao maior pede comparacao, revisao da estrategia simulada e cuidado com concentracao.",
+    educationalConcept: "volatilidade",
+    severity: MentorMessageSeverity.WARNING,
+  },
+  educationalTrendConcentration: {
+    type: MentorMessageType.EDUCATIONAL_ALERT,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_CONCENTRATION,
+    title: "Concentracao separada da tendencia",
+    message:
+      "O alerta de concentracao nao muda sozinho a tendencia de preco. Ele ensina que diversificacao e dependencia de um unico ativo precisam ser analisadas separadamente.",
+    educationalConcept: "diversificacao",
+    severity: MentorMessageSeverity.WARNING,
+  },
+  educationalTrendStudyComparison: {
+    type: MentorMessageType.ORIENTATION,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_STUDY_COMPARISON,
+    title: "Comparar antes de concluir",
+    message:
+      "Use a tendencia educacional para comparar ativos, revisar fatores e acompanhar a evolucao dos dados. O card orienta estudo, nao uma ordem de operacao.",
+    educationalConcept: "estudo comparativo",
+    severity: MentorMessageSeverity.INFO,
+  },
+  educationalTrendAttention: {
+    type: MentorMessageType.RISK_REFLECTION,
+    trigger: MentorMessageTrigger.EDUCATIONAL_TREND_ATTENTION,
+    title: "Sinais pedem atencao",
+    message:
+      "A leitura educacional mostra fatores de atencao. Revise volatilidade, historico disponivel e diversificacao antes de mudar sua estrategia simulada.",
+    educationalConcept: "gestao de risco",
+    severity: MentorMessageSeverity.WARNING,
+  },
 } satisfies Record<string, MentorMessageTemplate>;
 
 export const FORBIDDEN_MENTOR_TEMPLATE_PATTERNS = [

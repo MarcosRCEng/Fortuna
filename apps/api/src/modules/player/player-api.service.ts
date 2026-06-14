@@ -1335,7 +1335,12 @@ export class PlayerApiService {
       this.marketData,
       this.persistence?.wallets ?? this.wallets,
     );
-    return useCase.execute({ playerId, symbols });
+    const trends = await useCase.execute({ playerId, symbols });
+    const mentor = this.createMentorMessageService();
+    await Promise.all(
+      trends.map((trend) => mentor.recordEducationalTrend(playerId, trend)),
+    );
+    return trends;
   }
 
   async getTransactions(
