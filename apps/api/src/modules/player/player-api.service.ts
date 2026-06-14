@@ -21,9 +21,11 @@ import {
   GetAssetDetailsUseCase,
   GetAssetHistoryUseCase,
   GetCurrentAssetPriceUseCase,
+  GetEducationalTrendsUseCase,
   GetExpectedYieldUseCase,
   GetMarketProviderStatusUseCase,
   GetPortfolioAllocationUseCase,
+  EDUCATIONAL_TRENDS_MAX_SYMBOLS,
   InMemoryAuditEventRepository,
   InMemoryMentorMessageRepository,
   InMemoryUserConsentRepository,
@@ -115,6 +117,8 @@ import {
   MentorMessageListResponseDto,
   MentorMessageResponseDto,
   MentorLatestMessageResponseDto,
+  EducationalTrendListResponseDto,
+  EducationalTrendResponseDto,
   PlayerResponseDto,
   RefreshMarketPricesRequestDto,
   TradeAssetRequestDto,
@@ -1301,6 +1305,39 @@ export class PlayerApiService {
     await this.createMentorMessageService().markAsRead(playerId, messageId);
   }
 
+  async getEducationalTrend(
+    playerId: string,
+    symbol: string,
+  ): Promise<EducationalTrendResponseDto> {
+    const [trend] = await this.getEducationalTrendsForSymbols(
+      playerId,
+      this.parseEducationalTrendSymbols(symbol),
+    );
+    return trend!;
+  }
+
+  async getEducationalTrends(
+    playerId: string,
+    symbols: string | undefined,
+  ): Promise<EducationalTrendListResponseDto> {
+    const parsedSymbols = this.parseEducationalTrendSymbols(symbols);
+    return {
+      items: await this.getEducationalTrendsForSymbols(playerId, parsedSymbols),
+    };
+  }
+
+  private async getEducationalTrendsForSymbols(
+    playerId: string,
+    symbols: string[],
+  ): Promise<EducationalTrendResponseDto[]> {
+    await this.getPlayer(playerId);
+    const useCase = new GetEducationalTrendsUseCase(
+      this.marketData,
+      this.persistence?.wallets ?? this.wallets,
+    );
+    return useCase.execute({ playerId, symbols });
+  }
+
   async getTransactions(
     playerId: string,
     filter: {
@@ -2184,6 +2221,31 @@ export class PlayerApiService {
         ? request.quantity
         : this.parsePositiveInteger(request.quantity, "quantity");
     return { symbol: asset.symbol, quantity };
+  }
+
+  private parseEducationalTrendSymbols(symbols: string | undefined): string[] {
+    this.assertString(symbols, "symbols");
+    const parsed = [
+      ...new Set(
+        symbols
+          .split(",")
+          .map((symbol) => symbol.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ];
+    if (parsed.length === 0) {
+      throw new BadRequestException("symbols must be a non-empty list.");
+    }
+    if (parsed.length > EDUCATIONAL_TRENDS_MAX_SYMBOLS) {
+      throw new BadRequestException(
+        `symbols accepts at most ${EDUCATIONAL_TRENDS_MAX_SYMBOLS} items.`,
+      );
+    }
+    const invalid = parsed.find((symbol) => !/^[A-Z0-9]{3,12}$/.test(symbol));
+    if (invalid) {
+      throw new BadRequestException(`Invalid symbol: ${invalid}.`);
+    }
+    return parsed;
   }
 
   private async resolveMarketAsset(identifier: string): Promise<MarketAsset> {

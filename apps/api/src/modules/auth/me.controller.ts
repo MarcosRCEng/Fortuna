@@ -3,17 +3,29 @@ import {
   Controller,
   Get,
   HttpCode,
+  Inject,
   Param,
   Patch,
   Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBadRequestResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from "@nestjs/swagger";
 import { PlayerApiService } from "../player/player-api.service.js";
 import type {
   CollectIncomeRequestDto,
   TradeAssetRequestDto,
+} from "../player/player.dto.js";
+import {
+  ApiErrorDto,
+  EducationalTrendListResponseDto,
+  EducationalTrendResponseDto,
 } from "../player/player.dto.js";
 import { CurrentUser } from "./current-user.decorator.js";
 import { SessionAuthGuard } from "./session-auth.guard.js";
@@ -23,7 +35,10 @@ import type { AuthenticatedUser } from "./auth.types.js";
 @UseGuards(SessionAuthGuard)
 @Controller(["api/v1/me", "me"])
 export class MeController {
-  constructor(private readonly players: PlayerApiService) {}
+  constructor(
+    @Inject(PlayerApiService)
+    private readonly players: PlayerApiService,
+  ) {}
 
   @Get("player")
   @ApiOperation({ summary: "Consultar jogador autenticado." })
@@ -145,6 +160,38 @@ export class MeController {
   @Get("mentor/latest")
   getLatestMentorMessage(@CurrentUser() user: AuthenticatedUser) {
     return this.players.getLatestMentorMessage(user.playerId);
+  }
+
+  @Get("mentor/educational-trends")
+  @ApiOperation({
+    summary: "Listar tendencias educacionais do Fortuna para ativos.",
+    description:
+      "Calcula sinais deterministicos por ativo usando dados de mercado e contexto da carteira do jogador autenticado.",
+  })
+  @ApiOkResponse({ type: EducationalTrendListResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  getEducationalTrends(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query("symbols") symbols?: string,
+  ) {
+    return this.players.getEducationalTrends(user.playerId, symbols);
+  }
+
+  @Get("mentor/educational-trends/:symbol")
+  @ApiOperation({
+    summary: "Obter tendencia educacional do Fortuna para um ativo.",
+    description:
+      "Nao usa IA generativa, consenso externo ou promessa de desempenho.",
+  })
+  @ApiOkResponse({ type: EducationalTrendResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  getEducationalTrend(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("symbol") symbol: string,
+  ) {
+    return this.players.getEducationalTrend(user.playerId, symbol);
   }
 
   @Post("mentor/messages/:messageId/read")
