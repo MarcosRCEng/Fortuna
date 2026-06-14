@@ -1,13 +1,16 @@
 import {
+  BadGatewayException,
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Inject,
   Param,
   Post,
   Query,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -32,11 +35,18 @@ import {
   RefreshMarketPricesRequestDto,
 } from "../player/player.dto.js";
 import {
+  createFiiDetailsProvider,
+  createTreasuryMarketProvider,
   MarketValidationError,
+  MarketProCapabilityDisabledError,
+  MarketProProviderRequestError,
   MvpMarketDataService,
   PinoLogger,
+  readMarketDataConfig,
 } from "@fortuna/infrastructure";
 import type {
+  FiiDetails,
+  FiiDividend,
   HistoricalPrice,
   MarketAssetType,
   MarketCatalogItem,
@@ -47,7 +57,11 @@ import type {
   MarketAsset,
   MarketHistoryInterval,
   MarketHistoryRange,
+  MarketProDataState,
   MarketQuote,
+  TreasuryCatalogPage,
+  TreasuryHistory,
+  TreasuryIndicator,
 } from "@fortuna/domain";
 
 const CATALOG_TYPE_FILTER_VALUES: Exclude<MarketAssetType, "UNKNOWN">[] = [
@@ -243,6 +257,165 @@ class MarketStatusResponseDto {
   data!: MarketStatusDataResponseDto;
 }
 
+class MarketProUnavailableResponseDto {
+  @ApiProperty({ example: "NOT_AVAILABLE_IN_CURRENT_PLAN" })
+  state!: "NOT_AVAILABLE_IN_CURRENT_PLAN";
+
+  @ApiProperty({ example: null, nullable: true })
+  data!: null;
+}
+
+class FiiDetailsResponseDto {
+  @ApiProperty({ example: "HGLG11" })
+  symbol!: string;
+
+  @ApiPropertyOptional({ example: 104 })
+  priceToBookBps?: number;
+
+  @ApiPropertyOptional({ example: 820 })
+  dividendYield12MonthsBps?: number;
+
+  @ApiPropertyOptional({ example: 520000000000 })
+  equityValueCents?: number;
+
+  @ApiPropertyOptional({ example: 720 })
+  vacancyBps?: number;
+
+  @ApiPropertyOptional({ example: "Logistica" })
+  segment?: string;
+
+  @ApiPropertyOptional({ example: "ACTIVE" })
+  managementType?: string;
+
+  @ApiPropertyOptional({ example: "BRICK" })
+  mandate?: string;
+
+  @ApiPropertyOptional({ example: 320000 })
+  shareholderCount?: number;
+
+  @ApiProperty({ example: "2026-06-12" })
+  referenceDate!: string;
+
+  @ApiProperty({ example: "BRAPI" })
+  source!: string;
+
+  @ApiPropertyOptional({ example: 15 })
+  delayMinutes?: number;
+
+  @ApiProperty({ example: "DELAYED" })
+  dataState!: MarketProDataState;
+}
+
+class FiiDividendResponseDto {
+  @ApiProperty({ example: "HGLG11" })
+  symbol!: string;
+
+  @ApiProperty({ example: 110 })
+  amountCents!: number;
+
+  @ApiProperty({ example: "2026-06-14" })
+  paymentDate!: string;
+
+  @ApiPropertyOptional({ example: "2026-05-31" })
+  baseDate?: string;
+
+  @ApiProperty({ example: "BRAPI" })
+  source!: string;
+
+  @ApiProperty({ example: "REAL" })
+  dataState!: MarketProDataState;
+}
+
+class TreasuryCatalogQueryDto {
+  @ApiPropertyOptional({ example: "selic" })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ example: 20, minimum: 1, maximum: 100, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 20;
+}
+
+class TreasuryIndicatorsQueryDto {
+  @ApiProperty({ example: "tesouro-selic-2029,tesouro-ipca-2035" })
+  @IsString()
+  symbols!: string;
+}
+
+class TreasuryHistoryQueryDto {
+  @ApiPropertyOptional({ example: "2026-01-01" })
+  @IsOptional()
+  @IsString()
+  from?: string;
+
+  @ApiPropertyOptional({ example: "2026-06-12" })
+  @IsOptional()
+  @IsString()
+  to?: string;
+}
+
+class TreasuryBondResponseDto {
+  @ApiProperty({ example: "tesouro-selic-2029" })
+  symbol!: string;
+
+  @ApiProperty({ example: "Tesouro Selic 2029" })
+  name!: string;
+
+  @ApiProperty({ example: "SELIC" })
+  bondType!: string;
+
+  @ApiProperty({ example: "SELIC" })
+  indexer!: string;
+
+  @ApiProperty({ example: "NONE" })
+  couponType!: string;
+
+  @ApiProperty({ example: "2029-03-01" })
+  maturityDate!: string;
+
+  @ApiPropertyOptional({ example: 1025 })
+  buyRateBps?: number;
+
+  @ApiPropertyOptional({ example: 1012 })
+  sellRateBps?: number;
+
+  @ApiProperty({ example: "ANNUAL_PERCENT" })
+  rateInterpretation!: string;
+
+  @ApiPropertyOptional({ example: 153254 })
+  buyPriceCents?: number;
+
+  @ApiPropertyOptional({ example: 153120 })
+  sellPriceCents?: number;
+
+  @ApiPropertyOptional({ example: 153200 })
+  basePriceCents?: number;
+
+  @ApiPropertyOptional({ example: 998 })
+  durationDays?: number;
+
+  @ApiProperty({ example: "2026-06-12" })
+  referenceDate!: string;
+
+  @ApiProperty({ example: "BRAPI" })
+  source!: string;
+
+  @ApiProperty({ example: "REAL" })
+  dataState!: MarketProDataState;
+}
+
 type MarketAssetsResponse = {
   data: MarketAsset[];
 };
@@ -282,14 +455,35 @@ type MarketStatusResponse = {
   };
 };
 
+type MarketProResponse<T> =
+  | {
+      state: MarketProDataState;
+      data: T;
+    }
+  | {
+      state: "NOT_AVAILABLE_IN_CURRENT_PLAN";
+      data: null;
+    };
+
 @ApiTags("market")
 @Controller(["api/v1/market", "market"])
 export class MarketController {
   @Inject(PlayerApiService)
   private readonly api!: PlayerApiService;
+  private readonly logger = new PinoLogger();
+  private readonly marketConfig = readMarketDataConfig().config;
   private readonly marketData = new MvpMarketDataService({
-    logger: new PinoLogger(),
+    config: this.marketConfig,
+    logger: this.logger,
   });
+  private readonly fiiDetailsProvider = createFiiDetailsProvider(
+    this.marketConfig,
+    this.logger,
+  );
+  private readonly treasuryMarketProvider = createTreasuryMarketProvider(
+    this.marketConfig,
+    this.logger,
+  );
 
   @Get("assets")
   @ApiOperation({
@@ -344,6 +538,116 @@ export class MarketController {
           realDataEnabled: status.realDataEnabled,
         },
       };
+    });
+  }
+
+  @Get("fii/:symbol/details")
+  @ApiOperation({
+    summary: "Preparar consulta Pro de detalhes de FII.",
+    description:
+      "Retorna estado explicito quando a capability Pro nao esta disponivel no plano atual.",
+  })
+  @ApiOkResponse({ type: FiiDetailsResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async getFiiDetails(
+    @Param("symbol") symbol: string,
+  ): Promise<MarketProResponse<FiiDetails>> {
+    if (!this.marketData.getStatus().capabilities.detailedFiiData) {
+      return unavailableInCurrentPlan();
+    }
+    return this.handleProMarketRequest(async () => {
+      const data = await this.fiiDetailsProvider.getFiiDetails(symbol);
+      return { state: data.dataState, data };
+    });
+  }
+
+  @Get("fii/:symbol/dividends")
+  @ApiOperation({
+    summary: "Preparar consulta Pro de dividendos de FII.",
+    description:
+      "Valores monetarios retornam em centavos inteiros e nao derivam indicadores Pro.",
+  })
+  @ApiOkResponse({ type: FiiDividendResponseDto, isArray: true })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async getFiiDividends(
+    @Param("symbol") symbol: string,
+  ): Promise<MarketProResponse<FiiDividend[]>> {
+    if (!this.marketData.getStatus().capabilities.detailedFiiData) {
+      return unavailableInCurrentPlan();
+    }
+    return this.handleProMarketRequest(async () => {
+      const data = await this.fiiDetailsProvider.getFiiDividends(symbol);
+      return { state: resolveCollectionState(data), data };
+    });
+  }
+
+  @Get("treasury/bonds")
+  @ApiOperation({
+    summary: "Preparar catalogo Pro de Tesouro Direto.",
+    description:
+      "Tesouro usa simbolos slug proprios e nao e tratado como ticker B3.",
+  })
+  @ApiOkResponse({ type: TreasuryBondResponseDto, isArray: true })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async listTreasuryBonds(
+    @Query() query: TreasuryCatalogQueryDto,
+  ): Promise<MarketProResponse<TreasuryCatalogPage>> {
+    if (!this.marketData.getStatus().capabilities.treasury) {
+      return unavailableInCurrentPlan();
+    }
+    return this.handleProMarketRequest(async () => {
+      const data = await this.treasuryMarketProvider.listTreasuryBonds({
+        search: query.search,
+        page: query.page,
+        pageSize: query.pageSize,
+      });
+      return { state: data.dataState, data };
+    });
+  }
+
+  @Get("treasury/indicators")
+  @ApiOperation({
+    summary: "Preparar indicadores Pro de Tesouro Direto.",
+    description:
+      "Taxas percentuais sao retornadas em basis points, separadas de valores em centavos.",
+  })
+  @ApiOkResponse({ type: TreasuryBondResponseDto, isArray: true })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async getTreasuryIndicators(
+    @Query() query: TreasuryIndicatorsQueryDto,
+  ): Promise<MarketProResponse<TreasuryIndicator[]>> {
+    if (!this.marketData.getStatus().capabilities.treasury) {
+      return unavailableInCurrentPlan();
+    }
+    return this.handleProMarketRequest(async () => {
+      const data = await this.treasuryMarketProvider.getTreasuryIndicators(
+        parseRequiredSymbols(query.symbols),
+      );
+      return { state: resolveCollectionState(data), data };
+    });
+  }
+
+  @Get("treasury/:symbol/history")
+  @ApiOperation({
+    summary: "Preparar historico Pro de Tesouro Direto.",
+    description:
+      "Historico Pro fica isolado do historico basico de cotacao B3.",
+  })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  async getTreasuryHistory(
+    @Param("symbol") symbol: string,
+    @Query() query: TreasuryHistoryQueryDto,
+  ): Promise<MarketProResponse<TreasuryHistory>> {
+    if (!this.marketData.getStatus().capabilities.treasury) {
+      return unavailableInCurrentPlan();
+    }
+    return this.handleProMarketRequest(async () => {
+      const data = await this.treasuryMarketProvider.getTreasuryHistory({
+        symbol,
+        from: query.from,
+        to: query.to,
+      });
+      return { state: data.dataState, data };
     });
   }
 
@@ -488,6 +792,61 @@ export class MarketController {
       throw error;
     }
   }
+
+  private async handleProMarketRequest<T>(
+    request: () => Promise<MarketProResponse<T>>,
+  ): Promise<MarketProResponse<T>> {
+    try {
+      return await request();
+    } catch (error) {
+      if (error instanceof MarketValidationError) {
+        throw new BadRequestException(error.message);
+      }
+      if (error instanceof MarketProCapabilityDisabledError) {
+        return unavailableInCurrentPlan();
+      }
+      if (error instanceof MarketProProviderRequestError) {
+        if (error.code === "PLAN_FORBIDDEN") {
+          throw new ForbiddenException("BRAPI Pro plan does not allow this resource.");
+        }
+        if (error.code === "TIMEOUT") {
+          throw new ServiceUnavailableException("BRAPI Pro provider timed out.");
+        }
+        if (error.code === "INVALID_RESPONSE") {
+          throw new BadRequestException(error.message);
+        }
+        throw new BadGatewayException("BRAPI Pro provider failed.");
+      }
+      throw error;
+    }
+  }
+}
+
+function unavailableInCurrentPlan(): MarketProResponse<never> {
+  return {
+    state: "NOT_AVAILABLE_IN_CURRENT_PLAN",
+    data: null,
+  };
+}
+
+function parseRequiredSymbols(value: string): string[] {
+  const symbols = value
+    .split(",")
+    .map((symbol) => symbol.trim())
+    .filter((symbol) => symbol.length > 0);
+  if (symbols.length === 0) {
+    throw new MarketValidationError("symbols must be a non-empty comma-separated list.");
+  }
+  return symbols;
+}
+
+function resolveCollectionState(
+  items: Array<{ dataState: MarketProDataState }>,
+): MarketProDataState {
+  if (items.length === 0) {
+    return "UNAVAILABLE";
+  }
+  return items.some((item) => item.dataState === "DELAYED") ? "DELAYED" : "REAL";
 }
 
 function parseCatalogAssetTypes(

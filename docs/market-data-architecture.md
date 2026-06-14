@@ -97,9 +97,20 @@ BRAPI_TIMEOUT_MS=5000
 BRAPI_CACHE_TTL_SECONDS=900
 BRAPI_MAX_SYMBOLS_PER_REQUEST=1
 MARKET_DATA_ALLOWED_SYMBOLS=PETR4,VALE3,ITUB4,MGLU3
+MARKET_CATALOG_CACHE_TTL_SECONDS=900
+MARKET_CATALOG_MAX_PAGE_SIZE=50
+MARKET_CATALOG_PROVIDER_CONCURRENCY=3
+BRAPI_CAPABILITY_FII_PRO=false
+BRAPI_CAPABILITY_TREASURY_PRO=false
 ```
 
 O padrao seguro e `MARKET_DATA_PROVIDER=mock` com `MARKET_DATA_ALLOW_REAL_DATA=false`.
+
+## Capabilities Pro
+
+FIIs detalhados e Tesouro Direto completo ficam em contratos separados do contrato basico de cotacao. Consulte `docs/market-pro-capabilities.md`.
+
+Quando `BRAPI_CAPABILITY_FII_PRO=false` ou `BRAPI_CAPABILITY_TREASURY_PRO=false`, as rotas preparatorias retornam `NOT_AVAILABLE_IN_CURRENT_PLAN` e os adapters Pro reais nao sao chamados.
 
 ## Limites do MVP
 

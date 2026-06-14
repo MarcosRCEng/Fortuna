@@ -4,8 +4,11 @@ import {
   filterPersonalItems,
   formatChangePercent,
   formatOptionalMoney,
+  defaultMarketCapabilities,
   groupTypeFilters,
+  shouldShowTreasuryPreparation,
   sortPersonalItems,
+  typeOptionsForCapabilities,
   visibleGroupsForView,
 } from "./marketPageModel.js";
 
@@ -75,5 +78,21 @@ describe("marketPageModel", () => {
   it("keeps treasury out of active catalog groups", () => {
     expect(groupTypeFilters.all).not.toContain("TREASURY");
     expect(visibleGroupsForView("all")).not.toContain("FIXED_INCOME");
+  });
+
+  it("does not expose active treasury filters while treasury capability is disabled", () => {
+    expect(typeOptionsForCapabilities(defaultMarketCapabilities)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ value: "TREASURY" })]),
+    );
+    expect(shouldShowTreasuryPreparation(defaultMarketCapabilities)).toBe(false);
+  });
+
+  it("can expose treasury filters only after the capability is enabled", () => {
+    const enabled = { ...defaultMarketCapabilities, treasury: true };
+
+    expect(typeOptionsForCapabilities(enabled)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ value: "TREASURY" })]),
+    );
+    expect(shouldShowTreasuryPreparation(enabled)).toBe(true);
   });
 });

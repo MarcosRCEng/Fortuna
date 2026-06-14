@@ -7,6 +7,7 @@ export * from "./ports/FutureIntegrationPorts.js";
 export * from "./ports/IncomeEventRepository.js";
 export * from "./ports/LoggerPort.js";
 export * from "./ports/MarketDataProvider.js";
+export * from "./ports/MarketProDataProvider.js";
 export * from "./ports/MarketPriceProvider.js";
 export * from "./ports/MentorMessageRepository.js";
 export * from "./ports/PlayerRepository.js";

@@ -32,6 +32,8 @@ describe("Market Data API", () => {
     process.env.MARKET_CATALOG_CACHE_TTL_SECONDS = "900";
     process.env.MARKET_CATALOG_MAX_PAGE_SIZE = "50";
     process.env.MARKET_CATALOG_PROVIDER_CONCURRENCY = "3";
+    process.env.BRAPI_CAPABILITY_FII_PRO = "false";
+    process.env.BRAPI_CAPABILITY_TREASURY_PRO = "false";
 
     await startApp();
   });
@@ -228,7 +230,7 @@ describe("Market Data API", () => {
 
     expect(ascending.status).toBe(200);
     expect(ascending.body.items[0]?.symbol).toBe("MGLU3");
-    expect(ascending.body.items.at(-1)?.symbol).toBe("TS2029");
+    expect(ascending.body.items.at(-1)?.symbol).toBe("HGLG11");
     expect(descending.status).toBe(200);
     expect(descending.body.items[0]?.symbol).toBe("AURA33");
   });
@@ -246,10 +248,21 @@ describe("Market Data API", () => {
     expect(response.body).toMatchObject({
       items: [],
       page: 99,
-      totalItems: 13,
+      totalItems: 12,
       totalPages: 1,
       hasNextPage: false,
     });
+  });
+
+  it("does not expose Treasury catalog items while the capability is disabled", async () => {
+    const response = await readJson<{
+      items: Array<{ symbol: string; type: string }>;
+      totalItems: number;
+    }>(await fetch(`${baseUrl}/market/catalog?types=TREASURY&pageSize=20`));
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toEqual([]);
+    expect(response.body.totalItems).toBe(0);
   });
 
   it("returns 400 for invalid market catalog parameters", async () => {
@@ -312,6 +325,29 @@ describe("Market Data API", () => {
       lastSuccessfulFetchAt: null,
       status: "mock_only",
     });
+  });
+
+  it("returns explicit Pro unavailability state without calling Pro providers", async () => {
+    const fiiDetails = await readJson<{
+      state: string;
+      data: null;
+    }>(await fetch(`${baseUrl}/market/fii/HGLG11/details`));
+    const fiiDividends = await readJson<{
+      state: string;
+      data: null;
+    }>(await fetch(`${baseUrl}/market/fii/HGLG11/dividends`));
+    const treasury = await readJson<{
+      state: string;
+      data: null;
+    }>(await fetch(`${baseUrl}/market/treasury/bonds`));
+
+    expect(fiiDetails.status).toBe(200);
+    expect(fiiDetails.body).toEqual({
+      state: "NOT_AVAILABLE_IN_CURRENT_PLAN",
+      data: null,
+    });
+    expect(fiiDividends.body.state).toBe("NOT_AVAILABLE_IN_CURRENT_PLAN");
+    expect(treasury.body.state).toBe("NOT_AVAILABLE_IN_CURRENT_PLAN");
   });
 
   it("returns /market/catalog from the simulated brapi adapter and status exposes free capabilities", async () => {

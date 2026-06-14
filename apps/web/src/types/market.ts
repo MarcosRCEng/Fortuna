@@ -30,6 +30,28 @@ export type MarketCatalogSortOrder = "asc" | "desc";
 
 export type MarketCatalogSource = "BRAPI" | "MOCK" | "CACHE";
 
+export type MarketProviderCapabilities = {
+  listedCatalog: boolean;
+  basicQuotes: boolean;
+  detailedFiiData: boolean;
+  treasury: boolean;
+  analystConsensus: false;
+};
+
+export type MarketProviderStatus = {
+  provider: "brapi" | "mock" | "cache";
+  realDataEnabled: boolean;
+  hasBrapiToken: boolean;
+  cacheTtlSeconds: number;
+  catalogCacheTtlSeconds: number;
+  catalogMaxPageSize: number;
+  catalogProviderConcurrency: number;
+  allowedSymbols: string[];
+  capabilities: MarketProviderCapabilities;
+  lastSuccessfulFetchAt: string | null;
+  status: "ok" | "degraded" | "mock_only";
+};
+
 export type MarketCatalogItem = {
   symbol: string;
   name: string;

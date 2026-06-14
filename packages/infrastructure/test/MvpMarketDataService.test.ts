@@ -321,7 +321,7 @@ describe("MvpMarketDataService", () => {
     expect(page).toMatchObject({
       page: 1,
       pageSize: 5,
-      totalItems: 13,
+      totalItems: 12,
       totalPages: 3,
       hasNextPage: true,
       source: "MOCK",
@@ -404,7 +404,7 @@ describe("MvpMarketDataService", () => {
     });
 
     expect(ascending.items[0]?.symbol).toBe("MGLU3");
-    expect(ascending.items.at(-1)?.symbol).toBe("TS2029");
+    expect(ascending.items.at(-1)?.symbol).toBe("HGLG11");
     expect(descending.items[0]?.symbol).toBe("AURA33");
   });
 
@@ -418,7 +418,7 @@ describe("MvpMarketDataService", () => {
     ).resolves.toMatchObject({
       items: [],
       page: 99,
-      totalItems: 13,
+      totalItems: 12,
       totalPages: 1,
       hasNextPage: false,
     });
