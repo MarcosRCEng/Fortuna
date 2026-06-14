@@ -300,20 +300,26 @@ const MOCK_ASSETS: MockAssetDefinition[] = [
 
 const FALLBACK_REAL_SYMBOLS = new Map<string, MockAssetDefinition>(
   [
-    ["PETR4", "Petrobras PN"],
-    ["VALE3", "Vale ON"],
-    ["ITUB4", "Itau Unibanco PN"],
-    ["MGLU3", "Magazine Luiza ON"],
-  ].map(([symbol, name], index) => [
+    { symbol: "PETR4", name: "Petrobras PN", assetClass: AssetClass.STOCK },
+    { symbol: "VALE3", name: "Vale ON", assetClass: AssetClass.STOCK },
+    { symbol: "ITUB4", name: "Itau Unibanco PN", assetClass: AssetClass.STOCK },
+    { symbol: "MGLU3", name: "Magazine Luiza ON", assetClass: AssetClass.STOCK },
+    { symbol: "HGLG11", name: "CSHG Logistica FII", assetClass: AssetClass.FII },
+    { symbol: "BOVA11", name: "iShares Ibovespa ETF", assetClass: AssetClass.STOCK },
+  ].map(({ symbol, name, assetClass }, index) => [
     symbol,
     {
       id: `fallback-${symbol.toLowerCase()}`,
       symbol,
       name,
-      assetClass: AssetClass.STOCK,
+      assetClass,
       basePriceCents: 2_000 + index * 750,
-      riskLevel: MarketRiskLevel.HIGH,
-      liquidity: LiquidityLevel.HIGH,
+      riskLevel:
+        assetClass === AssetClass.FII
+          ? MarketRiskLevel.MEDIUM
+          : MarketRiskLevel.HIGH,
+      liquidity:
+        assetClass === AssetClass.FII ? LiquidityLevel.MEDIUM : LiquidityLevel.HIGH,
       expectedYield: {
         symbol,
         yieldType: YieldType.NONE,

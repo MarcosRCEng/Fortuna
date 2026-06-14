@@ -7,6 +7,7 @@ export * from "./income/IncomeEvent.js";
 export * from "./market/MarketPrice.js";
 export * from "./market/MarketData.js";
 export * from "./market/MarketProData.js";
+export * from "./mentor/EducationalTrend.js";
 export * from "./mentor/MentorEnums.js";
 export * from "./mentor/MentorModels.js";
 export * from "./money/Money.js";

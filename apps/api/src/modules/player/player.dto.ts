@@ -950,3 +950,58 @@ export class MentorLatestMessageResponseDto {
   @ApiProperty({ type: MentorMessageResponseDto, nullable: true })
   message!: MentorMessageResponseDto | null;
 }
+
+export class EducationalTrendFactorResponseDto {
+  @ApiProperty({ example: "SHORT_TREND" })
+  code!: string;
+
+  @ApiProperty({ example: "Comportamento recente do preco" })
+  label!: string;
+
+  @ApiProperty({ example: "POSITIVE" })
+  impact!: "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+
+  @ApiProperty({
+    example: "A janela curta variou +3.20% ate 2026-06-14.",
+  })
+  explanation!: string;
+}
+
+export class EducationalTrendResponseDto {
+  @ApiProperty({ example: "ITUB4" })
+  symbol!: string;
+
+  @ApiProperty({ example: "MOMENTO_POSITIVO" })
+  classification!: string;
+
+  @ApiProperty({ example: 32 })
+  score!: number;
+
+  @ApiProperty({ example: "MEDIUM" })
+  confidence!: "LOW" | "MEDIUM" | "HIGH";
+
+  @ApiProperty({ type: EducationalTrendFactorResponseDto, isArray: true })
+  factors!: EducationalTrendFactorResponseDto[];
+
+  @ApiProperty({
+    example: ["Os dados podem estar atrasados, em cache ou em fallback controlado."],
+  })
+  warnings!: string[];
+
+  @ApiProperty({ example: "2026-06-14T12:00:00.000Z" })
+  dataAsOf!: string;
+
+  @ApiProperty({ example: "educational-trend-v1" })
+  methodologyVersion!: string;
+
+  @ApiProperty({
+    example:
+      "Conteudo educacional. Nao e recomendacao financeira, nao preve desempenho futuro, dados podem estar atrasados e decisoes reais exigem avaliacao propria.",
+  })
+  disclaimer!: string;
+}
+
+export class EducationalTrendListResponseDto {
+  @ApiProperty({ type: EducationalTrendResponseDto, isArray: true })
+  items!: EducationalTrendResponseDto[];
+}
