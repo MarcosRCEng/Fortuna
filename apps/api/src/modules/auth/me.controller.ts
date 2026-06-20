@@ -26,6 +26,7 @@ import {
   ApiErrorDto,
   EducationalTrendListResponseDto,
   EducationalTrendResponseDto,
+  SimulateBuyAssetResponseDto,
 } from "../player/player.dto.js";
 import { CurrentUser } from "./current-user.decorator.js";
 import { SessionAuthGuard } from "./session-auth.guard.js";
@@ -87,6 +88,23 @@ export class MeController {
     @Body() request: TradeAssetRequestDto,
   ) {
     return this.players.buyAsset(user.playerId, request);
+  }
+
+  @Post("orders/buy/simulation")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Simular compra para o jogador autenticado.",
+    description:
+      "Calcula impacto financeiro em centavos inteiros sem criar transacao, alterar carteira, reservar saldo ou concluir missoes.",
+  })
+  @ApiOkResponse({ type: SimulateBuyAssetResponseDto })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  simulateBuy(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: TradeAssetRequestDto,
+  ) {
+    return this.players.simulateBuyAsset(user.playerId, request);
   }
 
   @Post("orders/sell")

@@ -11,6 +11,7 @@ import {
   Post,
   Query,
   ServiceUnavailableException,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -20,6 +21,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
@@ -34,6 +36,13 @@ import {
   RefreshMarketPricesResponseDto,
   RefreshMarketPricesRequestDto,
 } from "../player/player.dto.js";
+import { CurrentUser } from "../auth/current-user.decorator.js";
+import { SessionAuthGuard } from "../auth/session-auth.guard.js";
+import type { AuthenticatedUser } from "../auth/auth.types.js";
+import {
+  MarketAssetDetailService,
+  type MarketAssetDetailResponse,
+} from "./market-asset-detail.service.js";
 import {
   createFiiDetailsProvider,
   createTreasuryMarketProvider,
@@ -470,6 +479,8 @@ type MarketProResponse<T> =
 export class MarketController {
   @Inject(PlayerApiService)
   private readonly api!: PlayerApiService;
+  @Inject(MarketAssetDetailService)
+  private readonly assetDetails!: MarketAssetDetailService;
   private readonly logger = new PinoLogger();
   private readonly marketConfig = readMarketDataConfig().config;
   private readonly marketData = new MvpMarketDataService({
@@ -538,6 +549,27 @@ export class MarketController {
           realDataEnabled: status.realDataEnabled,
         },
       };
+    });
+  }
+
+  @Get("assets/:symbol/detail")
+  @UseGuards(SessionAuthGuard)
+  @ApiOperation({
+    summary: "Consultar detalhe agregado e educativo de ativo.",
+    description:
+      "Reune ativo normalizado, cotacao, origem dos dados, carteira, watchlist, capacidades e tendencia educativa opcional para o jogador autenticado.",
+  })
+  @ApiOkResponse({ description: "Detalhe agregado do ativo." })
+  @ApiBadRequestResponse({ type: ApiErrorDto })
+  @ApiNotFoundResponse({ type: ApiErrorDto })
+  @ApiUnauthorizedResponse({ type: ApiErrorDto })
+  getAssetDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("symbol") symbol: string,
+    @Query("includeTrend") includeTrend?: string,
+  ): Promise<MarketAssetDetailResponse> {
+    return this.assetDetails.getAuthenticatedDetail(user.playerId, symbol, {
+      includeTrend: includeTrend !== "false",
     });
   }
 

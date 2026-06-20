@@ -65,6 +65,7 @@ export * from "./use-cases/ListAvailableAssetsUseCase.js";
 export * from "./use-cases/RefreshMockMarketPricesUseCase.js";
 export * from "./use-cases/RegisterGameEventUseCase.js";
 export * from "./use-cases/SellAssetUseCase.js";
+export * from "./use-cases/SimulateBuyAssetUseCase.js";
 export * from "./use-cases/UnlockDistrictUseCase.js";
 export * from "./use-cases/UseCaseResult.js";
 export * from "./use-cases/EvaluateProgressionUseCase.js";

@@ -160,3 +160,59 @@ export type EducationalTrend = {
 export type EducationalTrendList = {
   items: EducationalTrend[];
 };
+
+export type MarketAssetDetail = {
+  asset: {
+    symbol: string;
+    name: string;
+    type: MarketAssetType;
+    group: MarketAssetGroup;
+    sector?: string;
+    currency: "BRL";
+    tradableInFortuna: boolean;
+    logoUrl?: string;
+  };
+  quote: {
+    priceCents?: number;
+    changePercent?: number;
+    previousCloseCents?: number;
+    dataAsOf: string | null;
+  };
+  provenance: {
+    source: "BRAPI" | "MOCK" | "CACHE" | "FALLBACK";
+    provider: "brapi" | "mock" | "cache" | "fallback";
+    dataState: "REAL" | "MOCK" | "CACHE" | "FALLBACK";
+    fetchedAt: string;
+    dataAsOf: string | null;
+    isRealData: boolean;
+    isCached: boolean;
+    isFallback: boolean;
+    isDelayed: boolean;
+  };
+  position: {
+    inPortfolio: boolean;
+    quantity: number;
+    averagePriceCents: number;
+    investedValueCents: number;
+    currentValueCents: number;
+    unrealizedResultCents: number;
+  };
+  allocation: {
+    assetBasisPoints: number;
+    assetPercentageFormatted: string;
+    classBasisPoints: number;
+    classPercentageFormatted: string;
+  };
+  watchlist: {
+    inWatchlist: boolean;
+  };
+  capabilities: MarketProviderCapabilities & {
+    canTradeInFortuna: boolean;
+    canShowEducationalTrend: boolean;
+  };
+  trend: EducationalTrend | null;
+  trendError?: {
+    code: "TREND_UNAVAILABLE";
+    message: string;
+  };
+};

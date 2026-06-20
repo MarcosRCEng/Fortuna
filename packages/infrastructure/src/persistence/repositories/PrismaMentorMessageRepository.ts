@@ -84,6 +84,30 @@ export class PrismaMentorMessageRepository
     return messages.map(toMentorMessage);
   }
 
+  async findByTrendSignature(
+    playerId: string,
+    symbol: string,
+    methodologyVersion: string,
+    signature: string,
+  ): Promise<MentorMessage | null> {
+    const messages = await this.prisma.mentorMessage.findMany({
+      where: {
+        playerId,
+        relatedEntityId: symbol,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    const message = messages.find((item) => {
+      const metadata = isMentorMetadata(item.metadata) ? item.metadata : {};
+      return (
+        metadata.methodologyVersion === methodologyVersion &&
+        metadata.trendSignature === signature
+      );
+    });
+    return message ? toMentorMessage(message) : null;
+  }
+
   async markAsRead(
     playerId: string,
     messageId: string,

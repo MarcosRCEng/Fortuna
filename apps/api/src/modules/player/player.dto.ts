@@ -459,6 +459,116 @@ export class OrderExecutionResponseDto {
   createdAt!: string;
 }
 
+export class SimulateBuyConcentrationAlertDto {
+  @ApiProperty({ example: "ASSET_CONCENTRATION_ATTENTION" })
+  code!: string;
+
+  @ApiProperty({ example: "ATTENTION" })
+  severity!: "INFO" | "ATTENTION" | "HIGH";
+
+  @ApiProperty({
+    example:
+      "A compra simulada deixaria uma participacao relevante neste ativo.",
+  })
+  message!: string;
+
+  @ApiProperty({ example: 4200 })
+  basisPoints!: number;
+}
+
+export class SimulatedBuyPositionDto {
+  @ApiProperty({ example: "ITUB4" })
+  symbol!: string;
+
+  @ApiProperty({ example: "STOCK" })
+  assetType!: string;
+
+  @ApiProperty({ example: 2 })
+  currentQuantity!: number;
+
+  @ApiProperty({ example: 5 })
+  projectedQuantity!: number;
+
+  @ApiProperty({ example: 3120, nullable: true })
+  currentAveragePriceCents!: number | null;
+
+  @ApiProperty({ example: 3180 })
+  projectedAveragePriceCents!: number;
+
+  @ApiProperty({ example: 6360 })
+  currentMarketValueCents!: number;
+
+  @ApiProperty({ example: 15900 })
+  projectedMarketValueCents!: number;
+}
+
+export class SimulatedBuyConcentrationDto {
+  @ApiProperty({ example: 1200 })
+  currentAssetBasisPoints!: number;
+
+  @ApiProperty({ example: 3100 })
+  projectedAssetBasisPoints!: number;
+
+  @ApiProperty({ example: 2400 })
+  currentAssetTypeBasisPoints!: number;
+
+  @ApiProperty({ example: 4300 })
+  projectedAssetTypeBasisPoints!: number;
+}
+
+export class SimulateBuyAssetResponseDto {
+  @ApiProperty({ example: "player-123" })
+  playerId!: string;
+
+  @ApiProperty({ example: "ITUB4" })
+  assetId!: string;
+
+  @ApiProperty({ example: "ITUB4" })
+  symbol!: string;
+
+  @ApiProperty({ example: "STOCK" })
+  assetType!: string;
+
+  @ApiProperty({ example: 3 })
+  quantity!: number;
+
+  @ApiProperty({ example: 3180 })
+  unitPriceCents!: number;
+
+  @ApiProperty({ example: 9540 })
+  totalCostCents!: number;
+
+  @ApiProperty({ example: 20000 })
+  currentBalanceCents!: number;
+
+  @ApiProperty({ example: 10460 })
+  projectedBalanceCents!: number;
+
+  @ApiProperty({ example: 15000 })
+  currentInvestedValueCents!: number;
+
+  @ApiProperty({ example: 24540 })
+  projectedInvestedValueCents!: number;
+
+  @ApiProperty({ example: 35000 })
+  currentTotalEquityCents!: number;
+
+  @ApiProperty({ example: 35000 })
+  projectedTotalEquityCents!: number;
+
+  @ApiProperty({ type: SimulatedBuyPositionDto })
+  projectedPosition!: SimulatedBuyPositionDto;
+
+  @ApiProperty({ type: SimulatedBuyConcentrationDto })
+  concentration!: SimulatedBuyConcentrationDto;
+
+  @ApiProperty({ type: SimulateBuyConcentrationAlertDto, isArray: true })
+  alerts!: SimulateBuyConcentrationAlertDto[];
+
+  @ApiProperty({ example: true })
+  canProceed!: true;
+}
+
 export class TransactionsListResponseDto {
   @ApiProperty({ example: "player-123" })
   playerId!: string;

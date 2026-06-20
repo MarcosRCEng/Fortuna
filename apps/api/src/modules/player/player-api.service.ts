@@ -83,6 +83,8 @@ import {
   FinancialEvent,
   GameEvent,
   IncomeEvent,
+  InsufficientBalanceError,
+  InvalidMarketPriceError,
   MentorGameLoopMoment,
   MentorMessage,
   MoneyCents,
@@ -121,6 +123,7 @@ import {
   EducationalTrendResponseDto,
   PlayerResponseDto,
   RefreshMarketPricesRequestDto,
+  SimulateBuyAssetResponseDto,
   TradeAssetRequestDto,
   TransactionResponseDto,
   TransactionsListResponseDto,
@@ -159,6 +162,54 @@ class InMemoryPlayerRepository implements PlayerRepository {
   async save(player: PlayerProfile): Promise<void> {
     this.players.set(player.id, player);
   }
+}
+
+function basisPoints(valueCents: number, totalCents: number): number {
+  return totalCents === 0 ? 0 : Math.floor((valueCents * 10_000) / totalCents);
+}
+
+function concentrationAlerts(input: {
+  projectedAssetBasisPoints: number;
+  projectedAssetTypeBasisPoints: number;
+}): SimulateBuyAssetResponseDto["alerts"] {
+  const alerts: SimulateBuyAssetResponseDto["alerts"] = [];
+  if (input.projectedAssetBasisPoints >= 5_000) {
+    alerts.push({
+      code: "ASSET_CONCENTRATION_HIGH",
+      severity: "HIGH",
+      basisPoints: input.projectedAssetBasisPoints,
+      message:
+        "Apos a compra simulada, este ativo representaria metade ou mais do patrimonio simulado.",
+    });
+  } else if (input.projectedAssetBasisPoints >= 3_500) {
+    alerts.push({
+      code: "ASSET_CONCENTRATION_ATTENTION",
+      severity: "ATTENTION",
+      basisPoints: input.projectedAssetBasisPoints,
+      message:
+        "A compra simulada deixaria uma participacao relevante neste ativo.",
+    });
+  }
+
+  if (input.projectedAssetTypeBasisPoints >= 7_000) {
+    alerts.push({
+      code: "ASSET_TYPE_CONCENTRATION_HIGH",
+      severity: "HIGH",
+      basisPoints: input.projectedAssetTypeBasisPoints,
+      message:
+        "Apos a compra simulada, esta classe concentraria grande parte do patrimonio simulado.",
+    });
+  } else if (input.projectedAssetTypeBasisPoints >= 5_000) {
+    alerts.push({
+      code: "ASSET_TYPE_CONCENTRATION_ATTENTION",
+      severity: "ATTENTION",
+      basisPoints: input.projectedAssetTypeBasisPoints,
+      message:
+        "A compra simulada aumentaria a concentracao nesta classe de ativo.",
+    });
+  }
+
+  return alerts;
 }
 
 class InMemoryWalletRepository implements WalletRepository {
@@ -832,6 +883,134 @@ export class PlayerApiService {
       await this.recordFinancialError(playerId, "buy", correlationId, error);
       throw error;
     }
+  }
+
+  async simulateBuyAsset(
+    playerId: string,
+    request: TradeAssetRequestDto,
+  ): Promise<SimulateBuyAssetResponseDto> {
+    const trade = await this.parseTradeRequest(request);
+    const assetReference = await this.resolveMarketAsset(trade.symbol);
+    const asset = toDomainAsset(assetReference);
+    const wallet = await (this.persistence?.wallets ?? this.wallets).findByPlayerId(
+      playerId,
+    );
+    if (!wallet) {
+      throw new WalletNotFoundError(playerId);
+    }
+    const quantity = Quantity.fromUnits(trade.quantity);
+    const price = await (this.persistence?.prices ?? this.prices).getCurrentPrice(
+      asset,
+    );
+    if (!price.unitPrice.isGreaterThanOrEqual(MoneyCents.fromCents(1))) {
+      throw new InvalidMarketPriceError();
+    }
+    const total = price.unitPrice.multiplyByQuantity(quantity);
+    const currentBalance = wallet.account.availableBalance;
+    if (!currentBalance.isGreaterThanOrEqual(total)) {
+      throw new InsufficientBalanceError([
+        {
+          type: "BuyRejectedInsufficientBalance",
+          playerId,
+          occurredAt: new Date(),
+          asset,
+          quantity,
+          required: total,
+          available: currentBalance,
+        },
+      ]);
+    }
+    const marketPrices = await (this.persistence?.prices ?? this.prices).getCurrentPrices(
+      wallet.positions.map((position) => position.asset),
+    );
+    const currentPosition = wallet.getPosition(asset.symbol.value);
+    const currentAssetValue = currentPosition
+      ? currentPosition.marketValue(price.unitPrice)
+      : MoneyCents.zero();
+    const projectedAssetValue = currentAssetValue.add(total);
+    const currentInvestedValue = wallet.investedValue(marketPrices);
+    const projectedInvestedValue = currentInvestedValue.add(total);
+    const projectedBalance = currentBalance.subtract(total);
+    const currentTotalEquity = currentBalance.add(currentInvestedValue);
+    const projectedTotalEquity = projectedBalance.add(projectedInvestedValue);
+    const currentAssetTypeValue = wallet.positions.reduce((sum, position) => {
+      if (position.asset.type !== asset.type) {
+        return sum;
+      }
+      const positionPrice = position.asset.symbol.equals(asset.symbol)
+        ? price
+        : marketPrices.find((item) =>
+            item.asset.symbol.equals(position.asset.symbol),
+          );
+      return positionPrice
+        ? sum.add(position.marketValue(positionPrice.unitPrice))
+        : sum;
+    }, MoneyCents.zero());
+    const projectedAssetTypeValue = currentAssetTypeValue.add(total);
+    const currentQuantity = currentPosition?.totalQuantity.units ?? 0;
+    const projectedQuantity = currentQuantity + quantity.units;
+    const currentAveragePrice = currentPosition?.averagePriceCents ?? null;
+    const projectedAveragePriceCents = currentAveragePrice
+      ? Math.floor(
+          (currentAveragePrice.cents * currentQuantity +
+            price.unitPrice.cents * quantity.units +
+            projectedQuantity / 2) /
+            projectedQuantity,
+        )
+      : price.unitPrice.cents;
+    const currentAssetBasisPoints = basisPoints(
+      currentAssetValue.cents,
+      currentTotalEquity.cents,
+    );
+    const projectedAssetBasisPoints = basisPoints(
+      projectedAssetValue.cents,
+      projectedTotalEquity.cents,
+    );
+    const currentAssetTypeBasisPoints = basisPoints(
+      currentAssetTypeValue.cents,
+      currentTotalEquity.cents,
+    );
+    const projectedAssetTypeBasisPoints = basisPoints(
+      projectedAssetTypeValue.cents,
+      projectedTotalEquity.cents,
+    );
+
+    return {
+      playerId,
+      assetId: asset.id,
+      symbol: asset.symbol.value,
+      assetType: asset.type,
+      quantity: quantity.units,
+      unitPriceCents: price.unitPrice.cents,
+      totalCostCents: total.cents,
+      currentBalanceCents: currentBalance.cents,
+      projectedBalanceCents: projectedBalance.cents,
+      currentInvestedValueCents: currentInvestedValue.cents,
+      projectedInvestedValueCents: projectedInvestedValue.cents,
+      currentTotalEquityCents: currentTotalEquity.cents,
+      projectedTotalEquityCents: projectedTotalEquity.cents,
+      projectedPosition: {
+        symbol: asset.symbol.value,
+        assetType: asset.type,
+        currentQuantity,
+        projectedQuantity,
+        currentAveragePriceCents: currentAveragePrice?.cents ?? null,
+        projectedAveragePriceCents,
+        currentMarketValueCents: currentAssetValue.cents,
+        projectedMarketValueCents: projectedAssetValue.cents,
+      },
+      concentration: {
+        currentAssetBasisPoints,
+        projectedAssetBasisPoints,
+        currentAssetTypeBasisPoints,
+        projectedAssetTypeBasisPoints,
+      },
+      alerts: concentrationAlerts({
+        projectedAssetBasisPoints,
+        projectedAssetTypeBasisPoints,
+      }),
+      canProceed: true,
+    };
   }
 
   async sellAsset(
@@ -2266,6 +2445,7 @@ export class PlayerApiService {
 
     throw new AssetNotFoundError(identifier);
   }
+
 
   private async resolveIncomeEventId(
     playerId: string,

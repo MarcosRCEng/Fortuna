@@ -22,6 +22,7 @@ import {
   GetTransactionHistoryUseCase,
   GetWalletSummaryUseCase,
   SellAssetUseCase,
+  SimulateBuyAssetUseCase,
   type AssetRepository,
   type Clock,
   type IncomeEventRepository,
@@ -208,6 +209,7 @@ function makeUseCases(wallet: Wallet, priceCents = 1000, logger?: LoggerPort) {
     summary: new GetWalletSummaryUseCase(wallets, prices),
     allocation: new GetPortfolioAllocationUseCase(wallets, prices),
     history: new GetTransactionHistoryUseCase(transactions),
+    simulateBuy: new SimulateBuyAssetUseCase(assets, wallets, prices),
     logger,
     wallets,
     transactions,
@@ -444,5 +446,52 @@ describe("Financial core use cases", () => {
         percentageBasisPoints: 10000,
       },
     ]);
+  });
+
+  it("simulates buy in integer cents without mutating wallet or transactions", async () => {
+    const { buy, simulateBuy, wallets, transactions } = makeUseCases(
+      makeWallet(10_000),
+      1_000,
+    );
+    await buy.execute({ playerId, symbol: "FORT3", quantity: 2 });
+    const balanceBefore = wallets.wallet.account.availableBalance.cents;
+    const quantityBefore =
+      wallets.wallet.getPosition("FORT3")?.totalQuantity.units ?? 0;
+    const transactionCountBefore = transactions.transactions.length;
+
+    const result = await simulateBuy.execute({
+      playerId,
+      symbol: "FORT3",
+      quantity: 3,
+    });
+
+    expect(result.unitPriceCents).toBe(1_000);
+    expect(result.totalCostCents).toBe(3_000);
+    expect(result.currentBalanceCents).toBe(balanceBefore);
+    expect(result.projectedBalanceCents).toBe(5_000);
+    expect(result.projectedPosition.projectedQuantity).toBe(5);
+    expect(result.concentration.projectedAssetBasisPoints).toBe(5000);
+    expect(wallets.wallet.account.availableBalance.cents).toBe(balanceBefore);
+    expect(wallets.wallet.getPosition("FORT3")?.totalQuantity.units).toBe(
+      quantityBefore,
+    );
+    expect(transactions.transactions).toHaveLength(transactionCountBefore);
+  });
+
+  it("rejects invalid and insufficient simulation without mutating state", async () => {
+    const { simulateBuy, wallets, transactions } = makeUseCases(
+      makeWallet(1_000),
+      1_001,
+    );
+
+    await expect(
+      simulateBuy.execute({ playerId, symbol: "FORT3", quantity: 0 }),
+    ).rejects.toThrow("positive");
+    await expect(
+      simulateBuy.execute({ playerId, symbol: "FORT3", quantity: 1 }),
+    ).rejects.toBeInstanceOf(InsufficientBalanceError);
+    expect(wallets.wallet.account.availableBalance.cents).toBe(1_000);
+    expect(wallets.wallet.getPosition("FORT3")).toBeUndefined();
+    expect(transactions.transactions).toHaveLength(0);
   });
 });

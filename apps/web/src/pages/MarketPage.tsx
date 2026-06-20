@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type KeyboardEvent,
 } from "react";
 import { EmptyState } from "../components/EmptyState.js";
 import { ErrorState } from "../components/ErrorState.js";
@@ -108,6 +109,7 @@ export function MarketPage({
   refreshing,
   submitting,
   onBuy,
+  onOpenDetails,
   onRefreshMarket,
 }: {
   portfolio?: Portfolio;
@@ -115,6 +117,7 @@ export function MarketPage({
   submitting: boolean;
   onBuy(asset: Asset): void;
   onViewEducation(asset: Asset): void;
+  onOpenDetails(symbol: string): void;
   onRefreshMarket(): void;
 }) {
   const initial = useMemo(() => initialSearchParams(), []);
@@ -648,6 +651,7 @@ export function MarketPage({
               }
               onFavorite={() => void handleFavorite(item.symbol)}
               onBuy={() => onBuy(mapCatalogItemToAsset(item))}
+              onOpenDetails={() => onOpenDetails(item.symbol)}
               onLoadTrend={() => void loadTrendsForSymbols([item.symbol])}
             />
           ))}
@@ -685,6 +689,7 @@ export function MarketAssetCard({
   disabled,
   onFavorite,
   onBuy,
+  onOpenDetails,
   onLoadTrend,
   trend,
   trendLoading,
@@ -698,12 +703,26 @@ export function MarketAssetCard({
   portfolioContext?: PortfolioConcentrationContext;
   onFavorite(): void;
   onBuy(): void;
+  onOpenDetails(): void;
   onLoadTrend(): void;
 }) {
   const change = formatChangePercent(item.changePercent);
   const canBuy = item.tradableInFortuna && item.priceCents !== undefined;
+  function handleCardKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onOpenDetails();
+    }
+  }
   return (
-    <article className="market-asset-card">
+    <article
+      className="market-asset-card market-asset-card-clickable"
+      role="link"
+      tabIndex={0}
+      aria-label={`Abrir detalhe educativo de ${item.symbol}`}
+      onClick={onOpenDetails}
+      onKeyDown={handleCardKeyDown}
+    >
       <div className="market-card-topline">
         <div>
           <strong>{item.symbol}</strong>
@@ -719,7 +738,10 @@ export function MarketAssetCard({
           }
           aria-pressed={favorite}
           disabled={disabled}
-          onClick={onFavorite}
+          onClick={(event) => {
+            event.stopPropagation();
+            onFavorite();
+          }}
         >
           {favorite ? "★" : "☆"}
         </button>
@@ -757,17 +779,22 @@ export function MarketAssetCard({
         type="button"
         className="button button-primary"
         disabled={disabled || !canBuy}
-        onClick={onBuy}
+        onClick={(event) => {
+          event.stopPropagation();
+          onBuy();
+        }}
       >
         Comprar
       </button>
-      <EducationalTrendPanel
-        symbol={item.symbol}
-        trend={trend}
-        loading={Boolean(trendLoading)}
-        portfolioContext={portfolioContext}
-        onLoad={onLoadTrend}
-      />
+      <div onClick={(event) => event.stopPropagation()}>
+        <EducationalTrendPanel
+          symbol={item.symbol}
+          trend={trend}
+          loading={Boolean(trendLoading)}
+          portfolioContext={portfolioContext}
+          onLoad={onLoadTrend}
+        />
+      </div>
     </article>
   );
 }

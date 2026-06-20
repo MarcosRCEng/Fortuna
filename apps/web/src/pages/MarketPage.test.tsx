@@ -14,6 +14,7 @@ function renderCard(item: MarketCatalogItem, favorite = false) {
       disabled={false}
       onFavorite={vi.fn()}
       onBuy={vi.fn()}
+      onOpenDetails={vi.fn()}
       onLoadTrend={vi.fn()}
     />,
   );
