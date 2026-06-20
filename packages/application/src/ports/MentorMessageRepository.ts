@@ -13,6 +13,12 @@ export interface MentorMessageRepository {
     trigger: MentorMessageTrigger,
     since: Date,
   ): Promise<MentorMessage[]>;
+  findByTrendSignature(
+    playerId: string,
+    symbol: string,
+    methodologyVersion: string,
+    signature: string,
+  ): Promise<MentorMessage | null>;
   markAsRead(playerId: string, messageId: string, readAt: Date): Promise<void>;
 }
 
@@ -63,6 +69,23 @@ export class InMemoryMentorMessageRepository
         item.playerId === playerId &&
         item.trigger === trigger &&
         item.createdAt >= since,
+    );
+  }
+
+  async findByTrendSignature(
+    playerId: string,
+    symbol: string,
+    methodologyVersion: string,
+    signature: string,
+  ): Promise<MentorMessage | null> {
+    return (
+      this.messages.find(
+        (item) =>
+          item.playerId === playerId &&
+          item.relatedEntityId === symbol &&
+          item.metadata?.methodologyVersion === methodologyVersion &&
+          item.metadata?.trendSignature === signature,
+      ) ?? null
     );
   }
 

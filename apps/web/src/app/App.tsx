@@ -8,6 +8,7 @@ import { CityPage } from "../features/city/CityPage.js";
 import { DashboardPage } from "../pages/DashboardPage.js";
 import { HistoryPage } from "../pages/HistoryPage.js";
 import { MarketPage } from "../pages/MarketPage.js";
+import { MarketAssetDetailsPage } from "../pages/MarketAssetDetailsPage.js";
 import { MissionsPage } from "../pages/MissionsPage.js";
 import { WalletPage } from "../pages/WalletPage.js";
 import {
@@ -54,6 +55,9 @@ const screenPaths: Record<ScreenKey, string> = {
 };
 
 function screenFromPath(pathname: string): ScreenKey {
+  if (pathname.startsWith("/market/assets/")) {
+    return "market";
+  }
   const match = Object.entries(screenPaths).find(([, path]) => path === pathname);
   return match?.[0] as ScreenKey | undefined ?? "dashboard";
 }
@@ -68,6 +72,7 @@ export function App() {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>(() =>
     screenFromPath(window.location.pathname),
   );
+  const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
   const [session, setSession] = useState<AuthSession>();
   const [authLoading, setAuthLoading] = useState(true);
   const [summary, setSummary] = useState<PlayerSummary>();
@@ -174,6 +179,7 @@ export function App() {
 
   useEffect(() => {
     function handlePopState() {
+      setCurrentPath(window.location.pathname);
       setActiveScreen(screenFromPath(window.location.pathname));
     }
 
@@ -184,13 +190,20 @@ export function App() {
   const handleNavigate = useCallback((screen: ScreenKey) => {
     setActiveScreen(screen);
     const path = screenPaths[screen];
+    setCurrentPath(path);
     if (window.location.pathname !== path) {
       window.history.pushState(null, "", path);
     }
   }, []);
 
   const positionsByAssetId = useMemo(
-    () => new Map((portfolio?.positions ?? []).map((position) => [position.assetId, position])),
+    () => {
+      const entries = (portfolio?.positions ?? []).flatMap((position) => [
+        [position.assetId, position] as const,
+        [position.symbol, position] as const,
+      ]);
+      return new Map(entries);
+    },
     [portfolio],
   );
 
@@ -242,14 +255,28 @@ export function App() {
     }
   }
 
-  function openBuy(asset: Asset) {
+  function openBuy(asset: Asset, initialQuantity = 1) {
     setOrderDraft({
       mode: "buy",
       asset,
       position: positionsByAssetId.get(asset.id),
     });
-    setQuantityInput("1");
+    setQuantityInput(String(initialQuantity));
     setError(undefined);
+  }
+
+  function openAssetDetails(symbol: string) {
+    const path = `/market/assets/${encodeURIComponent(symbol)}${window.location.search}`;
+    setActiveScreen("market");
+    setCurrentPath(`/market/assets/${encodeURIComponent(symbol)}`);
+    window.history.pushState(null, "", path);
+  }
+
+  function backToMarket(returnSearch: string) {
+    const path = `/market${returnSearch}`;
+    setActiveScreen("market");
+    setCurrentPath("/market");
+    window.history.pushState(null, "", path);
   }
 
   function openSell(position: Position) {
@@ -381,6 +408,8 @@ export function App() {
 
   const needsOnboarding = Boolean(playerId && !session?.player.nickname);
 
+  const assetDetailMatch = currentPath.match(/^\/market\/assets\/([^/]+)$/);
+
   const currentPage = !playerId ? (
     <LoginPage onLogin={loginWithGoogle} />
   ) : needsOnboarding ? (
@@ -390,6 +419,14 @@ export function App() {
       onChange={setOnboardingName}
       onSubmit={handleOnboardingSubmit}
     />
+  ) : activeScreen === "market" && assetDetailMatch ? (
+    <MarketAssetDetailsPage
+      symbol={decodeURIComponent(assetDetailMatch[1] ?? "")}
+      returnSearch={window.location.search}
+      submitting={submitting}
+      onBackToMarket={() => backToMarket(window.location.search)}
+      onBuy={openBuy}
+    />
   ) : activeScreen === "market" ? (
     <MarketPage
       portfolio={portfolio}
@@ -397,6 +434,7 @@ export function App() {
       submitting={submitting}
       onBuy={openBuy}
       onViewEducation={handleViewAssetEducation}
+      onOpenDetails={openAssetDetails}
       onRefreshMarket={handleRefreshMarket}
     />
   ) : activeScreen === "wallet" ? (

@@ -20,5 +20,6 @@ const usePrismaPersistence = process.env.FORTUNA_PERSISTENCE === "prisma";
         }
       : WatchlistApiService,
   ],
+  exports: [WatchlistApiService],
 })
 export class WatchlistModule {}

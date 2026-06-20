@@ -767,6 +767,168 @@ select:focus-visible {
   padding: 16px;
 }
 
+.market-asset-card-clickable {
+  cursor: pointer;
+}
+
+.market-asset-card-clickable:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.45);
+  outline-offset: 3px;
+}
+
+.asset-detail-page {
+  display: grid;
+  gap: 24px;
+}
+
+.asset-back-button {
+  width: fit-content;
+}
+
+.asset-header,
+.asset-context-panel,
+.asset-simulation-panel,
+.asset-class-education {
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 20px;
+}
+
+.asset-header-title {
+  display: grid;
+  gap: 8px;
+}
+
+.asset-header-title > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.asset-header-title h1 {
+  margin: 0;
+}
+
+.asset-watchlist-button {
+  min-width: 42px;
+  min-height: 42px;
+}
+
+.asset-header-badges,
+.asset-simulation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.asset-header-metrics,
+.asset-context-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.asset-header-metrics div,
+.asset-context-list div {
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.asset-header-metrics dt,
+.asset-context-list dt,
+.asset-class-education dt {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.asset-header-metrics dd,
+.asset-context-list dd,
+.asset-class-education dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+
+.asset-header-note {
+  color: #64748b;
+  margin: 16px 0 0;
+}
+
+.asset-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.asset-simulation-panel label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.asset-simulation-panel input {
+  max-width: 220px;
+}
+
+.simulation-result {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.simulation-alerts {
+  display: grid;
+  gap: 8px;
+}
+
+.simulation-alerts p {
+  margin: 0;
+}
+
+.asset-class-education {
+  display: grid;
+  gap: 18px;
+}
+
+.asset-class-education dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.asset-class-education dl div {
+  border: 1px solid #dfe6ef;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.data-kind-real {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.data-kind-mock,
+.data-kind-fallback {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.data-kind-cache {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.form-error {
+  color: #b91c1c;
+  font-weight: 700;
+  margin: 8px 0 0;
+}
+
 .market-card-topline {
   align-items: start;
   display: flex;

@@ -114,11 +114,18 @@ export class MentorMessageService {
     trend: EducationalTrendResult,
   ): Promise<MentorMessage | null> {
     const templateEntry = this.educationalTrendTemplate(trend);
-    const duplicate = await this.isDuplicateForRelatedEntity(
+    const trendSignature = this.trendSignature(trend);
+    const exactDuplicate = await this.repository.findByTrendSignature(
+      playerId,
+      trend.symbol,
+      trend.methodologyVersion,
+      trendSignature,
+    );
+    const duplicate = exactDuplicate ?? (await this.isDuplicateForRelatedEntity(
       playerId,
       templateEntry.template.trigger,
       trend.symbol,
-    );
+    ));
     if (duplicate) {
       this.logger?.info("Mentor trend message deduplicated", {
         module: "mentor",
@@ -148,6 +155,7 @@ export class MentorMessageService {
         methodologyVersion: trend.methodologyVersion,
         classification: trend.classification,
         referenceDate: trend.dataAsOf,
+        trendSignature,
         templateUsed: templateEntry.key,
       },
       createdAt: this.clock.now(),
@@ -165,6 +173,23 @@ export class MentorMessageService {
       },
     });
     return message;
+  }
+
+  private trendSignature(trend: EducationalTrendResult): string {
+    const factors = trend.factors
+      .map((factor) => `${factor.code}:${factor.impact}`)
+      .sort()
+      .join("|");
+    const warnings = [...trend.warnings].sort().join("|");
+    return [
+      trend.symbol,
+      trend.methodologyVersion,
+      trend.classification,
+      trend.confidence,
+      trend.score,
+      factors,
+      warnings,
+    ].join("::");
   }
 
   private evaluateCandidates(
